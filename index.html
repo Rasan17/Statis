@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fourfold</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
@@ -277,6 +279,51 @@
     padding:0 4px;
   }
   footer.notes b{color:var(--ink);}
+
+  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);}
+  .tab-btn{
+    font-family:"IBM Plex Sans",sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--ink-soft);
+    background:transparent;
+    border:none;
+    padding:10px 6px 12px;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+  }
+  .tab-btn.active{color:var(--accent-ink);border-bottom-color:var(--accent);}
+  .tab-btn:hover{color:var(--accent-ink);}
+  [hidden]{display:none!important;}
+
+  .data-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:560px){.data-grid{grid-template-columns:1fr;}}
+  .group-name-input{
+    display:block;
+    width:100%;
+    border:none;
+    border-bottom:1px solid var(--line);
+    background:transparent;
+    color:var(--ink);
+    font:700 13px "IBM Plex Sans",sans-serif;
+    padding:0 0 6px;
+    margin-bottom:8px;
+  }
+  .group-name-input:focus{outline:none;border-bottom-color:var(--accent);}
+  .data-field textarea{
+    width:100%;
+    min-height:110px;
+    border:1px solid var(--line);
+    border-radius:9px;
+    background:var(--paper);
+    color:var(--ink);
+    font:13.5px/1.5 "IBM Plex Mono",monospace;
+    padding:10px 12px;
+    resize:vertical;
+  }
+  .data-field textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+  .data-hint{font-size:11.5px;color:var(--ink-soft);margin:5px 0 0;}
 </style>
 
 <div class="page">
@@ -295,9 +342,16 @@
     </div>
     <div>
       <h1>Fourfold</h1>
-      <p class="lede">Enter the counts for a 2×2 table and get chi-squared and Fisher's exact results, with the assumption check that tells you which one to trust.</p>
+      <p class="lede">Pick a test, enter your numbers, and get the statistic, p-value, and the assumption check that tells you which result to trust.</p>
     </div>
   </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn active" id="tabBtnContingency" type="button" role="tab" aria-selected="true">Contingency table</button>
+    <button class="tab-btn" id="tabBtnTtest" type="button" role="tab" aria-selected="false">T-test</button>
+  </nav>
+
+  <div class="tab-panel" id="panel-contingency">
 
   <section class="card" id="table-card">
     <div class="card-head">
@@ -388,10 +442,92 @@
 
   <footer class="notes">
     <b>How it's computed —</b> χ² uses the standard 2×2 formula n(ad−bc)²⁄[(a+b)(c+d)(a+c)(b+d)], optionally with Yates' correction; its p-value comes from the exact df = 1 relation to the normal distribution. Fisher's exact p-value sums hypergeometric probabilities of every table at least as extreme as the observed one, given the fixed margins — no large-sample assumption needed. Odds ratio and relative risk use 95% Wald confidence intervals on the log scale. <b>Rule of thumb:</b> prefer Fisher's exact test whenever any expected cell count falls below 5.
-    <p style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
-      Supervising Developer: Dr G Narenthiran FRCS(SN) · <a href="mailto:g_narenthiran@hotmail.com" style="color:inherit;">g_narenthiran@hotmail.com</a><br>
-      © 2026 G Narenthiran. All rights reserved.
-    </p>
+  </footer>
+
+  </div>
+
+  <div class="tab-panel" id="panel-ttest" hidden>
+
+  <section class="card" id="ttest-card">
+    <div class="card-head">
+      <div>
+        <p class="eyebrow">Step 1</p>
+        <h2>Samples</h2>
+      </div>
+      <button class="ghost-btn" id="ttestResetBtn" type="button">Load example</button>
+    </div>
+
+    <div class="toggle-row" style="margin-top:0;padding-top:0;border-top:none;">
+      <label class="toggle">
+        <input type="checkbox" id="pairedToggle">
+        <span class="toggle-track"></span>
+      </label>
+      <span class="toggle-label">Paired samples (same subjects, before/after)</span>
+    </div>
+
+    <div class="data-grid" style="margin-top:16px;">
+      <div class="data-field">
+        <input class="group-name-input" id="groupALabel" value="Group A" aria-label="Group A name">
+        <textarea id="groupAData" aria-label="Group A values" rows="5">23, 19, 27, 31, 22, 25, 29, 18, 24, 26</textarea>
+        <p class="data-hint">One value per line, or comma-separated.</p>
+      </div>
+      <div class="data-field">
+        <input class="group-name-input" id="groupBLabel" value="Group B" aria-label="Group B name">
+        <textarea id="groupBData" aria-label="Group B values" rows="5">31, 28, 35, 30, 33, 29, 32, 27, 34, 30</textarea>
+        <p class="data-hint">One value per line, or comma-separated.</p>
+      </div>
+    </div>
+
+    <div class="assumption warn" id="ttWarning" hidden></div>
+  </section>
+
+  <section class="results-grid">
+    <div class="card result-card">
+      <p class="eyebrow">Descriptives</p>
+      <h2>Summary</h2>
+      <div class="stat-row"><span class="stat-label" id="ttNameA">Group A</span><span class="stat-value" id="ttSummaryA">—</span></div>
+      <div class="stat-row"><span class="stat-label" id="ttNameB">Group B</span><span class="stat-value" id="ttSummaryB">—</span></div>
+      <div class="stat-row"><span class="stat-label">Mean difference</span><span class="stat-value" id="ttMeanDiff">—</span></div>
+    </div>
+
+    <div class="card result-card">
+      <p class="eyebrow">t-test</p>
+      <h2 id="ttTitle">Welch's t-test</h2>
+      <div class="stat-row"><span class="stat-label">t</span><span class="stat-value" id="ttStat">—</span></div>
+      <div class="stat-row"><span class="stat-label">df</span><span class="stat-value" id="ttDf">—</span></div>
+      <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="ttP">—</span></div>
+      <div id="ttVerdict"></div>
+      <div class="toggle-row" id="equalVarRow">
+        <label class="toggle">
+          <input type="checkbox" id="equalVarToggle">
+          <span class="toggle-track"></span>
+        </label>
+        <span class="toggle-label">Assume equal variances (Student's t)</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">Effect size</p>
+    <h2>Cohen's d</h2>
+    <div class="effect-grid" style="grid-template-columns:1fr;">
+      <div>
+        <div class="effect-name">Standardized mean difference</div>
+        <div class="effect-value" id="ttCohenD">—</div>
+        <div class="effect-ci" id="ttCohenDNote"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="notes">
+    <b>How it's computed —</b> Welch's t-test (the default) doesn't assume equal variances: t = (x̄₁−x̄₂)⁄√(s₁²⁄n₁+s₂²⁄n₂), with the Welch–Satterthwaite approximation for degrees of freedom. Switching to Student's t-test pools the two variances and uses df = n₁+n₂−2 — only appropriate when the groups' spreads are genuinely similar. The paired test runs on the within-subject differences: t = d̄⁄(s_d⁄√n), df = n−1. p-values come from the exact regularized incomplete beta relation to the t-distribution. Cohen's d expresses the mean difference in pooled standard-deviation units.
+  </footer>
+
+  </div>
+
+  <footer class="notes">
+    Supervising Developer: Dr G Narenthiran FRCS(SN) · <a href="mailto:g_narenthiran@hotmail.com" style="color:inherit;">g_narenthiran@hotmail.com</a><br>
+    © 2026 G Narenthiran. All rights reserved.
   </footer>
 
 </div>
@@ -602,6 +738,225 @@
     recalc();
   });
 
+  var tabBtnContingency = document.getElementById("tabBtnContingency");
+  var tabBtnTtest = document.getElementById("tabBtnTtest");
+  var panelContingency = document.getElementById("panel-contingency");
+  var panelTtest = document.getElementById("panel-ttest");
+
+  function showTab(name){
+    var isCont = name === "contingency";
+    panelContingency.hidden = !isCont;
+    panelTtest.hidden = isCont;
+    tabBtnContingency.classList.toggle("active", isCont);
+    tabBtnTtest.classList.toggle("active", !isCont);
+    tabBtnContingency.setAttribute("aria-selected", isCont ? "true" : "false");
+    tabBtnTtest.setAttribute("aria-selected", isCont ? "false" : "true");
+  }
+  tabBtnContingency.addEventListener("click", function(){ showTab("contingency"); });
+  tabBtnTtest.addEventListener("click", function(){ showTab("ttest"); });
+
+  function betacf(a, b, x){
+    var MAXIT = 100, EPS = 3e-7, FPMIN = 1e-30;
+    var qab = a + b, qap = a + 1, qam = a - 1;
+    var c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN;
+    d = 1 / d;
+    var h = d;
+    for (var m = 1; m <= MAXIT; m++){
+      var m2 = 2 * m;
+      var aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d;
+      h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d;
+      var del = d * c;
+      h *= del;
+      if (Math.abs(del - 1) < EPS) break;
+    }
+    return h;
+  }
+
+  function betai(a, b, x){
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    var bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    if (x < (a + 1) / (a + b + 2)){
+      return bt * betacf(a, b, x) / a;
+    }
+    return 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+
+  function tTestPValue(t, df){
+    if (!isFinite(t) || !isFinite(df) || df <= 0) return NaN;
+    var x = df / (df + t * t);
+    return betai(df / 2, 0.5, x);
+  }
+
+  function parseNumbers(text){
+    return text.split(/[\s,]+/)
+      .map(function(s){ return s.trim(); })
+      .filter(function(s){ return s.length > 0; })
+      .map(Number)
+      .filter(function(v){ return isFinite(v); });
+  }
+
+  function mean(arr){
+    var s = 0;
+    for (var i = 0; i < arr.length; i++) s += arr[i];
+    return s / arr.length;
+  }
+
+  function sampleVariance(arr){
+    if (arr.length < 2) return NaN;
+    var m = mean(arr), s = 0;
+    for (var i = 0; i < arr.length; i++){ var diff = arr[i] - m; s += diff * diff; }
+    return s / (arr.length - 1);
+  }
+
+  function sampleSd(arr){ return Math.sqrt(sampleVariance(arr)); }
+
+  var ttEls = {
+    pairedToggle: document.getElementById("pairedToggle"),
+    labelA: document.getElementById("groupALabel"),
+    labelB: document.getElementById("groupBLabel"),
+    dataA: document.getElementById("groupAData"),
+    dataB: document.getElementById("groupBData"),
+    warning: document.getElementById("ttWarning"),
+    nameA: document.getElementById("ttNameA"),
+    nameB: document.getElementById("ttNameB"),
+    summaryA: document.getElementById("ttSummaryA"),
+    summaryB: document.getElementById("ttSummaryB"),
+    meanDiff: document.getElementById("ttMeanDiff"),
+    title: document.getElementById("ttTitle"),
+    stat: document.getElementById("ttStat"),
+    df: document.getElementById("ttDf"),
+    p: document.getElementById("ttP"),
+    verdict: document.getElementById("ttVerdict"),
+    equalVarToggle: document.getElementById("equalVarToggle"),
+    equalVarRow: document.getElementById("equalVarRow"),
+    cohenD: document.getElementById("ttCohenD"),
+    cohenDNote: document.getElementById("ttCohenDNote"),
+    resetBtn: document.getElementById("ttestResetBtn")
+  };
+
+  function ttSummaryText(arr){
+    if (arr.length === 0) return "—";
+    var m = mean(arr), sd = arr.length > 1 ? sampleSd(arr) : NaN;
+    return "n=" + arr.length + ", x̄=" + fmtNum(m, 2) + ", s=" + (isNaN(sd) ? "—" : fmtNum(sd, 2));
+  }
+
+  function showTtEmpty(){
+    var paired = ttEls.pairedToggle.checked;
+    ttEls.title.textContent = paired ? "Paired t-test" : (ttEls.equalVarToggle.checked ? "Student's t-test" : "Welch's t-test");
+    ttEls.stat.textContent = "—"; ttEls.df.textContent = "—"; ttEls.p.textContent = "—";
+    ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(NaN));
+    ttEls.meanDiff.textContent = "—";
+    ttEls.cohenD.textContent = "—"; ttEls.cohenDNote.textContent = "";
+  }
+
+  function recalcTtest(){
+    var arrA = parseNumbers(ttEls.dataA.value);
+    var arrB = parseNumbers(ttEls.dataB.value);
+    var paired = ttEls.pairedToggle.checked;
+    ttEls.equalVarRow.hidden = paired;
+
+    ttEls.nameA.textContent = (ttEls.labelA.value || "Group A");
+    ttEls.nameB.textContent = (ttEls.labelB.value || "Group B");
+    ttEls.summaryA.textContent = ttSummaryText(arrA);
+    ttEls.summaryB.textContent = ttSummaryText(arrB);
+
+    ttEls.warning.hidden = true;
+
+    if (paired){
+      if (arrA.length === 0 || arrB.length === 0){ showTtEmpty(); return; }
+      if (arrA.length !== arrB.length){
+        ttEls.warning.hidden = false;
+        ttEls.warning.innerHTML = '<span class="dot"></span> Paired data needs equal counts in both columns — currently ' +
+          arrA.length + ' vs ' + arrB.length + '.';
+        showTtEmpty(); return;
+      }
+      var n = arrA.length;
+      if (n < 2){
+        ttEls.warning.hidden = false;
+        ttEls.warning.innerHTML = '<span class="dot"></span> Need at least 2 pairs.';
+        showTtEmpty(); return;
+      }
+      var diffs = arrB.map(function(v, i){ return v - arrA[i]; });
+      var dMean = mean(diffs), dSd = sampleSd(diffs);
+      if (dSd === 0){
+        ttEls.warning.hidden = false;
+        ttEls.warning.innerHTML = '<span class="dot"></span> Every pair has an identical difference — the test statistic is undefined.';
+        showTtEmpty(); return;
+      }
+      var t = dMean / (dSd / Math.sqrt(n));
+      var df = n - 1;
+      var p = tTestPValue(t, df);
+      ttEls.title.textContent = "Paired t-test";
+      ttEls.stat.textContent = fmtNum(t, 3);
+      ttEls.df.textContent = String(df);
+      ttEls.p.textContent = fmtP(p);
+      ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(p));
+      ttEls.meanDiff.textContent = fmtNum(dMean, 3);
+      ttEls.cohenD.textContent = fmtNum(dMean / dSd, 2);
+      ttEls.cohenDNote.textContent = "mean difference in SD units of the differences";
+    } else {
+      if (arrA.length < 2 || arrB.length < 2){
+        ttEls.warning.hidden = false;
+        ttEls.warning.innerHTML = '<span class="dot"></span> Each group needs at least 2 values.';
+        showTtEmpty(); return;
+      }
+      var nA = arrA.length, nB = arrB.length;
+      var mA = mean(arrA), mB = mean(arrB);
+      var vA = sampleVariance(arrA), vB = sampleVariance(arrB);
+      var meanDiff = mA - mB;
+      ttEls.meanDiff.textContent = fmtNum(meanDiff, 3);
+
+      var tVal, dfVal, pooledSd = Math.sqrt(((nA - 1) * vA + (nB - 1) * vB) / (nA + nB - 2));
+      if (ttEls.equalVarToggle.checked){
+        var sp2 = pooledSd * pooledSd;
+        tVal = meanDiff / Math.sqrt(sp2 * (1 / nA + 1 / nB));
+        dfVal = nA + nB - 2;
+        ttEls.title.textContent = "Student's t-test";
+      } else {
+        var se2 = vA / nA + vB / nB;
+        tVal = meanDiff / Math.sqrt(se2);
+        dfVal = (se2 * se2) / (((vA / nA) * (vA / nA)) / (nA - 1) + ((vB / nB) * (vB / nB)) / (nB - 1));
+        ttEls.title.textContent = "Welch's t-test";
+      }
+      var pVal = tTestPValue(tVal, dfVal);
+      ttEls.stat.textContent = fmtNum(tVal, 3);
+      ttEls.df.textContent = fmtNum(dfVal, 1);
+      ttEls.p.textContent = fmtP(pVal);
+      ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(pVal));
+      ttEls.cohenD.textContent = fmtNum(meanDiff / pooledSd, 2);
+      ttEls.cohenDNote.textContent = "mean difference in pooled SD units";
+    }
+  }
+
+  [ttEls.dataA, ttEls.dataB, ttEls.pairedToggle, ttEls.equalVarToggle, ttEls.labelA, ttEls.labelB].forEach(function(el){
+    el.addEventListener("input", recalcTtest);
+    el.addEventListener("change", recalcTtest);
+  });
+
+  ttEls.resetBtn.addEventListener("click", function(){
+    if (ttEls.pairedToggle.checked){
+      ttEls.labelA.value = "Before"; ttEls.labelB.value = "After";
+      ttEls.dataA.value = "120, 128, 118, 135, 122, 130, 125, 119, 132, 127";
+      ttEls.dataB.value = "115, 121, 116, 128, 118, 124, 120, 117, 126, 122";
+    } else {
+      ttEls.labelA.value = "Group A"; ttEls.labelB.value = "Group B";
+      ttEls.dataA.value = "23, 19, 27, 31, 22, 25, 29, 18, 24, 26";
+      ttEls.dataB.value = "31, 28, 35, 30, 33, 29, 32, 27, 34, 30";
+    }
+    ttEls.equalVarToggle.checked = false;
+    recalcTtest();
+  });
+
   recalc();
+  recalcTtest();
 })();
 </script>
