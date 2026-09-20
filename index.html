@@ -504,6 +504,19 @@
     </p>
   </section>
 
+  <section class="card" id="variance-card">
+    <div class="card-head">
+      <div>
+        <p class="eyebrow">Step 3</p>
+        <h2>Equality of variance</h2>
+      </div>
+    </div>
+    <div id="levRows"></div>
+    <p class="norm-note" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
+      <b style="color:var(--ink);">Why Levene's test —</b> it tests equality of variance using deviations from each group's <i>median</i> rather than its mean (the Brown–Forsythe form), which keeps it reliable even when a group isn't perfectly normal — unlike the plain F-test, which assumes normality itself. A significant result (p &lt; 0.05) means the two groups' spreads differ enough that pooling them (Student's t-test) would understate or overstate the standard error — use Welch's t-test instead.
+    </p>
+  </section>
+
   <section class="results-grid">
     <div class="card result-card">
       <p class="eyebrow">Descriptives</p>
@@ -514,28 +527,27 @@
     </div>
 
     <div class="card result-card">
-      <p class="eyebrow">t-test</p>
+      <p class="eyebrow" id="ttEyebrow">Test result</p>
       <h2 id="ttTitle">Welch's t-test</h2>
-      <div class="stat-row"><span class="stat-label">t</span><span class="stat-value" id="ttStat">—</span></div>
-      <div class="stat-row"><span class="stat-label">df</span><span class="stat-value" id="ttDf">—</span></div>
+      <div class="stat-row"><span class="stat-label" id="ttStatLabel">t</span><span class="stat-value" id="ttStat">—</span></div>
+      <div class="stat-row"><span class="stat-label" id="ttDfLabel">df</span><span class="stat-value" id="ttDf">—</span></div>
       <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="ttP">—</span></div>
       <div id="ttVerdict"></div>
-      <div class="toggle-row" id="equalVarRow">
-        <label class="toggle">
-          <input type="checkbox" id="equalVarToggle">
-          <span class="toggle-track"></span>
-        </label>
-        <span class="toggle-label">Assume equal variances (Student's t)</span>
+      <div class="toggle-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <span class="toggle-label" style="font-weight:600;">Method</span>
+        <select id="methodSelect" class="label-input" style="text-align:left;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--paper);">
+        </select>
+        <p class="norm-note" id="methodReason"></p>
       </div>
     </div>
   </section>
 
   <section class="card">
     <p class="eyebrow">Effect size</p>
-    <h2>Cohen's d</h2>
+    <h2 id="ttEffectTitle">Cohen's d</h2>
     <div class="effect-grid" style="grid-template-columns:1fr;">
       <div>
-        <div class="effect-name">Standardized mean difference</div>
+        <div class="effect-name" id="ttEffectName">Standardized mean difference</div>
         <div class="effect-value" id="ttCohenD">—</div>
         <div class="effect-ci" id="ttCohenDNote"></div>
       </div>
@@ -543,7 +555,7 @@
   </section>
 
   <footer class="notes">
-    <b>How it's computed —</b> Welch's t-test (the default) doesn't assume equal variances: t = (x̄₁−x̄₂)⁄√(s₁²⁄n₁+s₂²⁄n₂), with the Welch–Satterthwaite approximation for degrees of freedom. Switching to Student's t-test pools the two variances and uses df = n₁+n₂−2 — only appropriate when the groups' spreads are genuinely similar. The paired test runs on the within-subject differences: t = d̄⁄(s_d⁄√n), df = n−1. p-values come from the exact regularized incomplete beta relation to the t-distribution. Cohen's d expresses the mean difference in pooled standard-deviation units.
+    <b>How it's computed —</b> Welch's t-test doesn't assume equal variances: t = (x̄₁−x̄₂)⁄√(s₁²⁄n₁+s₂²⁄n₂), with the Welch–Satterthwaite approximation for degrees of freedom. Student's t-test pools the two variances and uses df = n₁+n₂−2. The paired t-test runs on the within-subject differences: t = d̄⁄(s_d⁄√n), df = n−1. All t p-values use the exact regularized incomplete beta relation to the t-distribution. When Shapiro–Wilk flags non-normal data, Mann–Whitney U (independent) or the Wilcoxon signed-rank test (paired) replace the t-test — both are rank-based, so they don't need a normality assumption, and both use the standard continuity- and tie-corrected normal approximation for their p-values. <b>Auto</b> chooses between these using the normality and variance checks above; the reasoning for each pick is shown next to the result. Cohen's d and the rank-biserial correlation r both express the effect as a standardized, sample-size-independent magnitude.
   </footer>
 
   </div>
@@ -842,6 +854,77 @@
 
   function sampleSd(arr){ return Math.sqrt(sampleVariance(arr)); }
 
+  function median(arr){
+    var s = arr.slice().sort(function(a, b){ return a - b; });
+    var n = s.length, mid = Math.floor(n / 2);
+    return n % 2 ? s[mid] : (s[mid-1] + s[mid]) / 2;
+  }
+
+  function leveneTest(arrA, arrB){
+    var nA = arrA.length, nB = arrB.length;
+    if (nA < 2 || nB < 2) return { F: NaN, p: NaN, df: NaN };
+    var medA = median(arrA), medB = median(arrB);
+    var zA = arrA.map(function(v){ return Math.abs(v - medA); });
+    var zB = arrB.map(function(v){ return Math.abs(v - medB); });
+    var mzA = mean(zA), mzB = mean(zB);
+    var vA = sampleVariance(zA), vB = sampleVariance(zB);
+    var df = nA + nB - 2;
+    var sp2 = ((nA - 1) * vA + (nB - 1) * vB) / df;
+    if (sp2 === 0) return { F: 0, p: 1, df: df };
+    var t = (mzA - mzB) / Math.sqrt(sp2 * (1 / nA + 1 / nB));
+    return { F: t * t, p: tTestPValue(t, df), df: df };
+  }
+
+  function rankWithTies(values){
+    var idx = values.map(function(v, i){ return { v: v, i: i }; }).sort(function(a, b){ return a.v - b.v; });
+    var ranks = new Array(values.length);
+    var i = 0, tieGroups = [];
+    while (i < idx.length){
+      var j = i;
+      while (j + 1 < idx.length && idx[j+1].v === idx[i].v) j++;
+      var avgRank = (i + 1 + j + 1) / 2;
+      for (var k = i; k <= j; k++) ranks[idx[k].i] = avgRank;
+      tieGroups.push(j - i + 1);
+      i = j + 1;
+    }
+    return { ranks: ranks, tieGroups: tieGroups };
+  }
+
+  function mannWhitneyU(arrA, arrB){
+    var nA = arrA.length, nB = arrB.length, n = nA + nB;
+    var rk = rankWithTies(arrA.concat(arrB));
+    var R1 = 0, i;
+    for (i = 0; i < nA; i++) R1 += rk.ranks[i];
+    var U1 = R1 - nA * (nA + 1) / 2;
+    var muU = nA * nB / 2;
+    var Tsum = 0;
+    rk.tieGroups.forEach(function(t){ Tsum += t*t*t - t; });
+    var sigmaU = Math.sqrt(Math.max((nA * nB / 12) * ((n + 1) - Tsum / (n * (n - 1))), 0));
+    var diff = U1 - muU;
+    var z = sigmaU === 0 ? 0 : (diff - 0.5 * Math.sign(diff)) / sigmaU;
+    var p = Math.min(1, Math.max(0, erfc(Math.abs(z) / Math.SQRT2)));
+    var r = 1 - (2 * U1) / (nA * nB);
+    return { U1: U1, U2: nA * nB - U1, z: z, p: p, r: r };
+  }
+
+  function wilcoxonSignedRank(diffs){
+    var nz = diffs.filter(function(d){ return d !== 0; });
+    var n = nz.length;
+    if (n < 1) return { Wpos: NaN, z: NaN, p: NaN, n: 0, r: NaN };
+    var rk = rankWithTies(nz.map(Math.abs));
+    var Wpos = 0, i;
+    for (i = 0; i < n; i++) if (nz[i] > 0) Wpos += rk.ranks[i];
+    var muW = n * (n + 1) / 4;
+    var Tsum = 0;
+    rk.tieGroups.forEach(function(t){ Tsum += t*t*t - t; });
+    var sigmaW = Math.sqrt(Math.max(n * (n + 1) * (2*n + 1) / 24 - Tsum / 48, 0));
+    var diff = Wpos - muW;
+    var z = sigmaW === 0 ? 0 : (diff - 0.5 * Math.sign(diff)) / sigmaW;
+    var p = Math.min(1, Math.max(0, erfc(Math.abs(z) / Math.SQRT2)));
+    var r = z / Math.sqrt(n);
+    return { Wpos: Wpos, z: z, p: p, n: n, r: r };
+  }
+
   var ttEls = {
     pairedToggle: document.getElementById("pairedToggle"),
     labelA: document.getElementById("groupALabel"),
@@ -854,17 +937,43 @@
     summaryA: document.getElementById("ttSummaryA"),
     summaryB: document.getElementById("ttSummaryB"),
     meanDiff: document.getElementById("ttMeanDiff"),
+    eyebrow: document.getElementById("ttEyebrow"),
     title: document.getElementById("ttTitle"),
+    statLabel: document.getElementById("ttStatLabel"),
     stat: document.getElementById("ttStat"),
+    dfLabel: document.getElementById("ttDfLabel"),
     df: document.getElementById("ttDf"),
     p: document.getElementById("ttP"),
     verdict: document.getElementById("ttVerdict"),
-    equalVarToggle: document.getElementById("equalVarToggle"),
-    equalVarRow: document.getElementById("equalVarRow"),
+    methodSelect: document.getElementById("methodSelect"),
+    methodReason: document.getElementById("methodReason"),
+    varianceCard: document.getElementById("variance-card"),
+    effectTitle: document.getElementById("ttEffectTitle"),
+    effectName: document.getElementById("ttEffectName"),
     cohenD: document.getElementById("ttCohenD"),
     cohenDNote: document.getElementById("ttCohenDNote"),
     resetBtn: document.getElementById("ttestResetBtn")
   };
+
+  var INDEPENDENT_METHODS = [
+    { value: "auto", label: "Auto (recommended)" },
+    { value: "welch", label: "Welch's t-test" },
+    { value: "student", label: "Student's t-test" },
+    { value: "mannwhitney", label: "Mann–Whitney U test" }
+  ];
+  var PAIRED_METHODS = [
+    { value: "auto", label: "Auto (recommended)" },
+    { value: "pairedt", label: "Paired t-test" },
+    { value: "wilcoxon", label: "Wilcoxon signed-rank test" }
+  ];
+
+  function populateMethodSelect(paired){
+    var list = paired ? PAIRED_METHODS : INDEPENDENT_METHODS;
+    ttEls.methodSelect.innerHTML = list.map(function(m){
+      return '<option value="' + m.value + '">' + m.label + '</option>';
+    }).join("");
+    ttEls.methodSelect.value = "auto";
+  }
 
   function ttSummaryText(arr){
     if (arr.length === 0) return "—";
@@ -872,9 +981,81 @@
     return "n=" + arr.length + ", x̄=" + fmtNum(m, 2) + ", s=" + (isNaN(sd) ? "—" : fmtNum(sd, 2));
   }
 
-  function showTtEmpty(){
-    var paired = ttEls.pairedToggle.checked;
-    ttEls.title.textContent = paired ? "Paired t-test" : (ttEls.equalVarToggle.checked ? "Student's t-test" : "Welch's t-test");
+  var METHOD_INFO = {
+    welch:       { title: "Welch's t-test",           stat: "t", df: "df", effectTitle: "Cohen's d",        effectName: "Standardized mean difference" },
+    student:     { title: "Student's t-test",         stat: "t", df: "df", effectTitle: "Cohen's d",        effectName: "Standardized mean difference" },
+    pairedt:     { title: "Paired t-test",            stat: "t", df: "df", effectTitle: "Cohen's d",        effectName: "Standardized mean difference" },
+    mannwhitney: { title: "Mann–Whitney U test",      stat: "U", df: "z",  effectTitle: "Rank-biserial r",  effectName: "Standardized rank effect" },
+    wilcoxon:    { title: "Wilcoxon signed-rank test", stat: "W", df: "z",  effectTitle: "Rank-biserial r",  effectName: "Standardized rank effect" }
+  };
+
+  function applyMethodLabels(method){
+    var info = METHOD_INFO[method] || METHOD_INFO.welch;
+    ttEls.title.textContent = info.title;
+    ttEls.statLabel.textContent = info.stat;
+    ttEls.dfLabel.textContent = info.df;
+    ttEls.effectTitle.textContent = info.effectTitle;
+    ttEls.effectName.textContent = info.effectName;
+  }
+
+  function decideIndependentMethod(shA, shB, lev){
+    if (isNaN(shA) || isNaN(shB)){
+      return { method: "welch", reason: "Not enough data in one or both groups to test normality (need n ≥ 3 each) — defaulting to Welch's t-test, the safer general-purpose choice." };
+    }
+    if (shA < 0.05 || shB < 0.05){
+      return { method: "mannwhitney", reason: "At least one group departs from normality (Shapiro–Wilk p < 0.05), so a rank-based test replaces the t-test." };
+    }
+    if (isNaN(lev.p)){
+      return { method: "welch", reason: "Both groups are consistent with normality, but variance couldn't be compared — defaulting to Welch's t-test." };
+    }
+    if (lev.p < 0.05){
+      return { method: "welch", reason: "Both groups are consistent with normality, but Levene's test finds unequal variances (p = " + fmtP(lev.p) + ") — Welch's t-test doesn't assume equal variances." };
+    }
+    return { method: "student", reason: "Both groups are consistent with normality and Levene's test finds no evidence of unequal variances (p = " + fmtP(lev.p) + ") — Student's pooled-variance t-test applies cleanly." };
+  }
+
+  function decidePairedMethod(shDiff){
+    if (isNaN(shDiff)){
+      return { method: "pairedt", reason: "Not enough differences to test normality (need n ≥ 3) — defaulting to the paired t-test." };
+    }
+    if (shDiff < 0.05){
+      return { method: "wilcoxon", reason: "The differences depart from normality (Shapiro–Wilk p < 0.05), so the Wilcoxon signed-rank test replaces the paired t-test." };
+    }
+    return { method: "pairedt", reason: "The differences are consistent with normality (Shapiro–Wilk p ≥ 0.05), so the paired t-test applies." };
+  }
+
+  var levRows = document.getElementById("levRows");
+
+  function renderLevene(lev, nA, nB, nameA, nameB){
+    levRows.innerHTML = "";
+    var row = document.createElement("div");
+    row.className = "norm-row";
+    var head = document.createElement("div");
+    head.className = "norm-row-head";
+    head.innerHTML = '<span class="norm-name"></span><span class="norm-n"></span>';
+    head.querySelector(".norm-name").textContent = nameA + " vs " + nameB;
+    head.querySelector(".norm-n").textContent = "n = " + nA + ", " + nB;
+    row.appendChild(head);
+
+    var stats = document.createElement("div");
+    stats.className = "norm-stats";
+    if (isNaN(lev.p)){
+      stats.innerHTML = '<span class="norm-stat">Each group needs at least 2 values.</span>';
+    } else {
+      stats.innerHTML =
+        '<span class="norm-stat">F = <b>' + fmtNum(lev.F, 3) + '</b></span>' +
+        '<span class="norm-stat">p = <b>' + fmtP(lev.p) + '</b></span>';
+      var pill = document.createElement("span");
+      if (lev.p < 0.05){ pill.className = "verdict border"; pill.textContent = "Unequal variances"; }
+      else { pill.className = "verdict sig"; pill.textContent = "Equal variances assumed"; }
+      stats.appendChild(pill);
+    }
+    row.appendChild(stats);
+    levRows.appendChild(row);
+  }
+
+  function showTtEmpty(method){
+    applyMethodLabels(method || (ttEls.pairedToggle.checked ? "pairedt" : "welch"));
     ttEls.stat.textContent = "—"; ttEls.df.textContent = "—"; ttEls.p.textContent = "—";
     ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(NaN));
     ttEls.meanDiff.textContent = "—";
@@ -885,88 +1066,133 @@
     var arrA = parseNumbers(ttEls.dataA.value);
     var arrB = parseNumbers(ttEls.dataB.value);
     var paired = ttEls.pairedToggle.checked;
-    ttEls.equalVarRow.hidden = paired;
+    ttEls.varianceCard.hidden = paired;
 
-    ttEls.nameA.textContent = (ttEls.labelA.value || "Group A");
-    ttEls.nameB.textContent = (ttEls.labelB.value || "Group B");
+    var labelA = ttEls.labelA.value || "Group A";
+    var labelB = ttEls.labelB.value || "Group B";
+    ttEls.nameA.textContent = labelA;
+    ttEls.nameB.textContent = labelB;
     ttEls.summaryA.textContent = ttSummaryText(arrA);
     ttEls.summaryB.textContent = ttSummaryText(arrB);
 
     ttEls.warning.hidden = true;
 
-    if (paired){
-      var diffsForNorm = (arrA.length === arrB.length && arrA.length > 0) ? arrB.map(function(v, i){ return v - arrA[i]; }) : [];
-      renderNormality([{ name: "Differences (" + (ttEls.labelB.value || "B") + " − " + (ttEls.labelA.value || "A") + ")", arr: diffsForNorm }]);
-    } else {
-      renderNormality([
-        { name: ttEls.labelA.value || "Group A", arr: arrA },
-        { name: ttEls.labelB.value || "Group B", arr: arrB }
-      ]);
-    }
+    var selected = ttEls.methodSelect.value;
+    var chosenMethod = selected;
+    var reason = "Manually selected.";
 
     if (paired){
-      if (arrA.length === 0 || arrB.length === 0){ showTtEmpty(); return; }
+      var diffsForNorm = (arrA.length === arrB.length && arrA.length > 0) ? arrB.map(function(v, i){ return v - arrA[i]; }) : [];
+      renderNormality([{ name: "Differences (" + labelB + " − " + labelA + ")", arr: diffsForNorm }]);
+      var shDiff = diffsForNorm.length >= 3 ? shapiroWilk(diffsForNorm).p : NaN;
+      if (selected === "auto"){
+        var decisionP = decidePairedMethod(shDiff);
+        chosenMethod = decisionP.method; reason = decisionP.reason;
+      }
+    } else {
+      renderNormality([{ name: labelA, arr: arrA }, { name: labelB, arr: arrB }]);
+      var shA = arrA.length >= 3 ? shapiroWilk(arrA).p : NaN;
+      var shB = arrB.length >= 3 ? shapiroWilk(arrB).p : NaN;
+      var lev = (arrA.length >= 2 && arrB.length >= 2) ? leveneTest(arrA, arrB) : { F: NaN, p: NaN, df: NaN };
+      renderLevene(lev, arrA.length, arrB.length, labelA, labelB);
+      if (selected === "auto"){
+        var decisionI = decideIndependentMethod(shA, shB, lev);
+        chosenMethod = decisionI.method; reason = decisionI.reason;
+      }
+    }
+
+    ttEls.methodReason.textContent = reason;
+    applyMethodLabels(chosenMethod);
+
+    if (paired){
+      if (arrA.length === 0 || arrB.length === 0){ showTtEmpty(chosenMethod); return; }
       if (arrA.length !== arrB.length){
         ttEls.warning.hidden = false;
         ttEls.warning.innerHTML = '<span class="dot"></span> Paired data needs equal counts in both columns — currently ' +
           arrA.length + ' vs ' + arrB.length + '.';
-        showTtEmpty(); return;
+        showTtEmpty(chosenMethod); return;
       }
       var n = arrA.length;
       if (n < 2){
         ttEls.warning.hidden = false;
         ttEls.warning.innerHTML = '<span class="dot"></span> Need at least 2 pairs.';
-        showTtEmpty(); return;
+        showTtEmpty(chosenMethod); return;
       }
       var diffs = arrB.map(function(v, i){ return v - arrA[i]; });
-      var dMean = mean(diffs), dSd = sampleSd(diffs);
-      if (dSd === 0){
-        ttEls.warning.hidden = false;
-        ttEls.warning.innerHTML = '<span class="dot"></span> Every pair has an identical difference — the test statistic is undefined.';
-        showTtEmpty(); return;
-      }
-      var t = dMean / (dSd / Math.sqrt(n));
-      var df = n - 1;
-      var p = tTestPValue(t, df);
-      ttEls.title.textContent = "Paired t-test";
-      ttEls.stat.textContent = fmtNum(t, 3);
-      ttEls.df.textContent = String(df);
-      ttEls.p.textContent = fmtP(p);
-      ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(p));
+      var dMean = mean(diffs);
       ttEls.meanDiff.textContent = fmtNum(dMean, 3);
-      ttEls.cohenD.textContent = fmtNum(dMean / dSd, 2);
-      ttEls.cohenDNote.textContent = "mean difference in SD units of the differences";
+
+      if (chosenMethod === "wilcoxon"){
+        var wres = wilcoxonSignedRank(diffs);
+        if (wres.n < 1){
+          ttEls.warning.hidden = false;
+          ttEls.warning.innerHTML = '<span class="dot"></span> No non-zero differences to rank.';
+          showTtEmpty(chosenMethod); return;
+        }
+        ttEls.stat.textContent = fmtNum(wres.Wpos, 1);
+        ttEls.df.textContent = fmtNum(wres.z, 2);
+        ttEls.p.textContent = fmtP(wres.p);
+        ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(wres.p));
+        ttEls.cohenD.textContent = fmtNum(wres.r, 2);
+        ttEls.cohenDNote.textContent = "matched-pairs rank-biserial correlation" +
+          (wres.n < diffs.length ? " (" + (diffs.length - wres.n) + " zero difference(s) dropped)" : "");
+      } else {
+        var dSd = sampleSd(diffs);
+        if (dSd === 0){
+          ttEls.warning.hidden = false;
+          ttEls.warning.innerHTML = '<span class="dot"></span> Every pair has an identical difference — the test statistic is undefined.';
+          showTtEmpty(chosenMethod); return;
+        }
+        var t = dMean / (dSd / Math.sqrt(n));
+        var df = n - 1;
+        var p = tTestPValue(t, df);
+        ttEls.stat.textContent = fmtNum(t, 3);
+        ttEls.df.textContent = String(df);
+        ttEls.p.textContent = fmtP(p);
+        ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(p));
+        ttEls.cohenD.textContent = fmtNum(dMean / dSd, 2);
+        ttEls.cohenDNote.textContent = "mean difference in SD units of the differences";
+      }
     } else {
       if (arrA.length < 2 || arrB.length < 2){
         ttEls.warning.hidden = false;
         ttEls.warning.innerHTML = '<span class="dot"></span> Each group needs at least 2 values.';
-        showTtEmpty(); return;
+        showTtEmpty(chosenMethod); return;
       }
       var nA = arrA.length, nB = arrB.length;
       var mA = mean(arrA), mB = mean(arrB);
-      var vA = sampleVariance(arrA), vB = sampleVariance(arrB);
       var meanDiff = mA - mB;
       ttEls.meanDiff.textContent = fmtNum(meanDiff, 3);
 
-      var tVal, dfVal, pooledSd = Math.sqrt(((nA - 1) * vA + (nB - 1) * vB) / (nA + nB - 2));
-      if (ttEls.equalVarToggle.checked){
-        var sp2 = pooledSd * pooledSd;
-        tVal = meanDiff / Math.sqrt(sp2 * (1 / nA + 1 / nB));
-        dfVal = nA + nB - 2;
-        ttEls.title.textContent = "Student's t-test";
+      if (chosenMethod === "mannwhitney"){
+        var mwres = mannWhitneyU(arrA, arrB);
+        ttEls.stat.textContent = fmtNum(mwres.U1, 1);
+        ttEls.df.textContent = fmtNum(mwres.z, 2);
+        ttEls.p.textContent = fmtP(mwres.p);
+        ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(mwres.p));
+        ttEls.cohenD.textContent = fmtNum(mwres.r, 2);
+        ttEls.cohenDNote.textContent = "rank-biserial correlation";
       } else {
-        var se2 = vA / nA + vB / nB;
-        tVal = meanDiff / Math.sqrt(se2);
-        dfVal = (se2 * se2) / (((vA / nA) * (vA / nA)) / (nA - 1) + ((vB / nB) * (vB / nB)) / (nB - 1));
-        ttEls.title.textContent = "Welch's t-test";
+        var vA = sampleVariance(arrA), vB = sampleVariance(arrB);
+        var pooledSd = Math.sqrt(((nA - 1) * vA + (nB - 1) * vB) / (nA + nB - 2));
+        var tVal, dfVal;
+        if (chosenMethod === "student"){
+          var sp2 = pooledSd * pooledSd;
+          tVal = meanDiff / Math.sqrt(sp2 * (1 / nA + 1 / nB));
+          dfVal = nA + nB - 2;
+        } else {
+          var se2 = vA / nA + vB / nB;
+          tVal = meanDiff / Math.sqrt(se2);
+          dfVal = (se2 * se2) / (((vA / nA) * (vA / nA)) / (nA - 1) + ((vB / nB) * (vB / nB)) / (nB - 1));
+        }
+        var pVal = tTestPValue(tVal, dfVal);
+        ttEls.stat.textContent = fmtNum(tVal, 3);
+        ttEls.df.textContent = fmtNum(dfVal, 1);
+        ttEls.p.textContent = fmtP(pVal);
+        ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(pVal));
+        ttEls.cohenD.textContent = fmtNum(meanDiff / pooledSd, 2);
+        ttEls.cohenDNote.textContent = "mean difference in pooled SD units";
       }
-      var pVal = tTestPValue(tVal, dfVal);
-      ttEls.stat.textContent = fmtNum(tVal, 3);
-      ttEls.df.textContent = fmtNum(dfVal, 1);
-      ttEls.p.textContent = fmtP(pVal);
-      ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(pVal));
-      ttEls.cohenD.textContent = fmtNum(meanDiff / pooledSd, 2);
-      ttEls.cohenDNote.textContent = "mean difference in pooled SD units";
     }
   }
 
@@ -1117,9 +1343,14 @@
     });
   }
 
-  [ttEls.dataA, ttEls.dataB, ttEls.pairedToggle, ttEls.equalVarToggle, ttEls.labelA, ttEls.labelB].forEach(function(el){
+  [ttEls.dataA, ttEls.dataB, ttEls.methodSelect, ttEls.labelA, ttEls.labelB].forEach(function(el){
     el.addEventListener("input", recalcTtest);
     el.addEventListener("change", recalcTtest);
+  });
+
+  ttEls.pairedToggle.addEventListener("change", function(){
+    populateMethodSelect(ttEls.pairedToggle.checked);
+    recalcTtest();
   });
 
   ttEls.resetBtn.addEventListener("click", function(){
@@ -1132,9 +1363,11 @@
       ttEls.dataA.value = "23, 19, 27, 31, 22, 25, 29, 18, 24, 26";
       ttEls.dataB.value = "31, 28, 35, 30, 33, 29, 32, 27, 34, 30";
     }
-    ttEls.equalVarToggle.checked = false;
+    populateMethodSelect(ttEls.pairedToggle.checked);
     recalcTtest();
   });
+
+  populateMethodSelect(false);
 
   recalc();
   recalcTtest();
