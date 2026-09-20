@@ -359,6 +359,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab-btn active" id="tabBtnContingency" type="button" role="tab" aria-selected="true">Contingency table</button>
     <button class="tab-btn" id="tabBtnTtest" type="button" role="tab" aria-selected="false">T-test</button>
+    <button class="tab-btn" id="tabBtnRegression" type="button" role="tab" aria-selected="false">Correlation</button>
   </nav>
 
   <div class="tab-panel" id="panel-contingency">
@@ -556,6 +557,106 @@
 
   <footer class="notes">
     <b>How it's computed —</b> Welch's t-test doesn't assume equal variances: t = (x̄₁−x̄₂)⁄√(s₁²⁄n₁+s₂²⁄n₂), with the Welch–Satterthwaite approximation for degrees of freedom. Student's t-test pools the two variances and uses df = n₁+n₂−2. The paired t-test runs on the within-subject differences: t = d̄⁄(s_d⁄√n), df = n−1. All t p-values use the exact regularized incomplete beta relation to the t-distribution. When Shapiro–Wilk flags non-normal data, Mann–Whitney U (independent) or the Wilcoxon signed-rank test (paired) replace the t-test — both are rank-based, so they don't need a normality assumption, and both use the standard continuity- and tie-corrected normal approximation for their p-values. <b>Auto</b> chooses between these using the normality and variance checks above; the reasoning for each pick is shown next to the result. Cohen's d and the rank-biserial correlation r both express the effect as a standardized, sample-size-independent magnitude.
+  </footer>
+
+  </div>
+
+  <div class="tab-panel" id="panel-regression" hidden>
+
+  <section class="card" id="reg-card">
+    <div class="card-head">
+      <div>
+        <p class="eyebrow">Step 1</p>
+        <h2>Paired data</h2>
+      </div>
+      <button class="ghost-btn" id="regResetBtn" type="button">Load example</button>
+    </div>
+
+    <div class="data-grid">
+      <div class="data-field">
+        <input class="group-name-input" id="regXLabel" value="Age (years)" aria-label="X variable name">
+        <textarea id="regXData" aria-label="X values" rows="5">42, 51, 36, 63, 47, 55, 39, 60, 44, 58, 49, 33</textarea>
+        <p class="data-hint">One value per line, or comma-separated.</p>
+      </div>
+      <div class="data-field">
+        <input class="group-name-input" id="regYLabel" value="Systolic BP (mmHg)" aria-label="Y variable name">
+        <textarea id="regYData" aria-label="Y values" rows="5">128, 138, 118, 152, 133, 141, 122, 148, 130, 145, 135, 115</textarea>
+        <p class="data-hint">One value per line, or comma-separated. Matched by position with X.</p>
+      </div>
+    </div>
+
+    <div class="assumption warn" id="regWarning" hidden></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Visual check</p><h2>Scatter plot</h2></div>
+    </div>
+    <div id="regScatter"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 2</p><h2>Normality check</h2></div>
+    </div>
+    <div id="normRowsReg"></div>
+    <p class="norm-note" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
+      <b style="color:var(--ink);">Why Shapiro–Wilk —</b> Pearson's r assumes both variables are approximately normally distributed; Shapiro–Wilk is the most powerful common test for flagging when that assumption doesn't hold (Razali &amp; Wah, 2011), which is why it's used here to help decide between Pearson's r and Spearman's rank correlation.
+    </p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 3</p><h2>Linearity check</h2></div>
+    </div>
+    <div id="linRows"></div>
+    <p class="norm-note" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
+      <b style="color:var(--ink);">Why this test —</b> Pearson's r and linear regression both assume the relationship is a straight line, not merely monotonic. This is a curvature test: it fits a quadratic term (y = b₀+b₁x+b₂x²) alongside the linear one and checks, via an F-test, whether that curvature term explains significantly more variance than the line alone. A significant result (p &lt; 0.05) is evidence the relationship bends — reason to prefer Spearman's rank correlation over Pearson's r, and to treat a linear regression fit with caution. It complements, but doesn't replace, looking at the scatter plot above.
+    </p>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow" id="corrEyebrow">Correlation</p>
+    <h2 id="corrTitle">Pearson's r</h2>
+    <div class="stat-row"><span class="stat-label" id="corrStatLabel">r</span><span class="stat-value" id="corrStat">—</span></div>
+    <div class="stat-row"><span class="stat-label">df</span><span class="stat-value" id="corrDf">—</span></div>
+    <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="corrP">—</span></div>
+    <div id="corrVerdict"></div>
+    <div class="toggle-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <span class="toggle-label" style="font-weight:600;">Method</span>
+      <select id="corrMethodSelect" class="label-input" style="text-align:left;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--paper);">
+        <option value="auto">Auto (recommended)</option>
+        <option value="pearson">Pearson's r</option>
+        <option value="spearman">Spearman's rank correlation</option>
+      </select>
+      <p class="norm-note" id="corrMethodReason"></p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 4</p><h2>Regression diagnostics</h2></div>
+    </div>
+    <div id="regDiagRows"></div>
+    <p class="norm-note" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
+      <b style="color:var(--ink);">Why these tests —</b> linear regression's significance tests additionally assume the residuals (actual − predicted) are normally distributed and have constant variance across X (homoscedasticity). Residual normality is checked with Shapiro–Wilk again, this time on the residuals. Constant variance is checked with the Breusch–Pagan test: it regresses the squared residuals on X and tests whether that explains a significant share of their variance (via n·R², a chi-squared statistic with 1 df) — a significant result (p &lt; 0.05) means the spread of residuals changes across X, so standard errors on the slope may be misleading.
+    </p>
+  </section>
+
+  <section class="card result-card">
+    <p class="eyebrow">Linear regression</p>
+    <h2>Ordinary least squares</h2>
+    <div class="stat-row"><span class="stat-label">Equation</span><span class="stat-value" id="regEquation">—</span></div>
+    <div class="stat-row"><span class="stat-label">R²</span><span class="stat-value" id="regR2">—</span></div>
+    <div class="stat-row"><span class="stat-label">Adjusted R²</span><span class="stat-value" id="regAdjR2">—</span></div>
+    <div class="stat-row"><span class="stat-label">Slope t-test</span><span class="stat-value" id="regSlopeT">—</span></div>
+    <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="regSlopeP">—</span></div>
+    <div id="regVerdict"></div>
+    <div class="assumption warn" id="regCaveat" style="margin-top:14px;" hidden></div>
+  </section>
+
+  <footer class="notes">
+    <b>How it's computed —</b> Pearson's r is the standardized covariance of X and Y; its significance test uses t = r√((n−2)⁄(1−r²)) with df = n−2. Spearman's rank correlation applies the same formula to the ranks of X and Y (average ranks for ties), which only assumes a monotonic relationship, not a linear or normal one. Linear regression fits y = b₀+b₁x by least squares; R² is the share of Y's variance the line explains (equal to r² for a simple regression), and the slope's t-test uses the same t-distribution relation as above. <b>Auto</b> picks Pearson's r when both variables are consistent with normality and the linearity check finds no significant curvature; otherwise it picks Spearman's. Linear regression itself always uses ordinary least squares — when its diagnostics flag non-normal residuals or unequal variance, that's shown as a caution on the result rather than switching methods, since Pearson's r above already gives the assumption-robust alternative.
   </footer>
 
   </div>
@@ -773,22 +874,23 @@
     recalc();
   });
 
-  var tabBtnContingency = document.getElementById("tabBtnContingency");
-  var tabBtnTtest = document.getElementById("tabBtnTtest");
-  var panelContingency = document.getElementById("panel-contingency");
-  var panelTtest = document.getElementById("panel-ttest");
+  var TABS = {
+    contingency: { btn: document.getElementById("tabBtnContingency"), panel: document.getElementById("panel-contingency") },
+    ttest:       { btn: document.getElementById("tabBtnTtest"),       panel: document.getElementById("panel-ttest") },
+    regression:  { btn: document.getElementById("tabBtnRegression"),  panel: document.getElementById("panel-regression") }
+  };
 
   function showTab(name){
-    var isCont = name === "contingency";
-    panelContingency.hidden = !isCont;
-    panelTtest.hidden = isCont;
-    tabBtnContingency.classList.toggle("active", isCont);
-    tabBtnTtest.classList.toggle("active", !isCont);
-    tabBtnContingency.setAttribute("aria-selected", isCont ? "true" : "false");
-    tabBtnTtest.setAttribute("aria-selected", isCont ? "false" : "true");
+    Object.keys(TABS).forEach(function(key){
+      var active = key === name;
+      TABS[key].panel.hidden = !active;
+      TABS[key].btn.classList.toggle("active", active);
+      TABS[key].btn.setAttribute("aria-selected", active ? "true" : "false");
+    });
   }
-  tabBtnContingency.addEventListener("click", function(){ showTab("contingency"); });
-  tabBtnTtest.addEventListener("click", function(){ showTab("ttest"); });
+  Object.keys(TABS).forEach(function(key){
+    TABS[key].btn.addEventListener("click", function(){ showTab(key); });
+  });
 
   function betacf(a, b, x){
     var MAXIT = 100, EPS = 3e-7, FPMIN = 1e-30;
@@ -826,7 +928,8 @@
   }
 
   function tTestPValue(t, df){
-    if (!isFinite(t) || !isFinite(df) || df <= 0) return NaN;
+    if (!isFinite(df) || df <= 0) return NaN;
+    if (!isFinite(t)) return 0;
     var x = df / (df + t * t);
     return betai(df / 2, 0.5, x);
   }
@@ -1315,8 +1418,9 @@
 
   var normRows = document.getElementById("normRows");
 
-  function renderNormality(groups){
-    normRows.innerHTML = "";
+  function renderNormality(groups, container){
+    container = container || normRows;
+    container.innerHTML = "";
     groups.forEach(function(g){
       var row = document.createElement("div");
       row.className = "norm-row";
@@ -1339,7 +1443,7 @@
         stats.appendChild(normalityPill(r.p));
       }
       row.appendChild(stats);
-      normRows.appendChild(row);
+      container.appendChild(row);
     });
   }
 
@@ -1369,7 +1473,372 @@
 
   populateMethodSelect(false);
 
+  function solveLinear(A, b){
+    var n = b.length;
+    var M = A.map(function(row, i){ return row.concat([b[i]]); });
+    for (var col = 0; col < n; col++){
+      var maxRow = col;
+      for (var r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > Math.abs(M[maxRow][col])) maxRow = r;
+      var tmp = M[col]; M[col] = M[maxRow]; M[maxRow] = tmp;
+      if (Math.abs(M[col][col]) < 1e-12) return null;
+      for (var r2 = col + 1; r2 < n; r2++){
+        var factor = M[r2][col] / M[col][col];
+        for (var c2 = col; c2 <= n; c2++) M[r2][c2] -= factor * M[col][c2];
+      }
+    }
+    var x = new Array(n).fill(0);
+    for (var i = n - 1; i >= 0; i--){
+      var sum = M[i][n];
+      for (var j = i + 1; j < n; j++) sum -= M[i][j] * x[j];
+      x[i] = sum / M[i][i];
+    }
+    return x;
+  }
+
+  function pearsonCorrelation(x, y){
+    var n = x.length;
+    if (n < 3) return { r: NaN, df: NaN, p: NaN };
+    var mx = mean(x), my = mean(y), sxy = 0, sxx = 0, syy = 0, i;
+    for (i = 0; i < n; i++){ var dx = x[i] - mx, dy = y[i] - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; }
+    if (sxx === 0 || syy === 0) return { r: NaN, df: n - 2, p: NaN };
+    var r = Math.max(-1, Math.min(1, sxy / Math.sqrt(sxx * syy)));
+    var df = n - 2;
+    if (Math.abs(r) >= 1) return { r: r, df: df, p: 0, t: Infinity };
+    var t = r * Math.sqrt(df / (1 - r * r));
+    return { r: r, df: df, p: tTestPValue(t, df), t: t };
+  }
+
+  function spearmanCorrelation(x, y){
+    var rx = rankWithTies(x).ranks, ry = rankWithTies(y).ranks;
+    var res = pearsonCorrelation(rx, ry);
+    return { rho: res.r, df: res.df, p: res.p, t: res.t };
+  }
+
+  function linearRegression(x, y){
+    var n = x.length;
+    if (n < 3) return null;
+    var mx = mean(x), my = mean(y), sxx = 0, sxy = 0, syy = 0, i;
+    for (i = 0; i < n; i++){ var dx = x[i] - mx, dy = y[i] - my; sxx += dx * dx; sxy += dx * dy; syy += dy * dy; }
+    if (sxx === 0) return null;
+    var slope = sxy / sxx, intercept = my - slope * mx;
+    var fitted = x.map(function(xi){ return intercept + slope * xi; });
+    var residuals = y.map(function(yi, i){ return yi - fitted[i]; });
+    var sse = residuals.reduce(function(s, e){ return s + e * e; }, 0);
+    var sst = syy;
+    var r2 = sst === 0 ? NaN : 1 - sse / sst;
+    var df = n - 2;
+    var adjR2 = (df > 0 && !isNaN(r2)) ? 1 - (1 - r2) * (n - 1) / df : NaN;
+    var mse = df > 0 ? sse / df : NaN;
+    var seSlope = Math.sqrt(mse / sxx);
+    var tSlope = slope / seSlope;
+    return {
+      slope: slope, intercept: intercept, r2: r2, adjR2: adjR2,
+      seSlope: seSlope, tSlope: tSlope, df: df, pSlope: tTestPValue(tSlope, df),
+      residuals: residuals, fitted: fitted, sse: sse, sst: sst, n: n
+    };
+  }
+
+  function quadraticFit(x, y){
+    var n = x.length, s1 = 0, s2 = 0, s3 = 0, s4 = 0, sy = 0, sxy = 0, sx2y = 0, i;
+    for (i = 0; i < n; i++){
+      var xi = x[i], yi = y[i], xi2 = xi * xi;
+      s1 += xi; s2 += xi2; s3 += xi2 * xi; s4 += xi2 * xi2;
+      sy += yi; sxy += xi * yi; sx2y += xi2 * yi;
+    }
+    var coeffs = solveLinear([[n, s1, s2], [s1, s2, s3], [s2, s3, s4]], [sy, sxy, sx2y]);
+    if (!coeffs) return null;
+    var sse = 0;
+    for (i = 0; i < n; i++){ var pred = coeffs[0] + coeffs[1] * x[i] + coeffs[2] * x[i] * x[i]; var e = y[i] - pred; sse += e * e; }
+    return { coeffs: coeffs, sse: sse };
+  }
+
+  function linearityTest(x, y, linearSSE){
+    var n = x.length;
+    if (n < 5) return { F: NaN, df: NaN, p: NaN };
+    var quad = quadraticFit(x, y);
+    if (!quad) return { F: NaN, df: NaN, p: NaN };
+    var df2 = n - 3;
+    if (df2 < 1) return { F: NaN, df: NaN, p: NaN };
+    var improvement = Math.max(0, linearSSE - quad.sse);
+    if (improvement <= 1e-9 && quad.sse <= 1e-9) return { F: NaN, df: df2, p: NaN };
+    var F = improvement / (quad.sse / df2);
+    return { F: F, df: df2, p: tTestPValue(Math.sqrt(F), df2) };
+  }
+
+  function breuschPaganTest(x, residuals){
+    var n = x.length;
+    var e2 = residuals.map(function(e){ return e * e; });
+    var aux = linearRegression(x, e2);
+    if (!aux || isNaN(aux.r2)) return { LM: NaN, p: NaN };
+    var LM = Math.max(0, n * aux.r2);
+    return { LM: LM, p: chiSquaredP(LM) };
+  }
+
+  function escapeXml(s){
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function renderScatter(container, x, y, slope, intercept, xLabel, yLabel){
+    if (x.length < 2){
+      container.innerHTML = '<p class="norm-note">Add at least 2 paired points to see the scatter plot.</p>';
+      return;
+    }
+    var W = 480, H = 300, mL = 50, mR = 16, mT = 16, mB = 38;
+    var xMin = Math.min.apply(null, x), xMax = Math.max.apply(null, x);
+    var yMin = Math.min.apply(null, y), yMax = Math.max.apply(null, y);
+    var xPad = (xMax - xMin) * 0.08 || 1, yPad = (yMax - yMin) * 0.08 || 1;
+    xMin -= xPad; xMax += xPad; yMin -= yPad; yMax += yPad;
+    function sx(v){ return mL + (v - xMin) / (xMax - xMin) * (W - mL - mR); }
+    function sy(v){ return H - mB - (v - yMin) / (yMax - yMin) * (H - mT - mB); }
+
+    var axes = '<line x1="' + mL + '" y1="' + (H - mB) + '" x2="' + (W - mR) + '" y2="' + (H - mB) + '" stroke="var(--line)" stroke-width="1"/>' +
+               '<line x1="' + mL + '" y1="' + mT + '" x2="' + mL + '" y2="' + (H - mB) + '" stroke="var(--line)" stroke-width="1"/>';
+
+    var lineSvg = "";
+    if (isFinite(slope) && isFinite(intercept)){
+      var ly1 = intercept + slope * xMin, ly2 = intercept + slope * xMax;
+      lineSvg = '<line x1="' + sx(xMin).toFixed(1) + '" y1="' + sy(ly1).toFixed(1) + '" x2="' + sx(xMax).toFixed(1) + '" y2="' + sy(ly2).toFixed(1) + '" stroke="var(--ink)" stroke-width="2"/>';
+    }
+
+    var pts = x.map(function(xi, i){
+      return '<circle cx="' + sx(xi).toFixed(1) + '" cy="' + sy(y[i]).toFixed(1) + '" r="4" fill="var(--accent)" fill-opacity="0.8"><title>' +
+        escapeXml(fmtNum(xi, 2)) + ", " + escapeXml(fmtNum(y[i], 2)) + '</title></circle>';
+    }).join("");
+
+    var xLabelSvg = '<text x="' + ((mL + (W - mR)) / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(xLabel) + '</text>';
+    var yLabelSvg = '<text x="14" y="' + ((mT + (H - mB)) / 2) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" transform="rotate(-90 14 ' + ((mT + (H - mB)) / 2) + ')">' + escapeXml(yLabel) + '</text>';
+
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Scatter plot">' +
+      axes + lineSvg + pts + xLabelSvg + yLabelSvg + '</svg>';
+  }
+
+  function decideCorrelationMethod(shX, shY, linP){
+    var haveNormality = !isNaN(shX) && !isNaN(shY);
+    var normalOk = haveNormality && shX >= 0.05 && shY >= 0.05;
+    var linearKnown = !isNaN(linP);
+    var linearOk = !linearKnown || linP >= 0.05;
+    if (!haveNormality){
+      return { method: "pearson", reason: "Not enough data to test normality (need n ≥ 3 each) — defaulting to Pearson's r." };
+    }
+    if (normalOk && linearOk){
+      var linNote = linearKnown ? (" and the linearity check finds no significant curvature (p = " + fmtP(linP) + ")") : "";
+      return { method: "pearson", reason: "Both variables are consistent with normality" + linNote + " — Pearson's r applies cleanly." };
+    }
+    var reasons = [];
+    if (!normalOk) reasons.push("at least one variable departs from normality (Shapiro–Wilk p < 0.05)");
+    if (!linearOk) reasons.push("the relationship shows significant curvature (linearity test p < 0.05)");
+    return { method: "spearman", reason: "Spearman's rank correlation is used instead because " + reasons.join(" and ") + " — it only assumes a monotonic relationship." };
+  }
+
+  var linRows = document.getElementById("linRows");
+  function renderLinearity(lin, n){
+    linRows.innerHTML = "";
+    var row = document.createElement("div");
+    row.className = "norm-row";
+    var head = document.createElement("div");
+    head.className = "norm-row-head";
+    head.innerHTML = '<span class="norm-name">Linear vs. quadratic fit</span><span class="norm-n"></span>';
+    head.querySelector(".norm-n").textContent = "n = " + n;
+    row.appendChild(head);
+
+    var stats = document.createElement("div");
+    stats.className = "norm-stats";
+    if (isNaN(lin.p)){
+      stats.innerHTML = '<span class="norm-stat">Can\'t test for curvature with this data (need ≥ 5 points with residual variation).</span>';
+    } else {
+      stats.innerHTML =
+        '<span class="norm-stat">F = <b>' + fmtNum(lin.F, 3) + '</b></span>' +
+        '<span class="norm-stat">p = <b>' + fmtP(lin.p) + '</b></span>';
+      var pill = document.createElement("span");
+      if (lin.p < 0.05){ pill.className = "verdict border"; pill.textContent = "Significant curvature"; }
+      else { pill.className = "verdict sig"; pill.textContent = "No significant curvature"; }
+      stats.appendChild(pill);
+    }
+    row.appendChild(stats);
+    linRows.appendChild(row);
+  }
+
+  var regDiagRows = document.getElementById("regDiagRows");
+  function renderRegDiagnostics(bp, shResid, n){
+    regDiagRows.innerHTML = "";
+    function addRow(name, statLabel, statVal, pVal, goodText, badText){
+      var row = document.createElement("div");
+      row.className = "norm-row";
+      var head = document.createElement("div");
+      head.className = "norm-row-head";
+      head.innerHTML = '<span class="norm-name"></span><span class="norm-n"></span>';
+      head.querySelector(".norm-name").textContent = name;
+      head.querySelector(".norm-n").textContent = "n = " + n;
+      row.appendChild(head);
+
+      var stats = document.createElement("div");
+      stats.className = "norm-stats";
+      if (isNaN(pVal)){
+        stats.innerHTML = '<span class="norm-stat">Not enough data.</span>';
+      } else {
+        stats.innerHTML =
+          '<span class="norm-stat">' + statLabel + ' = <b>' + statVal + '</b></span>' +
+          '<span class="norm-stat">p = <b>' + fmtP(pVal) + '</b></span>';
+        var pill = document.createElement("span");
+        if (pVal < 0.05){ pill.className = "verdict border"; pill.textContent = badText; }
+        else { pill.className = "verdict sig"; pill.textContent = goodText; }
+        stats.appendChild(pill);
+      }
+      row.appendChild(stats);
+      regDiagRows.appendChild(row);
+    }
+    addRow("Homoscedasticity (Breusch–Pagan)", "LM", fmtNum(bp.LM, 3), bp.p, "Constant variance", "Unequal variance");
+    addRow("Residual normality (Shapiro–Wilk)", "W", fmtNum(shResid.W, 3), shResid.p, "Consistent with normality", "Departs from normality");
+  }
+
+  var normRowsReg = document.getElementById("normRowsReg");
+
+  var regEls = {
+    xLabel: document.getElementById("regXLabel"),
+    yLabel: document.getElementById("regYLabel"),
+    xData: document.getElementById("regXData"),
+    yData: document.getElementById("regYData"),
+    warning: document.getElementById("regWarning"),
+    scatter: document.getElementById("regScatter"),
+    corrTitle: document.getElementById("corrTitle"),
+    corrStatLabel: document.getElementById("corrStatLabel"),
+    corrStat: document.getElementById("corrStat"),
+    corrDf: document.getElementById("corrDf"),
+    corrP: document.getElementById("corrP"),
+    corrVerdict: document.getElementById("corrVerdict"),
+    corrMethodSelect: document.getElementById("corrMethodSelect"),
+    corrMethodReason: document.getElementById("corrMethodReason"),
+    regEquation: document.getElementById("regEquation"),
+    regR2: document.getElementById("regR2"),
+    regAdjR2: document.getElementById("regAdjR2"),
+    regSlopeT: document.getElementById("regSlopeT"),
+    regSlopeP: document.getElementById("regSlopeP"),
+    regVerdict: document.getElementById("regVerdict"),
+    regCaveat: document.getElementById("regCaveat"),
+    resetBtn: document.getElementById("regResetBtn")
+  };
+
+  function showRegEmpty(){
+    regEls.scatter.innerHTML = "";
+    normRowsReg.innerHTML = "";
+    linRows.innerHTML = "";
+    regDiagRows.innerHTML = "";
+    regEls.corrStat.textContent = "—"; regEls.corrDf.textContent = "—"; regEls.corrP.textContent = "—";
+    regEls.corrVerdict.innerHTML = ""; regEls.corrVerdict.appendChild(verdictPill(NaN));
+    regEls.corrMethodReason.textContent = "";
+    regEls.regEquation.textContent = "—"; regEls.regR2.textContent = "—"; regEls.regAdjR2.textContent = "—";
+    regEls.regSlopeT.textContent = "—"; regEls.regSlopeP.textContent = "—";
+    regEls.regVerdict.innerHTML = ""; regEls.regVerdict.appendChild(verdictPill(NaN));
+    regEls.regCaveat.hidden = true;
+  }
+
+  function recalcRegression(){
+    var x = parseNumbers(regEls.xData.value);
+    var y = parseNumbers(regEls.yData.value);
+    var xLabel = regEls.xLabel.value || "X";
+    var yLabel = regEls.yLabel.value || "Y";
+
+    regEls.warning.hidden = true;
+
+    if (x.length !== y.length){
+      regEls.warning.hidden = false;
+      regEls.warning.innerHTML = '<span class="dot"></span> X and Y need equal counts — currently ' + x.length + ' vs ' + y.length + '.';
+      showRegEmpty();
+      return;
+    }
+
+    var n = x.length;
+    var shX = n >= 3 ? shapiroWilk(x).p : NaN;
+    var shY = n >= 3 ? shapiroWilk(y).p : NaN;
+    renderNormality([{ name: xLabel, arr: x }, { name: yLabel, arr: y }], normRowsReg);
+
+    if (n < 3){
+      regEls.warning.hidden = false;
+      regEls.warning.innerHTML = '<span class="dot"></span> Need at least 3 paired points.';
+      showRegEmpty();
+      return;
+    }
+
+    var reg = linearRegression(x, y);
+    if (!reg){
+      regEls.warning.hidden = false;
+      regEls.warning.innerHTML = '<span class="dot"></span> X values are all identical — a line can\'t be fit.';
+      showRegEmpty();
+      return;
+    }
+
+    renderScatter(regEls.scatter, x, y, reg.slope, reg.intercept, xLabel, yLabel);
+
+    var lin = linearityTest(x, y, reg.sse);
+    renderLinearity(lin, n);
+
+    var selected = regEls.corrMethodSelect.value;
+    var chosenMethod = selected;
+    var reason = "Manually selected.";
+    if (selected === "auto"){
+      var decision = decideCorrelationMethod(shX, shY, lin.p);
+      chosenMethod = decision.method;
+      reason = decision.reason;
+    }
+    regEls.corrMethodReason.textContent = reason;
+
+    var corrResult;
+    if (chosenMethod === "spearman"){
+      corrResult = spearmanCorrelation(x, y);
+      regEls.corrTitle.textContent = "Spearman's rank correlation";
+      regEls.corrStatLabel.textContent = "ρ";
+      regEls.corrStat.textContent = fmtNum(corrResult.rho, 3);
+    } else {
+      corrResult = pearsonCorrelation(x, y);
+      regEls.corrTitle.textContent = "Pearson's r";
+      regEls.corrStatLabel.textContent = "r";
+      regEls.corrStat.textContent = fmtNum(corrResult.r, 3);
+    }
+    regEls.corrDf.textContent = String(corrResult.df);
+    regEls.corrP.textContent = fmtP(corrResult.p);
+    regEls.corrVerdict.innerHTML = ""; regEls.corrVerdict.appendChild(verdictPill(corrResult.p));
+
+    var bp = breuschPaganTest(x, reg.residuals);
+    var shResid = shapiroWilk(reg.residuals);
+    renderRegDiagnostics(bp, shResid, n);
+
+    var sign = reg.slope >= 0 ? "+" : "−";
+    regEls.regEquation.textContent = yLabel + " = " + fmtNum(reg.intercept, 3) + " " + sign + " " + fmtNum(Math.abs(reg.slope), 3) + "·(" + xLabel + ")";
+    regEls.regR2.textContent = fmtNum(reg.r2, 3);
+    regEls.regAdjR2.textContent = fmtNum(reg.adjR2, 3);
+    regEls.regSlopeT.textContent = fmtNum(reg.tSlope, 3);
+    regEls.regSlopeP.textContent = fmtP(reg.pSlope);
+    regEls.regVerdict.innerHTML = ""; regEls.regVerdict.appendChild(verdictPill(reg.pSlope));
+
+    var caveats = [];
+    if (!isNaN(shResid.p) && shResid.p < 0.05) caveats.push("the residuals depart from normality");
+    if (!isNaN(bp.p) && bp.p < 0.05) caveats.push("variance is not constant across " + xLabel);
+    if (!isNaN(lin.p) && lin.p < 0.05) caveats.push("the relationship shows significant curvature");
+    if (caveats.length){
+      regEls.regCaveat.hidden = false;
+      regEls.regCaveat.innerHTML = '<span class="dot"></span> Interpret with caution: ' + caveats.join(", and ") +
+        " — the slope's significance test and R² assume otherwise. Spearman's rank correlation above is a safer summary of association here.";
+    } else {
+      regEls.regCaveat.hidden = true;
+    }
+  }
+
+  regEls.resetBtn.addEventListener("click", function(){
+    regEls.xLabel.value = "Age (years)";
+    regEls.yLabel.value = "Systolic BP (mmHg)";
+    regEls.xData.value = "42, 51, 36, 63, 47, 55, 39, 60, 44, 58, 49, 33";
+    regEls.yData.value = "128, 138, 118, 152, 133, 141, 122, 148, 130, 145, 135, 115";
+    regEls.corrMethodSelect.value = "auto";
+    recalcRegression();
+  });
+
+  [regEls.xData, regEls.yData, regEls.xLabel, regEls.yLabel, regEls.corrMethodSelect].forEach(function(el){
+    el.addEventListener("input", recalcRegression);
+    el.addEventListener("change", recalcRegression);
+  });
+
   recalc();
   recalcTtest();
+  recalcRegression();
 })();
 </script>
