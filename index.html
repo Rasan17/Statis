@@ -1,0 +1,607 @@
+<title>Fourfold</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --paper:#F6F4EE;
+    --surface:#FFFFFF;
+    --ink:#1C201D;
+    --ink-soft:#5B6259;
+    --line:#DDD8C8;
+    --accent:#1F6E5C;
+    --accent-soft:#E2F0EA;
+    --accent-ink:#0E4436;
+    --good:#1F7A4C;
+    --good-soft:#E4F3E8;
+    --warn:#9C6B12;
+    --warn-soft:#FBEED4;
+    --neutral:#6B6459;
+    --neutral-soft:#EDEAE0;
+    --shadow: 0 1px 2px rgba(28,32,29,0.06), 0 6px 20px rgba(28,32,29,0.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#181A17;
+      --surface:#212420;
+      --ink:#EDEAE0;
+      --ink-soft:#A6ACA1;
+      --line:#383B34;
+      --accent:#4FBE9F;
+      --accent-soft:#1D362F;
+      --accent-ink:#9FE8D2;
+      --good:#5FCB86;
+      --good-soft:#1C3423;
+      --warn:#E0AE4F;
+      --warn-soft:#3A2E12;
+      --neutral:#9B9690;
+      --neutral-soft:#2B2E28;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.25);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#181A17;
+    --surface:#212420;
+    --ink:#EDEAE0;
+    --ink-soft:#A6ACA1;
+    --line:#383B34;
+    --accent:#4FBE9F;
+    --accent-soft:#1D362F;
+    --accent-ink:#9FE8D2;
+    --good:#5FCB86;
+    --good-soft:#1C3423;
+    --warn:#E0AE4F;
+    --warn-soft:#3A2E12;
+    --neutral:#9B9690;
+    --neutral-soft:#2B2E28;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.25);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"IBM Plex Sans",-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{
+    max-width:760px;
+    margin:0 auto;
+    padding:40px 20px 64px;
+    display:flex;
+    flex-direction:column;
+    gap:28px;
+  }
+
+  .hero{display:flex;align-items:center;gap:18px;}
+  .hero-mark{flex:none;width:56px;height:56px;}
+  .hero-mark svg{width:100%;height:100%;display:block;}
+  h1{
+    font-family:"Fraunces",Georgia,serif;
+    font-weight:600;
+    font-size:32px;
+    letter-spacing:-0.01em;
+    margin:0 0 4px;
+    text-wrap:balance;
+  }
+  .lede{
+    margin:0;
+    color:var(--ink-soft);
+    font-size:14.5px;
+    line-height:1.5;
+    max-width:52ch;
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px;
+    box-shadow:var(--shadow);
+  }
+  .card-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+  }
+  h2{
+    font-family:"Fraunces",Georgia,serif;
+    font-weight:600;
+    font-size:18px;
+    margin:0;
+  }
+  .eyebrow{
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    font-size:11px;
+    font-weight:600;
+    color:var(--accent-ink);
+    margin:0 0 4px;
+  }
+
+  .ghost-btn{
+    font-family:inherit;
+    font-size:13px;
+    font-weight:600;
+    color:var(--accent-ink);
+    background:var(--accent-soft);
+    border:1px solid transparent;
+    border-radius:8px;
+    padding:7px 12px;
+    cursor:pointer;
+  }
+  .ghost-btn:hover{filter:brightness(0.97);}
+  .ghost-btn:focus-visible, input:focus-visible, .toggle input:focus-visible + .toggle-track{
+    outline:2px solid var(--accent);
+    outline-offset:2px;
+  }
+
+  .table-wrap{overflow-x:auto;}
+  table.ct{
+    border-collapse:collapse;
+    width:100%;
+    min-width:420px;
+  }
+  table.ct th, table.ct td{
+    border:1px solid var(--line);
+    padding:0;
+    text-align:center;
+  }
+  table.ct thead th.corner{border:none;background:transparent;}
+  table.ct th.rowhead, table.ct th.colhead{
+    background:var(--neutral-soft);
+  }
+  .label-input{
+    width:100%;
+    border:none;
+    background:transparent;
+    color:var(--ink);
+    font:600 13px "IBM Plex Sans",sans-serif;
+    text-align:center;
+    padding:10px 6px;
+  }
+  .cell-input{
+    width:100%;
+    border:none;
+    background:transparent;
+    color:var(--ink);
+    font:600 20px/1 "IBM Plex Mono",monospace;
+    font-variant-numeric:tabular-nums;
+    text-align:center;
+    padding:16px 6px;
+  }
+  .cell-input:focus, .label-input:focus{background:var(--accent-soft);outline:none;}
+  td.data{background:var(--surface);}
+  td.total, th.total-label{
+    background:var(--neutral-soft);
+    font:600 15px "IBM Plex Mono",monospace;
+    font-variant-numeric:tabular-nums;
+    padding:12px 6px;
+    color:var(--ink-soft);
+  }
+  td.grand{color:var(--ink);font-weight:700;}
+
+  .assumption{
+    margin-top:16px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    padding:10px 12px;
+    border-radius:9px;
+  }
+  .assumption.good{background:var(--good-soft);color:var(--good);}
+  .assumption.warn{background:var(--warn-soft);color:var(--warn);}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none;}
+
+  .results-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+  }
+  @media (max-width:560px){
+    .results-grid{grid-template-columns:1fr;}
+  }
+
+  .stat-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    padding:9px 0;
+    border-top:1px solid var(--line);
+    gap:12px;
+  }
+  .stat-row:first-of-type{border-top:none;}
+  .stat-label{font-size:13px;color:var(--ink-soft);}
+  .stat-value{
+    font-family:"IBM Plex Mono",monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:15px;
+    font-weight:600;
+    text-align:right;
+    white-space:nowrap;
+  }
+
+  .verdict{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    font-weight:600;
+    padding:5px 10px;
+    border-radius:999px;
+    margin-top:2px;
+  }
+  .verdict.sig{background:var(--good-soft);color:var(--good);}
+  .verdict.border{background:var(--warn-soft);color:var(--warn);}
+  .verdict.ns{background:var(--neutral-soft);color:var(--neutral);}
+
+  .toggle-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-top:14px;
+    padding-top:12px;
+    border-top:1px solid var(--line);
+  }
+  .toggle{position:relative;display:inline-flex;align-items:center;cursor:pointer;}
+  .toggle input{position:absolute;opacity:0;width:32px;height:18px;margin:0;cursor:pointer;}
+  .toggle-track{
+    width:32px;height:18px;border-radius:999px;background:var(--neutral-soft);
+    position:relative;transition:background .15s;flex:none;
+  }
+  .toggle-track::after{
+    content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;
+    border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,0.25);
+    transition:transform .15s;
+  }
+  .toggle input:checked + .toggle-track{background:var(--accent);}
+  .toggle input:checked + .toggle-track::after{transform:translateX(14px);}
+  .toggle-label{font-size:12.5px;color:var(--ink-soft);}
+
+  .effect-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+  }
+  @media (max-width:560px){.effect-grid{grid-template-columns:1fr;}}
+  .effect-name{font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-soft);margin-bottom:4px;}
+  .effect-value{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .effect-ci{font-size:12.5px;color:var(--ink-soft);margin-top:2px;font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",monospace;}
+
+  footer.notes{
+    font-size:12.5px;
+    line-height:1.6;
+    color:var(--ink-soft);
+    padding:0 4px;
+  }
+  footer.notes b{color:var(--ink);}
+</style>
+
+<div class="page">
+
+  <header class="hero">
+    <div class="hero-mark">
+      <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="52" height="52" rx="10" fill="var(--accent-soft)"/>
+        <line x1="28" y1="10" x2="28" y2="46" stroke="var(--accent)" stroke-width="2"/>
+        <line x1="10" y1="28" x2="46" y2="28" stroke="var(--accent)" stroke-width="2"/>
+        <circle cx="18" cy="18" r="4.5" fill="var(--accent)"/>
+        <circle cx="38" cy="18" r="2.5" fill="var(--accent)" opacity="0.55"/>
+        <circle cx="18" cy="38" r="2.5" fill="var(--accent)" opacity="0.55"/>
+        <circle cx="38" cy="38" r="4.5" fill="var(--accent)"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Fourfold</h1>
+      <p class="lede">Enter the counts for a 2×2 table and get chi-squared and Fisher's exact results, with the assumption check that tells you which one to trust.</p>
+    </div>
+  </header>
+
+  <section class="card" id="table-card">
+    <div class="card-head">
+      <div>
+        <p class="eyebrow">Step 1</p>
+        <h2>Contingency table</h2>
+      </div>
+      <button class="ghost-btn" id="resetBtn" type="button">Load example</button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="ct">
+        <thead>
+          <tr>
+            <th class="corner"></th>
+            <th class="colhead"><input class="label-input" id="col1Label" value="Outcome +" aria-label="Column 1 label"></th>
+            <th class="colhead"><input class="label-input" id="col2Label" value="Outcome −" aria-label="Column 2 label"></th>
+            <th class="total-label">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th class="rowhead"><input class="label-input" id="row1Label" value="Treatment" aria-label="Row 1 label"></th>
+            <td class="data"><input class="cell-input" id="cellA" type="number" min="0" step="1" value="30" aria-label="Row 1, column 1 count"></td>
+            <td class="data"><input class="cell-input" id="cellB" type="number" min="0" step="1" value="70" aria-label="Row 1, column 2 count"></td>
+            <td class="total" id="r1total">100</td>
+          </tr>
+          <tr>
+            <th class="rowhead"><input class="label-input" id="row2Label" value="Control" aria-label="Row 2 label"></th>
+            <td class="data"><input class="cell-input" id="cellC" type="number" min="0" step="1" value="15" aria-label="Row 2, column 1 count"></td>
+            <td class="data"><input class="cell-input" id="cellD" type="number" min="0" step="1" value="85" aria-label="Row 2, column 2 count"></td>
+            <td class="total" id="r2total">100</td>
+          </tr>
+          <tr>
+            <th class="total-label">Total</th>
+            <td class="total" id="c1total">45</td>
+            <td class="total" id="c2total">155</td>
+            <td class="total grand" id="grandTotal">200</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="assumption" id="assumption"></div>
+  </section>
+
+  <section class="results-grid">
+    <div class="card result-card">
+      <p class="eyebrow">Chi-squared test</p>
+      <h2>Independence, df = 1</h2>
+      <div class="stat-row"><span class="stat-label">χ²</span><span class="stat-value" id="chiStat">—</span></div>
+      <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="chiP">—</span></div>
+      <div id="chiVerdict"></div>
+      <div class="toggle-row">
+        <label class="toggle">
+          <input type="checkbox" id="yatesToggle">
+          <span class="toggle-track"></span>
+        </label>
+        <span class="toggle-label">Yates' continuity correction</span>
+      </div>
+    </div>
+
+    <div class="card result-card">
+      <p class="eyebrow">Fisher's exact test</p>
+      <h2>Two-tailed</h2>
+      <div class="stat-row"><span class="stat-label">Method</span><span class="stat-value">Hypergeometric</span></div>
+      <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="fisherP">—</span></div>
+      <div id="fisherVerdict"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">Effect size</p>
+    <h2>Odds ratio &amp; relative risk</h2>
+    <div class="effect-grid">
+      <div>
+        <div class="effect-name">Odds ratio</div>
+        <div class="effect-value" id="orValue">—</div>
+        <div class="effect-ci" id="orCi"></div>
+      </div>
+      <div>
+        <div class="effect-name">Relative risk</div>
+        <div class="effect-value" id="rrValue">—</div>
+        <div class="effect-ci" id="rrCi"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="notes">
+    <b>How it's computed —</b> χ² uses the standard 2×2 formula n(ad−bc)²⁄[(a+b)(c+d)(a+c)(b+d)], optionally with Yates' correction; its p-value comes from the exact df = 1 relation to the normal distribution. Fisher's exact p-value sums hypergeometric probabilities of every table at least as extreme as the observed one, given the fixed margins — no large-sample assumption needed. Odds ratio and relative risk use 95% Wald confidence intervals on the log scale. <b>Rule of thumb:</b> prefer Fisher's exact test whenever any expected cell count falls below 5.
+    <p style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
+      Supervising Developer: Dr G Narenthiran FRCS(SN) · <a href="mailto:g_narenthiran@hotmail.com" style="color:inherit;">g_narenthiran@hotmail.com</a><br>
+      © 2026 G Narenthiran. All rights reserved.
+    </p>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  function lgamma(x){
+    var g = 7;
+    var c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+      771.32342877765313, -176.61502916214059, 12.507343278686905,
+      -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+    if (x < 0.5){
+      return Math.log(Math.PI / Math.sin(Math.PI * x)) - lgamma(1 - x);
+    }
+    x -= 1;
+    var a = c[0];
+    var t = x + g + 0.5;
+    for (var i = 1; i < g + 2; i++){ a += c[i] / (x + i); }
+    return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+  }
+
+  function logChoose(n, k){
+    if (k < 0 || k > n) return -Infinity;
+    return lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1);
+  }
+
+  function fisherExactTwoTailed(a, b, c, d){
+    var r1 = a + b, r2 = c + d, c1 = a + c, n = a + b + c + d;
+    if (n === 0) return NaN;
+    var lo = Math.max(0, c1 - r2), hi = Math.min(r1, c1);
+    function logP(k){ return logChoose(r1, k) + logChoose(r2, c1 - k) - logChoose(n, c1); }
+    var logPobs = logP(a);
+    var p = 0;
+    for (var k = lo; k <= hi; k++){
+      var lp = logP(k);
+      if (lp <= logPobs + 1e-7) p += Math.exp(lp);
+    }
+    return Math.min(1, p);
+  }
+
+  function erfc(x){
+    var z = Math.abs(x);
+    var t = 1 / (1 + 0.5 * z);
+    var ans = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 +
+      t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 +
+      t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? ans : 2 - ans;
+  }
+
+  function chiSquaredP(stat){
+    if (!isFinite(stat) || stat < 0) return NaN;
+    return erfc(Math.sqrt(stat / 2));
+  }
+
+  function fmtP(p){
+    if (isNaN(p)) return "—";
+    if (p < 0.0001) return "< 0.0001";
+    return p.toFixed(4);
+  }
+
+  function fmtNum(x, d){
+    if (!isFinite(x)) return "—";
+    return x.toFixed(d == null ? 3 : d);
+  }
+
+  function verdictPill(p){
+    var span = document.createElement("span");
+    if (isNaN(p)){
+      span.className = "verdict ns";
+      span.textContent = "Enter data";
+    } else if (p < 0.05){
+      span.className = "verdict sig";
+      span.textContent = "Significant (p < 0.05)";
+    } else if (p < 0.10){
+      span.className = "verdict border";
+      span.textContent = "Borderline";
+    } else {
+      span.className = "verdict ns";
+      span.textContent = "Not significant";
+    }
+    return span;
+  }
+
+  var els = {
+    a: document.getElementById("cellA"),
+    b: document.getElementById("cellB"),
+    c: document.getElementById("cellC"),
+    d: document.getElementById("cellD"),
+    r1: document.getElementById("row1Label"),
+    r2: document.getElementById("row2Label"),
+    c1: document.getElementById("col1Label"),
+    c2: document.getElementById("col2Label"),
+    r1total: document.getElementById("r1total"),
+    r2total: document.getElementById("r2total"),
+    c1total: document.getElementById("c1total"),
+    c2total: document.getElementById("c2total"),
+    grandTotal: document.getElementById("grandTotal"),
+    assumption: document.getElementById("assumption"),
+    chiStat: document.getElementById("chiStat"),
+    chiP: document.getElementById("chiP"),
+    chiVerdict: document.getElementById("chiVerdict"),
+    fisherP: document.getElementById("fisherP"),
+    fisherVerdict: document.getElementById("fisherVerdict"),
+    yatesToggle: document.getElementById("yatesToggle"),
+    orValue: document.getElementById("orValue"),
+    orCi: document.getElementById("orCi"),
+    rrValue: document.getElementById("rrValue"),
+    rrCi: document.getElementById("rrCi"),
+    resetBtn: document.getElementById("resetBtn")
+  };
+
+  function readInt(el){
+    var v = parseInt(el.value, 10);
+    return isNaN(v) || v < 0 ? 0 : v;
+  }
+
+  function recalc(){
+    var a = readInt(els.a), b = readInt(els.b), c = readInt(els.c), d = readInt(els.d);
+    var r1 = a + b, r2 = c + d, cc1 = a + c, cc2 = b + d, n = a + b + c + d;
+
+    els.r1total.textContent = r1;
+    els.r2total.textContent = r2;
+    els.c1total.textContent = cc1;
+    els.c2total.textContent = cc2;
+    els.grandTotal.textContent = n;
+
+    if (n === 0){
+      els.assumption.className = "assumption warn";
+      els.assumption.innerHTML = '<span class="dot"></span> Enter counts to run the tests.';
+      els.chiStat.textContent = "—";
+      els.chiP.textContent = "—";
+      els.fisherP.textContent = "—";
+      els.chiVerdict.innerHTML = ""; els.chiVerdict.appendChild(verdictPill(NaN));
+      els.fisherVerdict.innerHTML = ""; els.fisherVerdict.appendChild(verdictPill(NaN));
+      els.orValue.textContent = "—"; els.orCi.textContent = "";
+      els.rrValue.textContent = "—"; els.rrCi.textContent = "";
+      return;
+    }
+
+    var e11 = r1 * cc1 / n, e12 = r1 * cc2 / n, e21 = r2 * cc1 / n, e22 = r2 * cc2 / n;
+    var minExpected = Math.min(e11, e12, e21, e22);
+
+    if (minExpected < 5){
+      els.assumption.className = "assumption warn";
+      els.assumption.innerHTML = '<span class="dot"></span> Smallest expected count is ' + fmtNum(minExpected, 2) +
+        ' — below 5. Trust <b>Fisher\'s exact</b> test here, not chi-squared.';
+    } else {
+      els.assumption.className = "assumption good";
+      els.assumption.innerHTML = '<span class="dot"></span> Smallest expected count is ' + fmtNum(minExpected, 2) +
+        ' — chi-squared\'s large-sample assumption holds.';
+    }
+
+    var ad_bc = a * d - b * c;
+    var denom = r1 * r2 * cc1 * cc2;
+    var chi2;
+    if (denom === 0){
+      chi2 = NaN;
+    } else if (els.yatesToggle.checked){
+      var corr = Math.max(0, Math.abs(ad_bc) - n / 2);
+      chi2 = n * corr * corr / denom;
+    } else {
+      chi2 = n * ad_bc * ad_bc / denom;
+    }
+    var chiP = chiSquaredP(chi2);
+    els.chiStat.textContent = fmtNum(chi2, 3);
+    els.chiP.textContent = fmtP(chiP);
+    els.chiVerdict.innerHTML = ""; els.chiVerdict.appendChild(verdictPill(chiP));
+
+    var fisherP = fisherExactTwoTailed(a, b, c, d);
+    els.fisherP.textContent = fmtP(fisherP);
+    els.fisherVerdict.innerHTML = ""; els.fisherVerdict.appendChild(verdictPill(fisherP));
+
+    var za = a, zb = b, zc = c, zd = d, haszero = (a === 0 || b === 0 || c === 0 || d === 0);
+    if (haszero){ za += 0.5; zb += 0.5; zc += 0.5; zd += 0.5; }
+    var orv = (za * zd) / (zb * zc);
+    var orSE = Math.sqrt(1 / za + 1 / zb + 1 / zc + 1 / zd);
+    var orLog = Math.log(orv);
+    var orLo = Math.exp(orLog - 1.96 * orSE), orHi = Math.exp(orLog + 1.96 * orSE);
+    els.orValue.textContent = fmtNum(orv, 2);
+    els.orCi.textContent = "95% CI " + fmtNum(orLo, 2) + "–" + fmtNum(orHi, 2) + (haszero ? " (0.5 added)" : "");
+
+    if (r1 > 0 && r2 > 0 && za > 0 && zc > 0){
+      var p1 = za / (za + zb), p2 = zc / (zc + zd);
+      var rrv = p1 / p2;
+      var rrSE = Math.sqrt(1 / za - 1 / (za + zb) + 1 / zc - 1 / (zc + zd));
+      var rrLog = Math.log(rrv);
+      var rrLo = Math.exp(rrLog - 1.96 * rrSE), rrHi = Math.exp(rrLog + 1.96 * rrSE);
+      els.rrValue.textContent = fmtNum(rrv, 2);
+      els.rrCi.textContent = "95% CI " + fmtNum(rrLo, 2) + "–" + fmtNum(rrHi, 2) + (haszero ? " (0.5 added)" : "");
+    } else {
+      els.rrValue.textContent = "—";
+      els.rrCi.textContent = "";
+    }
+  }
+
+  [els.a, els.b, els.c, els.d, els.yatesToggle].forEach(function(el){
+    el.addEventListener("input", recalc);
+    el.addEventListener("change", recalc);
+  });
+
+  els.resetBtn.addEventListener("click", function(){
+    els.r1.value = "Treatment"; els.r2.value = "Control";
+    els.c1.value = "Outcome +"; els.c2.value = "Outcome −";
+    els.a.value = "30"; els.b.value = "70"; els.c.value = "15"; els.d.value = "85";
+    els.yatesToggle.checked = false;
+    recalc();
+  });
+
+  recalc();
+})();
+</script>
