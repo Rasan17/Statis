@@ -619,6 +619,14 @@
   </section>
 
   <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Visual check</p><h2>Group means</h2></div>
+    </div>
+    <div id="ttBarChart"></div>
+    <p class="norm-note" id="ttBarChartCaption" style="margin-top:8px;"></p>
+  </section>
+
+  <section class="card">
     <p class="eyebrow">Effect size</p>
     <h2 id="ttEffectTitle">Cohen's d</h2>
     <div class="effect-grid" style="grid-template-columns:1fr;">
@@ -631,7 +639,7 @@
   </section>
 
   <footer class="notes">
-    <b>How it's computed —</b> Welch's t-test doesn't assume equal variances: t = (x̄₁−x̄₂)⁄√(s₁²⁄n₁+s₂²⁄n₂), with the Welch–Satterthwaite approximation for degrees of freedom. Student's t-test pools the two variances and uses df = n₁+n₂−2. The paired t-test runs on the within-subject differences: t = d̄⁄(s_d⁄√n), df = n−1. All t p-values use the exact regularized incomplete beta relation to the t-distribution. When Shapiro–Wilk flags non-normal data, Mann–Whitney U (independent) or the Wilcoxon signed-rank test (paired) replace the t-test — both are rank-based, so they don't need a normality assumption, and both use the standard continuity- and tie-corrected normal approximation for their p-values. <b>Auto</b> chooses between these using the normality and variance checks above; the reasoning for each pick is shown next to the result. Cohen's d and the rank-biserial correlation r both express the effect as a standardized, sample-size-independent magnitude.
+    <b>How it's computed —</b> Welch's t-test doesn't assume equal variances: t = (x̄₁−x̄₂)⁄√(s₁²⁄n₁+s₂²⁄n₂), with the Welch–Satterthwaite approximation for degrees of freedom. Student's t-test pools the two variances and uses df = n₁+n₂−2. The paired t-test runs on the within-subject differences: t = d̄⁄(s_d⁄√n), df = n−1. All t p-values use the exact regularized incomplete beta relation to the t-distribution. When Shapiro–Wilk flags non-normal data, Mann–Whitney U (independent) or the Wilcoxon signed-rank test (paired) replace the t-test — both are rank-based, so they don't need a normality assumption, and both use the standard continuity- and tie-corrected normal approximation for their p-values. <b>Auto</b> chooses between these using the normality and variance checks above; the reasoning for each pick is shown next to the result. Cohen's d and the rank-biserial correlation r both express the effect as a standardized, sample-size-independent magnitude. The bar chart's error bars use each group's own t-distribution critical value (not a fixed 1.96), since with small samples the normal approximation understates the interval.
   </footer>
 
   </div>
@@ -1246,6 +1254,85 @@
     return betai(df / 2, 0.5, x);
   }
 
+  function tCriticalValue(df, alphaTwoSided){
+    if (!isFinite(df) || df <= 0) return NaN;
+    var lo = 0, hi = 1000;
+    for (var iter = 0; iter < 100; iter++){
+      var mid = (lo + hi) / 2;
+      if (tTestPValue(mid, df) > alphaTwoSided) lo = mid; else hi = mid;
+    }
+    return (lo + hi) / 2;
+  }
+
+  function groupMeanCI(arr){
+    var n = arr.length;
+    if (n < 2) return { n: n, mean: n === 1 ? arr[0] : NaN, sd: NaN, se: NaN, df: NaN, ciLower: NaN, ciUpper: NaN };
+    var m = mean(arr), sd = sampleSd(arr), se = sd / Math.sqrt(n), df = n - 1;
+    var tCrit = tCriticalValue(df, 0.05);
+    return { n: n, mean: m, sd: sd, se: se, df: df, tCrit: tCrit, ciLower: m - tCrit * se, ciUpper: m + tCrit * se };
+  }
+
+  function renderBarChart(container, groups){
+    var valid = groups.filter(function(g){ return !isNaN(g.stats.mean); });
+    if (valid.length === 0){
+      container.innerHTML = '<p class="norm-note">Each group needs at least 2 values to show means with a confidence interval.</p>';
+      return;
+    }
+    var colors = [getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
+                  getComputedStyle(document.documentElement).getPropertyValue("--accent2").trim()];
+    var W = 420, H = 280, mL = 54, mR = 20, mT = 16, mB = 34;
+    var allVals = [0];
+    groups.forEach(function(g){
+      if (isNaN(g.stats.mean)) return;
+      allVals.push(g.stats.mean);
+      if (isFinite(g.stats.ciLower)) allVals.push(g.stats.ciLower);
+      if (isFinite(g.stats.ciUpper)) allVals.push(g.stats.ciUpper);
+    });
+    var yMin = Math.min.apply(null, allVals), yMax = Math.max.apply(null, allVals);
+    var pad = (yMax - yMin) * 0.15 || 1;
+    yMin -= (yMin < 0 ? pad : 0); yMax += pad;
+
+    function sy(v){ return H - mB - (v - yMin) / (yMax - yMin) * (H - mT - mB); }
+
+    var axes = '<line x1="' + mL + '" y1="' + sy(0).toFixed(1) + '" x2="' + (W - mR) + '" y2="' + sy(0).toFixed(1) + '" stroke="var(--line)"/>' +
+               '<line x1="' + mL + '" y1="' + mT + '" x2="' + mL + '" y2="' + (H - mB) + '" stroke="var(--line)"/>';
+
+    var yTicks = "";
+    for (var t = 0; t <= 4; t++){
+      var v = yMin + (yMax - yMin) * t / 4;
+      var yPix = sy(v);
+      yTicks += '<line x1="' + (mL - 4) + '" y1="' + yPix.toFixed(1) + '" x2="' + mL + '" y2="' + yPix.toFixed(1) + '" stroke="var(--line)"/>';
+      yTicks += '<text x="' + (mL - 8) + '" y="' + (yPix + 3.5).toFixed(1) + '" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(v, Math.abs(v) < 10 ? 2 : 1) + '</text>';
+    }
+
+    var n = groups.length;
+    var slotW = (W - mL - mR) / n;
+    var barW = Math.min(70, slotW * 0.5);
+    var bars = "", labels = "";
+    groups.forEach(function(g, gi){
+      var cx = mL + slotW * (gi + 0.5);
+      var color = colors[gi % colors.length];
+      labels += '<text x="' + cx.toFixed(1) + '" y="' + (H - mB + 16) + '" text-anchor="middle" font-size="10.5" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' +
+        escapeXml(g.name.length > 14 ? g.name.slice(0, 13) + "…" : g.name) + '</text>';
+      if (isNaN(g.stats.mean)) return;
+      var yBar = sy(g.stats.mean), yBase = sy(0);
+      var barTop = Math.min(yBar, yBase), barH = Math.abs(yBase - yBar);
+      bars += '<rect x="' + (cx - barW / 2).toFixed(1) + '" y="' + barTop.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + barH.toFixed(1) + '" rx="3" fill="' + color + '" fill-opacity="0.55" stroke="' + color + '" stroke-width="1.5"><title>' +
+        escapeXml(g.name) + ": mean " + fmtNum(g.stats.mean, 3) + '</title></rect>';
+      if (isFinite(g.stats.ciLower) && isFinite(g.stats.ciUpper)){
+        var yLo = sy(g.stats.ciLower), yHi = sy(g.stats.ciUpper);
+        bars += '<line x1="' + cx.toFixed(1) + '" y1="' + yLo.toFixed(1) + '" x2="' + cx.toFixed(1) + '" y2="' + yHi.toFixed(1) + '" stroke="var(--ink)" stroke-width="1.5"><title>95% CI ' +
+          fmtNum(g.stats.ciLower, 3) + '–' + fmtNum(g.stats.ciUpper, 3) + '</title></line>';
+        bars += '<line x1="' + (cx - 7).toFixed(1) + '" y1="' + yHi.toFixed(1) + '" x2="' + (cx + 7).toFixed(1) + '" y2="' + yHi.toFixed(1) + '" stroke="var(--ink)" stroke-width="1.5"/>';
+        bars += '<line x1="' + (cx - 7).toFixed(1) + '" y1="' + yLo.toFixed(1) + '" x2="' + (cx + 7).toFixed(1) + '" y2="' + yLo.toFixed(1) + '" stroke="var(--ink)" stroke-width="1.5"/>';
+      }
+      bars += '<text x="' + cx.toFixed(1) + '" y="' + (Math.min(yBar, isFinite(g.stats.ciUpper) ? sy(g.stats.ciUpper) : yBar) - 8).toFixed(1) + '" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--ink)" font-family="IBM Plex Mono, monospace">' + fmtNum(g.stats.mean, 2) + '</text>';
+    });
+
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;max-width:480px;height:auto;display:block;margin:0 auto;" role="img" aria-label="Bar chart of group means with 95% confidence intervals">' +
+      yTicks + axes + bars + labels + '</svg>';
+  }
+
   function parseNumbers(text){
     return text.split(/[\s,]+/)
       .map(function(s){ return s.trim(); })
@@ -1367,6 +1454,8 @@
     effectName: document.getElementById("ttEffectName"),
     cohenD: document.getElementById("ttCohenD"),
     cohenDNote: document.getElementById("ttCohenDNote"),
+    barChart: document.getElementById("ttBarChart"),
+    barChartCaption: document.getElementById("ttBarChartCaption"),
     resetBtn: document.getElementById("ttestResetBtn")
   };
 
@@ -1475,6 +1564,7 @@
     ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(NaN));
     ttEls.meanDiff.textContent = "—";
     ttEls.cohenD.textContent = "—"; ttEls.cohenDNote.textContent = "";
+    ttEls.barChart.innerHTML = ""; ttEls.barChartCaption.textContent = "";
   }
 
   function recalcTtest(){
@@ -1537,6 +1627,12 @@
       var dMean = mean(diffs);
       ttEls.meanDiff.textContent = fmtNum(dMean, 3);
 
+      renderBarChart(ttEls.barChart, [
+        { name: labelA, stats: groupMeanCI(arrA) },
+        { name: labelB, stats: groupMeanCI(arrB) }
+      ]);
+      ttEls.barChartCaption.textContent = "Bars show each side's mean; error bars show the 95% CI of the mean (t-distribution, df = n−1) — not the paired test's own CI on the mean difference.";
+
       if (chosenMethod === "wilcoxon"){
         var wres = wilcoxonSignedRank(diffs);
         if (wres.n < 1){
@@ -1578,6 +1674,12 @@
       var mA = mean(arrA), mB = mean(arrB);
       var meanDiff = mA - mB;
       ttEls.meanDiff.textContent = fmtNum(meanDiff, 3);
+
+      renderBarChart(ttEls.barChart, [
+        { name: labelA, stats: groupMeanCI(arrA) },
+        { name: labelB, stats: groupMeanCI(arrB) }
+      ]);
+      ttEls.barChartCaption.textContent = "Bars show each group's mean; error bars show the 95% CI of the mean (t-distribution, df = n−1).";
 
       if (chosenMethod === "mannwhitney"){
         var mwres = mannWhitneyU(arrA, arrB);
