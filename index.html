@@ -913,7 +913,7 @@
       <button class="ghost-btn" id="copyResultsBtn" type="button">Copy results</button>
       <button class="ghost-btn" id="generateManuscriptBtn" type="button">Generate Methods &amp; Results text</button>
     </div>
-    <p class="data-hint" id="exportNote">Downloads and clipboard copy need this page to be running outside the Claude preview sandbox (e.g. the GitHub-hosted copy) — they won't do anything inside the chat's inline preview.</p>
+    <p class="data-hint" id="exportNote">Downloads ask for confirmation before saving anywhere this page runs. Clipboard copy may be blocked in some embedded previews — if "Copy" doesn't seem to work, select the text and copy it manually.</p>
     <textarea id="manuscriptText" rows="5" readonly hidden style="width:100%;margin-top:10px;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font:13px/1.6 'IBM Plex Sans',sans-serif;padding:10px 12px;"></textarea>
     <button class="ghost-btn" id="copyManuscriptBtn" type="button" hidden style="margin-top:8px;">Copy this text</button>
   </section>
@@ -2778,17 +2778,42 @@
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
   }
 
+  var downloadsCapabilityPromise = (typeof window !== "undefined" && window.claude && window.claude.use)
+    ? window.claude.use("downloads").catch(function(){ return null; })
+    : Promise.resolve(null);
+
+  function saveFile(filename, data, btn){
+    var original = btn ? btn.textContent : null;
+    function setBtn(text, revert){
+      if (!btn) return;
+      btn.textContent = text;
+      if (revert) setTimeout(function(){ btn.textContent = original; }, 2200);
+    }
+    downloadsCapabilityPromise.then(function(downloads){
+      if (downloads){
+        downloads.save({ filename: filename, data: data }).then(function(){
+          setBtn("Saved!", true);
+        }).catch(function(err){
+          setBtn(err && err.code === "declined" ? "Declined" : "Couldn't save", true);
+        });
+      } else {
+        triggerDownload(filename, data instanceof Blob ? data : new Blob([data]));
+        setBtn("Downloaded!", true);
+      }
+    });
+  }
+
   survEls.exportCsvBtn.addEventListener("click", function(){
     var csv = survivalLifeTableCSV();
     if (!csv) return;
-    triggerDownload("kaplan-meier-life-table.csv", new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    saveFile("kaplan-meier-life-table.csv", new Blob([csv], { type: "text/csv;charset=utf-8;" }), survEls.exportCsvBtn);
   });
 
   survEls.exportSvgBtn.addEventListener("click", function(){
     var svg = survEls.plotContainer.querySelector("svg");
     if (!svg) return;
     var xml = new XMLSerializer().serializeToString(svg);
-    triggerDownload("kaplan-meier-plot.svg", new Blob([xml], { type: "image/svg+xml;charset=utf-8;" }));
+    saveFile("kaplan-meier-plot.svg", new Blob([xml], { type: "image/svg+xml;charset=utf-8;" }), survEls.exportSvgBtn);
   });
 
   survEls.exportPngBtn.addEventListener("click", function(){
@@ -2808,7 +2833,7 @@
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
-      canvas.toBlob(function(blob){ triggerDownload("kaplan-meier-plot.png", blob); });
+      canvas.toBlob(function(blob){ saveFile("kaplan-meier-plot.png", blob, survEls.exportPngBtn); });
     };
     img.src = url;
   });
