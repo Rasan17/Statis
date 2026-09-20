@@ -12,6 +12,8 @@
     --accent:#1F6E5C;
     --accent-soft:#E2F0EA;
     --accent-ink:#0E4436;
+    --accent2:#B5651D;
+    --accent2-soft:#F5E6D8;
     --good:#1F7A4C;
     --good-soft:#E4F3E8;
     --warn:#9C6B12;
@@ -30,6 +32,8 @@
       --accent:#4FBE9F;
       --accent-soft:#1D362F;
       --accent-ink:#9FE8D2;
+      --accent2:#E0935A;
+      --accent2-soft:#3A2A1A;
       --good:#5FCB86;
       --good-soft:#1C3423;
       --warn:#E0AE4F;
@@ -48,6 +52,8 @@
     --accent:#4FBE9F;
     --accent-soft:#1D362F;
     --accent-ink:#9FE8D2;
+    --accent2:#E0935A;
+    --accent2-soft:#3A2A1A;
     --good:#5FCB86;
     --good-soft:#1C3423;
     --warn:#E0AE4F;
@@ -334,6 +340,70 @@
   .norm-stat{font-family:"IBM Plex Mono",monospace;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink-soft);white-space:nowrap;}
   .norm-stat b{color:var(--ink);font-weight:600;}
   .norm-note{font-size:12.5px;color:var(--ink-soft);}
+
+  .radio-group{display:flex;gap:10px;flex-wrap:wrap;}
+  .radio-card{
+    flex:1;min-width:180px;
+    display:flex;align-items:flex-start;gap:10px;
+    border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;cursor:pointer;
+    background:var(--paper);
+  }
+  .radio-card input{margin-top:3px;accent-color:var(--accent);flex:none;}
+  .radio-card.active{border-color:var(--accent);background:var(--accent-soft);}
+  .radio-card-title{font-weight:600;font-size:13.5px;}
+  .radio-card-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+
+  .file-btn{position:relative;overflow:hidden;display:inline-flex;}
+  .file-btn input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;}
+
+  .col-map-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px;}
+  @media (max-width:640px){.col-map-grid{grid-template-columns:1fr;}}
+  .col-map-field label{display:block;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-soft);margin-bottom:6px;}
+  .col-map-field select{
+    width:100%;border:1px solid var(--line);border-radius:8px;background:var(--paper);
+    color:var(--ink);font:13.5px "IBM Plex Sans",sans-serif;padding:8px 10px;
+  }
+
+  .qc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
+  @media (max-width:640px){.qc-grid{grid-template-columns:1fr;}}
+  .qc-tile{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--paper);}
+  .qc-tile .qc-num{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .qc-tile .qc-label{font-size:11.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.04em;margin-top:2px;}
+
+  details.info-box{border:1px solid var(--line);border-radius:10px;background:var(--paper);overflow:hidden;}
+  details.info-box summary{
+    cursor:pointer;padding:12px 14px;font-weight:600;font-size:13.5px;
+    list-style:none;display:flex;align-items:center;justify-content:space-between;
+    background:var(--neutral-soft);
+  }
+  details.info-box summary::-webkit-details-marker{display:none;}
+  details.info-box summary::after{content:"+";font-size:16px;color:var(--ink-soft);font-weight:400;}
+  details.info-box[open] summary::after{content:"−";}
+  details.info-box .info-body{padding:14px;font-size:13px;line-height:1.65;color:var(--ink-soft);}
+  details.info-box .info-body b{color:var(--ink);}
+  details.info-box .info-body p{margin:0 0 10px;}
+  details.info-box .info-body p:last-child{margin-bottom:0;}
+  details.info-box .info-body ul{margin:0 0 10px;padding-left:20px;}
+
+  table.life-table{border-collapse:collapse;width:100%;font-size:12.5px;}
+  table.life-table th, table.life-table td{
+    border:1px solid var(--line);padding:6px 8px;text-align:right;
+    font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap;
+  }
+  table.life-table th{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;text-align:right;}
+  table.life-table th:first-child, table.life-table td:first-child{text-align:left;}
+
+  .legend-row{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;}
+  .legend-item{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-soft);}
+  .legend-swatch{width:16px;height:3px;border-radius:2px;flex:none;}
+
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+  .excl-list{max-height:200px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin-top:10px;}
+  .excl-list table{width:100%;border-collapse:collapse;font-size:12px;}
+  .excl-list th, .excl-list td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;font-family:"IBM Plex Mono",monospace;}
+  .excl-list th{background:var(--neutral-soft);position:sticky;top:0;}
 </style>
 
 <div class="page">
@@ -360,6 +430,7 @@
     <button class="tab-btn active" id="tabBtnContingency" type="button" role="tab" aria-selected="true">Contingency table</button>
     <button class="tab-btn" id="tabBtnTtest" type="button" role="tab" aria-selected="false">T-test</button>
     <button class="tab-btn" id="tabBtnRegression" type="button" role="tab" aria-selected="false">Correlation</button>
+    <button class="tab-btn" id="tabBtnSurvival" type="button" role="tab" aria-selected="false">Survival</button>
   </nav>
 
   <div class="tab-panel" id="panel-contingency">
@@ -665,6 +736,215 @@
 
   </div>
 
+  <div class="tab-panel" id="panel-survival" hidden>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 1</p><h2>Analysis type</h2></div>
+    </div>
+    <div class="radio-group" role="radiogroup">
+      <label class="radio-card active" id="survOneGroupCard">
+        <input type="radio" name="survAnalysisType" id="survOneGroup" value="one" checked>
+        <div>
+          <div class="radio-card-title">One-group Kaplan–Meier</div>
+          <div class="radio-card-sub">A single survival curve for one cohort. Needs Time and Event.</div>
+        </div>
+      </label>
+      <label class="radio-card" id="survTwoGroupCard">
+        <input type="radio" name="survAnalysisType" id="survTwoGroup" value="two">
+        <div>
+          <div class="radio-card-title">Two-group comparison</div>
+          <div class="radio-card-sub">Compare two curves with a log-rank test. Also needs Group.</div>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 2</p><h2>Data</h2></div>
+      <div class="btn-row">
+        <span class="ghost-btn file-btn">Upload CSV<input type="file" id="survFileInput" accept=".csv,.tsv,.txt"></span>
+        <button class="ghost-btn" id="survLoadExampleBtn" type="button">Load example</button>
+      </div>
+    </div>
+    <textarea id="survPasteArea" aria-label="Survival data" rows="8" style="width:100%;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font:13px/1.5 'IBM Plex Mono',monospace;padding:10px 12px;resize:vertical;"></textarea>
+    <p class="data-hint">First row is the header. Comma, tab, or space separated. Paste your own data or use the columns below to tell us which column is which.</p>
+
+    <div class="col-map-grid">
+      <div class="col-map-field">
+        <label for="colTime">Time column</label>
+        <select id="colTime"></select>
+      </div>
+      <div class="col-map-field">
+        <label for="colEvent">Event column (1 = event, 0 = censored)</label>
+        <select id="colEvent"></select>
+      </div>
+      <div class="col-map-field" id="colGroupWrap" hidden>
+        <label for="colGroup">Group column</label>
+        <select id="colGroup"></select>
+      </div>
+    </div>
+
+    <div class="assumption warn" id="survError" hidden style="margin-top:14px;"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Data quality</p><h2>Observations included</h2></div>
+    </div>
+    <div class="qc-grid">
+      <div class="qc-tile"><div class="qc-num" id="qcTotal">—</div><div class="qc-label">Rows parsed</div></div>
+      <div class="qc-tile"><div class="qc-num" id="qcIncluded">—</div><div class="qc-label">Included in analysis</div></div>
+      <div class="qc-tile"><div class="qc-num" id="qcExcluded">—</div><div class="qc-label">Excluded</div></div>
+    </div>
+    <div id="qcReasons"></div>
+    <details id="qcExclDetails" hidden style="margin-top:10px;">
+      <summary style="cursor:pointer;font-size:12.5px;color:var(--accent-ink);font-weight:600;">Show excluded observations</summary>
+      <div class="excl-list" id="qcExclList"></div>
+    </details>
+    <div class="assumption warn" id="survSmallSampleWarning" hidden style="margin-top:14px;"></div>
+  </section>
+
+  <section class="card" id="survGraphCard">
+    <div class="card-head">
+      <div><p class="eyebrow">Kaplan–Meier plot</p><h2 id="kmPlotTitle">Survival curve</h2></div>
+    </div>
+    <div id="kmPlotContainer"></div>
+    <div class="legend-row" id="kmLegend"></div>
+
+    <div class="col-map-grid" style="margin-top:18px;">
+      <div class="col-map-field">
+        <label for="chartTitleInput">Graph title</label>
+        <input type="text" id="chartTitleInput" class="group-name-input" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;">
+      </div>
+      <div class="col-map-field">
+        <label for="xAxisLabelInput">X-axis label</label>
+        <input type="text" id="xAxisLabelInput" class="group-name-input" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;">
+      </div>
+      <div class="col-map-field">
+        <label for="yAxisLabelInput">Y-axis label</label>
+        <input type="text" id="yAxisLabelInput" class="group-name-input" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;">
+      </div>
+      <div class="col-map-field">
+        <label for="timeUnitSelect">Time units</label>
+        <select id="timeUnitSelect">
+          <option value="days">Days</option>
+          <option value="weeks">Weeks</option>
+          <option value="months" selected>Months</option>
+          <option value="years">Years</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      <div class="col-map-field" id="timeUnitCustomWrap" hidden>
+        <label for="timeUnitCustomInput">Custom unit label</label>
+        <input type="text" id="timeUnitCustomInput" class="group-name-input" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;" placeholder="e.g. cycles">
+      </div>
+      <div class="col-map-field">
+        <label for="yScaleSelect">Survival axis</label>
+        <select id="yScaleSelect">
+          <option value="prob">Probability (0–1)</option>
+          <option value="pct">Percentage (0–100%)</option>
+        </select>
+      </div>
+    </div>
+    <div class="toggle-row" style="flex-wrap:wrap;">
+      <label class="toggle"><input type="checkbox" id="showCIToggle" checked><span class="toggle-track"></span></label>
+      <span class="toggle-label">Show 95% confidence bands</span>
+    </div>
+    <div class="toggle-row" style="border-top:none;padding-top:0;margin-top:0;">
+      <label class="toggle"><input type="checkbox" id="showCensorToggle" checked><span class="toggle-track"></span></label>
+      <span class="toggle-label">Show censoring ticks</span>
+    </div>
+  </section>
+
+  <section class="card" id="oneGroupResultsCard">
+    <p class="eyebrow">One-group results</p>
+    <h2>Summary</h2>
+    <div class="stat-row"><span class="stat-label">Observations (N)</span><span class="stat-value" id="ogN">—</span></div>
+    <div class="stat-row"><span class="stat-label">Events</span><span class="stat-value" id="ogEvents">—</span></div>
+    <div class="stat-row"><span class="stat-label">Censored</span><span class="stat-value" id="ogCensored">—</span></div>
+    <div class="stat-row"><span class="stat-label">Percent censored</span><span class="stat-value" id="ogPctCensored">—</span></div>
+    <div class="stat-row"><span class="stat-label">Median follow-up</span><span class="stat-value" id="ogMedianFollowup">—</span></div>
+    <div class="stat-row"><span class="stat-label">Median survival</span><span class="stat-value" id="ogMedianSurv">—</span></div>
+    <div class="stat-row"><span class="stat-label">95% CI for median</span><span class="stat-value" id="ogMedianCI">—</span></div>
+  </section>
+
+  <section class="card" id="twoGroupResultsCard">
+    <p class="eyebrow">Two-group results</p>
+    <h2>Group summary</h2>
+    <div class="table-wrap">
+      <table class="ct" style="min-width:520px;">
+        <thead>
+          <tr><th class="rowhead">Group</th><th class="total-label">N</th><th class="total-label">Events</th><th class="total-label">Censored</th><th class="total-label">% censored</th><th class="total-label">Median survival</th><th class="total-label">95% CI</th></tr>
+        </thead>
+        <tbody id="tgResultsBody"></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
+      <p class="eyebrow">Log-rank test</p>
+      <h2>Two-sided comparison</h2>
+      <div class="stat-row"><span class="stat-label">χ²</span><span class="stat-value" id="lrChi2">—</span></div>
+      <div class="stat-row"><span class="stat-label">df</span><span class="stat-value" id="lrDf">1</span></div>
+      <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="lrP">—</span></div>
+      <div id="lrVerdict"></div>
+      <p class="norm-note" id="lrInterpretation" style="margin-top:12px;"></p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Transparency</p><h2>Calculation table</h2></div>
+      <button class="ghost-btn" id="calcTableToggleBtn" type="button">Show calculation table</button>
+    </div>
+    <div id="calcTableContainer" hidden></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Export</p><h2>Graph &amp; results</h2></div>
+    </div>
+    <div class="btn-row">
+      <button class="ghost-btn" id="exportSvgBtn" type="button">Download SVG</button>
+      <button class="ghost-btn" id="exportPngBtn" type="button">Download PNG</button>
+      <button class="ghost-btn" id="exportPrintBtn" type="button">Print / Save as PDF</button>
+      <button class="ghost-btn" id="exportCsvBtn" type="button">Download life table (CSV)</button>
+      <button class="ghost-btn" id="copyResultsBtn" type="button">Copy results</button>
+      <button class="ghost-btn" id="generateManuscriptBtn" type="button">Generate Methods &amp; Results text</button>
+    </div>
+    <p class="data-hint" id="exportNote">Downloads and clipboard copy need this page to be running outside the Claude preview sandbox (e.g. the GitHub-hosted copy) — they won't do anything inside the chat's inline preview.</p>
+    <textarea id="manuscriptText" rows="5" readonly hidden style="width:100%;margin-top:10px;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font:13px/1.6 'IBM Plex Sans',sans-serif;padding:10px 12px;"></textarea>
+    <button class="ghost-btn" id="copyManuscriptBtn" type="button" hidden style="margin-top:8px;">Copy this text</button>
+  </section>
+
+  <section class="card">
+    <details class="info-box">
+      <summary>About Kaplan–Meier analysis</summary>
+      <div class="info-body">
+        <p><b>What it is —</b> Kaplan–Meier estimation tracks the probability of "surviving" (not yet having the event) over time in a group that includes some incomplete observations. It's the standard way to summarize time-to-event data — death, relapse, device failure, discharge — when not everyone has been followed for the same length of time or reached the event by the end of the study.</p>
+        <p><b>Event vs. censoring —</b> An <b>event</b> (coded 1) is the outcome you're tracking actually happening. A <b>censored</b> observation (coded 0) is someone who left the risk set without the event happening — the study ended, they were lost to follow-up, or they withdrew. Censoring is not a negative result and is not the same as loss to follow-up in general — it specifically means "we know they hadn't had the event as of this time, but we don't know what happened after."</p>
+        <p><b>The formula —</b> Ŝ(t) = Π<sub>tᵢ≤t</sub> (1 − dᵢ⁄nᵢ), where nᵢ is the number still at risk just before time tᵢ and dᵢ is the number of events at tᵢ. The curve only steps down at event times; a censoring removes someone from the risk set for later times but doesn't itself drop the curve.</p>
+        <p><b>Median survival —</b> the earliest time at which the estimated survival probability falls to 0.50 or below — i.e., the point by which half the cohort has had the event. If the curve never reaches 0.50 during follow-up, the median is genuinely not known yet; reporting the last observed time as if it were the median would be wrong, so this app says "not reached" instead.</p>
+        <p><b>Confidence intervals —</b> computed with Greenwood's formula for the variance of Ŝ(t), combined with a complementary log-log transformation before building the interval and transforming back. This keeps every confidence bound inside [0, 1] and is generally more accurate than a plain linear interval, especially near the ends of the curve.</p>
+        <p><b>The log-rank test —</b> compares two Kaplan–Meier curves by summing, at every time an event occurs in either group, the difference between observed and expected events in one group (expected under the null hypothesis that both groups share the same survival function), weighting by the hypergeometric variance at each time. It tests whether the two survival <i>distributions</i> differ over the whole observed follow-up — it does not estimate the size of the difference (that's what a hazard ratio from a Cox model is for), and it can be underpowered if the two curves cross, or if either group has few events.</p>
+        <p><b>Statistical vs. clinical significance —</b> a small p-value only says the observed difference is unlikely under the null hypothesis given this sample; it says nothing about whether the difference is large enough to matter clinically, and a non-significant result with a small sample doesn't prove the groups are equivalent. Curves, medians and p-values here should be read alongside the actual sizes of the effects and confidence intervals, not the p-value alone.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">Not yet implemented</p>
+    <h2>Cox proportional hazards model</h2>
+    <p class="norm-note">A hazard ratio should come from a Cox model, not be read off Kaplan–Meier curves or computed from median survival times — both would misrepresent the comparison. That model isn't implemented in this tool yet, so no hazard ratio is shown here. Use the log-rank test above for whether the curves differ, and treat any hazard ratio you compute elsewhere as a separate analysis from this one.</p>
+  </section>
+
+  <footer class="notes">
+    <b>How it's computed —</b> The Kaplan–Meier estimator is Ŝ(t) = Π(1−dᵢ⁄nᵢ) over each distinct time with an event, ties handled by counting dᵢ and nᵢ as totals at that time rather than breaking them apart. Variance uses Greenwood's formula, Σdᵢ⁄(nᵢ(nᵢ−dᵢ)), transformed via complementary log-log for the 95% bands. Median survival and its CI are read directly off the step function and its confidence bands — never approximated from the last observed time or interpolated. The log-rank test is the Mantel–Haenszel form: at each pooled event time it compares observed vs. expected events in one group under the shared-survival null, weighted by the hypergeometric variance, summed and squared against that total variance (χ², df = 1). No hazard ratio is computed from these curves.
+  </footer>
+
+  </div>
+
   <footer class="notes">
     Supervising Developer: Dr G Narenthiran FRCS(SN) · <a href="mailto:g_narenthiran@hotmail.com" style="color:inherit;">g_narenthiran@hotmail.com</a><br>
     © 2026 G Narenthiran. All rights reserved.
@@ -908,7 +1188,8 @@
   var TABS = {
     contingency: { btn: document.getElementById("tabBtnContingency"), panel: document.getElementById("panel-contingency") },
     ttest:       { btn: document.getElementById("tabBtnTtest"),       panel: document.getElementById("panel-ttest") },
-    regression:  { btn: document.getElementById("tabBtnRegression"),  panel: document.getElementById("panel-regression") }
+    regression:  { btn: document.getElementById("tabBtnRegression"),  panel: document.getElementById("panel-regression") },
+    survival:    { btn: document.getElementById("tabBtnSurvival"),    panel: document.getElementById("panel-survival") }
   };
 
   function showTab(name){
@@ -1867,6 +2148,741 @@
     el.addEventListener("input", recalcRegression);
     el.addEventListener("change", recalcRegression);
   });
+
+  /* ===================== Kaplan–Meier survival analysis ===================== */
+
+  function parseDelimitedText(text){
+    var lines = text.split(/\r\n|\r|\n/).map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+    if (lines.length === 0) return { headers: [], rows: [] };
+    var delim = lines[0].indexOf("\t") >= 0 ? "\t" : (lines[0].indexOf(",") >= 0 ? "," : null);
+    function splitLine(l){
+      return delim ? l.split(delim).map(function(s){ return s.trim(); }) : l.trim().split(/\s+/);
+    }
+    var headers = splitLine(lines[0]);
+    var rows = lines.slice(1).map(splitLine);
+    return { headers: headers, rows: rows };
+  }
+
+  function atRiskCount(sortedTimes, t){
+    var c = 0;
+    for (var i = 0; i < sortedTimes.length; i++) if (sortedTimes[i] >= t) c++;
+    return c;
+  }
+
+  function kaplanMeier(times, events){
+    var n = times.length;
+    var rows = times.map(function(t, i){ return { time: t, event: events[i] }; });
+    rows.sort(function(a, b){ return a.time - b.time; });
+
+    var distinctTimes = [];
+    var i = 0;
+    while (i < rows.length){
+      var j = i;
+      while (j + 1 < rows.length && rows[j + 1].time === rows[i].time) j++;
+      distinctTimes.push({ time: rows[i].time, start: i, end: j });
+      i = j + 1;
+    }
+
+    var atRisk = n;
+    var survival = 1;
+    var greenwoodSum = 0;
+    var table = [];
+
+    distinctTimes.forEach(function(grp){
+      var d = 0, c = 0;
+      for (var k = grp.start; k <= grp.end; k++){
+        if (rows[k].event === 1) d++; else c++;
+      }
+      var nAtRisk = atRisk;
+      if (d > 0){
+        survival = survival * (1 - d / nAtRisk);
+        if (nAtRisk - d > 0) greenwoodSum += d / (nAtRisk * (nAtRisk - d));
+        else greenwoodSum = Infinity;
+      }
+      var variance = isFinite(greenwoodSum) ? survival * survival * greenwoodSum : NaN;
+      var se = isFinite(variance) ? Math.sqrt(variance) : NaN;
+
+      var ciLower = NaN, ciUpper = NaN;
+      if (survival > 0 && survival < 1 && isFinite(greenwoodSum)){
+        var L = Math.log(-Math.log(survival));
+        var varL = greenwoodSum / (Math.log(survival) * Math.log(survival));
+        var seL = Math.sqrt(varL);
+        ciUpper = Math.exp(-Math.exp(L - 1.96 * seL));
+        ciLower = Math.exp(-Math.exp(L + 1.96 * seL));
+      } else if (survival === 1){
+        ciLower = 1; ciUpper = 1;
+      } else if (survival === 0){
+        ciLower = 0; ciUpper = 0;
+      }
+
+      atRisk -= (d + c);
+      table.push({
+        time: grp.time, atRisk: nAtRisk, events: d, censored: c,
+        survival: survival, se: se, ciLower: ciLower, ciUpper: ciUpper
+      });
+    });
+
+    var medianT = NaN, medianCiLower = NaN, medianCiUpper = NaN;
+    for (i = 0; i < table.length; i++){ if (table[i].survival <= 0.5){ medianT = table[i].time; break; } }
+    for (i = 0; i < table.length; i++){ if (!isNaN(table[i].ciLower) && table[i].ciLower <= 0.5){ medianCiLower = table[i].time; break; } }
+    for (i = 0; i < table.length; i++){ if (!isNaN(table[i].ciUpper) && table[i].ciUpper <= 0.5){ medianCiUpper = table[i].time; break; } }
+
+    return { table: table, median: medianT, medianCiLower: medianCiLower, medianCiUpper: medianCiUpper, n: n };
+  }
+
+  function logRankTest(g1, g2){
+    var eventTimesSet = {};
+    g1.concat(g2).forEach(function(r){ if (r.event === 1) eventTimesSet[r.time] = true; });
+    var eventTimes = Object.keys(eventTimesSet).map(Number).sort(function(a, b){ return a - b; });
+    if (eventTimes.length === 0) return { O1: 0, E1: 0, V: 0, chi2: NaN, p: NaN, totalEvents: 0 };
+
+    var t1 = g1.map(function(r){ return r.time; });
+    var t2 = g2.map(function(r){ return r.time; });
+
+    var O1 = 0, E1 = 0, V = 0;
+    eventTimes.forEach(function(t){
+      var n1 = atRiskCount(t1, t), n2 = atRiskCount(t2, t);
+      var n = n1 + n2;
+      if (n <= 0) return;
+      var d1 = g1.filter(function(r){ return r.time === t && r.event === 1; }).length;
+      var d2 = g2.filter(function(r){ return r.time === t && r.event === 1; }).length;
+      var d = d1 + d2;
+      O1 += d1;
+      E1 += n1 * d / n;
+      if (n > 1) V += (n1 * n2 * d * (n - d)) / (n * n * (n - 1));
+    });
+
+    var chi2 = V > 0 ? (O1 - E1) * (O1 - E1) / V : NaN;
+    return { O1: O1, E1: E1, V: V, chi2: chi2, p: chiSquaredP(chi2), totalEvents: eventTimes.length };
+  }
+
+  var survEls = {
+    oneGroupRadio: document.getElementById("survOneGroup"),
+    twoGroupRadio: document.getElementById("survTwoGroup"),
+    oneGroupCard: document.getElementById("survOneGroupCard"),
+    twoGroupCard: document.getElementById("survTwoGroupCard"),
+    fileInput: document.getElementById("survFileInput"),
+    loadExampleBtn: document.getElementById("survLoadExampleBtn"),
+    pasteArea: document.getElementById("survPasteArea"),
+    colTime: document.getElementById("colTime"),
+    colEvent: document.getElementById("colEvent"),
+    colGroup: document.getElementById("colGroup"),
+    colGroupWrap: document.getElementById("colGroupWrap"),
+    error: document.getElementById("survError"),
+    qcTotal: document.getElementById("qcTotal"),
+    qcIncluded: document.getElementById("qcIncluded"),
+    qcExcluded: document.getElementById("qcExcluded"),
+    qcReasons: document.getElementById("qcReasons"),
+    qcExclDetails: document.getElementById("qcExclDetails"),
+    qcExclList: document.getElementById("qcExclList"),
+    smallSampleWarning: document.getElementById("survSmallSampleWarning"),
+    plotContainer: document.getElementById("kmPlotContainer"),
+    plotTitle: document.getElementById("kmPlotTitle"),
+    legend: document.getElementById("kmLegend"),
+    chartTitleInput: document.getElementById("chartTitleInput"),
+    xAxisLabelInput: document.getElementById("xAxisLabelInput"),
+    yAxisLabelInput: document.getElementById("yAxisLabelInput"),
+    timeUnitSelect: document.getElementById("timeUnitSelect"),
+    timeUnitCustomWrap: document.getElementById("timeUnitCustomWrap"),
+    timeUnitCustomInput: document.getElementById("timeUnitCustomInput"),
+    yScaleSelect: document.getElementById("yScaleSelect"),
+    showCIToggle: document.getElementById("showCIToggle"),
+    showCensorToggle: document.getElementById("showCensorToggle"),
+    oneGroupResultsCard: document.getElementById("oneGroupResultsCard"),
+    twoGroupResultsCard: document.getElementById("twoGroupResultsCard"),
+    ogN: document.getElementById("ogN"),
+    ogEvents: document.getElementById("ogEvents"),
+    ogCensored: document.getElementById("ogCensored"),
+    ogPctCensored: document.getElementById("ogPctCensored"),
+    ogMedianFollowup: document.getElementById("ogMedianFollowup"),
+    ogMedianSurv: document.getElementById("ogMedianSurv"),
+    ogMedianCI: document.getElementById("ogMedianCI"),
+    tgResultsBody: document.getElementById("tgResultsBody"),
+    lrChi2: document.getElementById("lrChi2"),
+    lrDf: document.getElementById("lrDf"),
+    lrP: document.getElementById("lrP"),
+    lrVerdict: document.getElementById("lrVerdict"),
+    lrInterpretation: document.getElementById("lrInterpretation"),
+    calcTableToggleBtn: document.getElementById("calcTableToggleBtn"),
+    calcTableContainer: document.getElementById("calcTableContainer"),
+    exportSvgBtn: document.getElementById("exportSvgBtn"),
+    exportPngBtn: document.getElementById("exportPngBtn"),
+    exportPrintBtn: document.getElementById("exportPrintBtn"),
+    exportCsvBtn: document.getElementById("exportCsvBtn"),
+    copyResultsBtn: document.getElementById("copyResultsBtn"),
+    generateManuscriptBtn: document.getElementById("generateManuscriptBtn"),
+    manuscriptText: document.getElementById("manuscriptText"),
+    copyManuscriptBtn: document.getElementById("copyManuscriptBtn")
+  };
+
+  var survLastHeaders = null;
+  var survLastGroups = null; // cache of last computed [{name, km, raw}] for export
+
+  function timeUnitLabel(){
+    var v = survEls.timeUnitSelect.value;
+    if (v === "custom") return survEls.timeUnitCustomInput.value.trim() || "units";
+    return v;
+  }
+
+  function populateColumnSelects(headers){
+    function fillSelect(sel, patterns){
+      sel.innerHTML = headers.map(function(h, i){ return '<option value="' + i + '">' + escapeXml(h) + '</option>'; }).join("");
+      for (var p = 0; p < patterns.length; p++){
+        for (var i = 0; i < headers.length; i++){
+          if (headers[i].toLowerCase().indexOf(patterns[p]) >= 0){ sel.value = String(i); return; }
+        }
+      }
+      sel.selectedIndex = 0;
+    }
+    fillSelect(survEls.colTime, ["time", "duration", "fu", "follow"]);
+    fillSelect(survEls.colEvent, ["event", "status", "death", "outcome"]);
+    fillSelect(survEls.colGroup, ["group", "arm", "treat", "cohort"]);
+  }
+
+  function parseAndValidateSurvivalData(){
+    var twoGroup = survEls.twoGroupRadio.checked;
+    var parsed = parseDelimitedText(survEls.pasteArea.value);
+    if (parsed.headers.length === 0 || parsed.rows.length === 0){
+      return { ok: false, error: "Paste or upload some data first — a header row plus at least one data row.", headers: [], included: [], excluded: [] };
+    }
+    var headerKey = parsed.headers.join("|");
+    if (headerKey !== survLastHeaders){
+      populateColumnSelects(parsed.headers);
+      survLastHeaders = headerKey;
+    }
+
+    var timeIdx = parseInt(survEls.colTime.value, 10);
+    var eventIdx = parseInt(survEls.colEvent.value, 10);
+    var groupIdx = twoGroup ? parseInt(survEls.colGroup.value, 10) : -1;
+
+    var included = [], excluded = [];
+    parsed.rows.forEach(function(row, rowIdx){
+      if (row.length === 1 && row[0] === "") return;
+      var rawTime = row[timeIdx];
+      var rawEvent = row[eventIdx];
+      var rawGroup = twoGroup ? row[groupIdx] : null;
+      var reasons = [];
+
+      if (rawTime === undefined || rawTime === "") reasons.push("missing time");
+      else if (isNaN(Number(rawTime))) reasons.push("non-numeric time");
+      else if (Number(rawTime) < 0) reasons.push("negative time");
+
+      var eventVal = null;
+      if (rawEvent === undefined || rawEvent === "") reasons.push("missing event");
+      else if (rawEvent !== "0" && rawEvent !== "1") reasons.push("event must be 0 or 1 (found \"" + rawEvent + "\")");
+      else eventVal = Number(rawEvent);
+
+      if (twoGroup && (rawGroup === undefined || rawGroup === "")) reasons.push("missing group");
+
+      if (reasons.length > 0){
+        excluded.push({ rowNumber: rowIdx + 2, raw: row, reasons: reasons });
+      } else {
+        included.push({ time: Number(rawTime), event: eventVal, group: twoGroup ? rawGroup : "All" });
+      }
+    });
+
+    var result = { ok: true, headers: parsed.headers, included: included, excluded: excluded };
+
+    if (included.length === 0){
+      result.ok = false;
+      result.error = "No valid rows to analyze — every row was excluded. Check the column mapping and the excluded-observations list below.";
+      return result;
+    }
+
+    if (twoGroup){
+      var groupNames = [];
+      included.forEach(function(r){ if (groupNames.indexOf(r.group) < 0) groupNames.push(r.group); });
+      result.groupNames = groupNames;
+      if (groupNames.length < 2){
+        result.ok = false;
+        result.error = "Two-group analysis needs at least two groups in the data — found " + groupNames.length +
+          (groupNames.length ? (" (\"" + groupNames[0] + "\")") : "") + ".";
+      } else if (groupNames.length > 2){
+        result.ok = false;
+        result.error = "Two-group analysis needs exactly two groups — found " + groupNames.length + ": " +
+          groupNames.map(function(g){ return '"' + g + '"'; }).join(", ") + ". Filter your data to two groups first.";
+      }
+    }
+    return result;
+  }
+
+  function renderQC(result){
+    var total = result.headers.length ? (result.included.length + result.excluded.length) : 0;
+    survEls.qcTotal.textContent = total ? String(total) : "—";
+    survEls.qcIncluded.textContent = total ? String(result.included.length) : "—";
+    survEls.qcExcluded.textContent = total ? String(result.excluded.length) : "—";
+
+    if (result.excluded.length > 0){
+      var reasonCounts = {};
+      result.excluded.forEach(function(row){
+        row.reasons.forEach(function(r){ reasonCounts[r] = (reasonCounts[r] || 0) + 1; });
+      });
+      var parts = Object.keys(reasonCounts).map(function(r){ return reasonCounts[r] + "× " + r; });
+      survEls.qcReasons.innerHTML = '<p class="norm-note">Excluded for: ' + escapeXml(parts.join("; ")) + '.</p>';
+      survEls.qcExclDetails.hidden = false;
+      survEls.qcExclList.innerHTML = '<table><thead><tr><th>Row</th><th>Data</th><th>Reason</th></tr></thead><tbody>' +
+        result.excluded.map(function(row){
+          return '<tr><td>' + row.rowNumber + '</td><td>' + escapeXml(row.raw.join(", ")) + '</td><td>' + escapeXml(row.reasons.join("; ")) + '</td></tr>';
+        }).join("") + '</tbody></table>';
+    } else {
+      survEls.qcReasons.innerHTML = "";
+      survEls.qcExclDetails.hidden = true;
+      survEls.qcExclList.innerHTML = "";
+    }
+  }
+
+  function checkSmallSample(groups){
+    var warn = [];
+    groups.forEach(function(g){
+      var n = g.raw.length;
+      var events = g.raw.filter(function(r){ return r.event === 1; }).length;
+      if (n < 10) warn.push('"' + g.name + '" has only ' + n + ' observation' + (n === 1 ? "" : "s"));
+      else if (events < 5) warn.push('"' + g.name + '" has only ' + events + ' event' + (events === 1 ? "" : "s"));
+    });
+    return warn;
+  }
+
+  function buildStepPath(km, maxTime){
+    var pts = [[0, 1]];
+    var prevS = 1;
+    km.table.forEach(function(row){
+      if (row.events > 0){
+        pts.push([row.time, prevS]);
+        pts.push([row.time, row.survival]);
+        prevS = row.survival;
+      }
+    });
+    pts.push([maxTime, prevS]);
+    return pts;
+  }
+
+  function buildCIStepPath(km, which, maxTime){
+    var pts = [[0, 1]];
+    var prevV = 1;
+    km.table.forEach(function(row){
+      var v = row[which];
+      if (row.events > 0 && !isNaN(v)){
+        pts.push([row.time, prevV]);
+        pts.push([row.time, v]);
+        prevV = v;
+      }
+    });
+    pts.push([maxTime, prevV]);
+    return pts;
+  }
+
+  function censoringPoints(km){
+    var pts = [];
+    var currentS = 1;
+    km.table.forEach(function(row){
+      if (row.events > 0) currentS = row.survival;
+      if (row.censored > 0) pts.push([row.time, currentS]);
+    });
+    return pts;
+  }
+
+  function renderKMPlot(container, legendEl, groups, options){
+    var colors = [getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
+                  getComputedStyle(document.documentElement).getPropertyValue("--accent2").trim()];
+    var maxTime = 0;
+    groups.forEach(function(g){ g.raw.forEach(function(r){ if (r.time > maxTime) maxTime = r.time; }); });
+    if (maxTime === 0) maxTime = 1;
+
+    var W = 620, H = 340, mL = 54, mR = 20, mT = 16, mB = 40;
+    var riskRows = groups.length;
+    var riskH = 18 * (riskRows + 1) + 14;
+    var totalH = H + riskH;
+
+    function sx(t){ return mL + (t / maxTime) * (W - mL - mR); }
+    function syProb(s){ return H - mB - s * (H - mT - mB); }
+
+    var axes = '<line x1="' + mL + '" y1="' + (H - mB) + '" x2="' + (W - mR) + '" y2="' + (H - mB) + '" stroke="var(--line)"/>' +
+               '<line x1="' + mL + '" y1="' + mT + '" x2="' + mL + '" y2="' + (H - mB) + '" stroke="var(--line)"/>';
+
+    var yTicks = "";
+    for (var yt = 0; yt <= 4; yt++){
+      var frac = yt / 4;
+      var yPix = syProb(frac);
+      var label = options.yScale === "pct" ? Math.round(frac * 100) + "%" : frac.toFixed(2);
+      yTicks += '<line x1="' + (mL - 4) + '" y1="' + yPix.toFixed(1) + '" x2="' + mL + '" y2="' + yPix.toFixed(1) + '" stroke="var(--line)"/>';
+      yTicks += '<line x1="' + mL + '" y1="' + yPix.toFixed(1) + '" x2="' + (W - mR) + '" y2="' + yPix.toFixed(1) + '" stroke="var(--line)" stroke-opacity="0.35" stroke-dasharray="2,3"/>';
+      yTicks += '<text x="' + (mL - 8) + '" y="' + (yPix + 3.5).toFixed(1) + '" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + label + '</text>';
+    }
+
+    var tickCount = 5;
+    var xTickTimes = [];
+    for (var xt = 0; xt <= tickCount; xt++) xTickTimes.push(Math.round((maxTime * xt / tickCount) * 100) / 100);
+    var xTicks = "";
+    xTickTimes.forEach(function(t){
+      var xPix = sx(t);
+      xTicks += '<line x1="' + xPix.toFixed(1) + '" y1="' + (H - mB) + '" x2="' + xPix.toFixed(1) + '" y2="' + (H - mB + 4) + '" stroke="var(--line)"/>';
+      xTicks += '<text x="' + xPix.toFixed(1) + '" y="' + (H - mB + 16) + '" text-anchor="middle" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(t, t < 10 ? 1 : 0) + '</text>';
+    });
+
+    var bands = "", curves = "", ticks = "";
+    groups.forEach(function(g, gi){
+      var color = colors[gi % colors.length];
+      if (options.showCI){
+        var upper = buildCIStepPath(g.km, "ciUpper", maxTime);
+        var lower = buildCIStepPath(g.km, "ciLower", maxTime);
+        var poly = upper.map(function(p){ return sx(p[0]).toFixed(1) + "," + syProb(p[1]).toFixed(1); })
+          .concat(lower.slice().reverse().map(function(p){ return sx(p[0]).toFixed(1) + "," + syProb(p[1]).toFixed(1); }));
+        bands += '<polygon points="' + poly.join(" ") + '" fill="' + color + '" fill-opacity="0.12" stroke="none"/>';
+      }
+      var path = buildStepPath(g.km, maxTime);
+      var d = path.map(function(p, idx){ return (idx === 0 ? "M" : "L") + sx(p[0]).toFixed(1) + "," + syProb(p[1]).toFixed(1); }).join(" ");
+      curves += '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2.25"/>';
+
+      if (options.showCensor){
+        censoringPoints(g.km).forEach(function(p){
+          var cx = sx(p[0]), cy = syProb(p[1]);
+          ticks += '<line x1="' + cx.toFixed(1) + '" y1="' + (cy - 6).toFixed(1) + '" x2="' + cx.toFixed(1) + '" y2="' + (cy + 6).toFixed(1) + '" stroke="' + color + '" stroke-width="1.4"/>';
+        });
+      }
+    });
+
+    var riskLabelSvg = '<text x="4" y="' + (H + 14) + '" font-size="10.5" font-weight="600" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">Number at risk</text>';
+    var riskRowsSvg = "";
+    groups.forEach(function(g, gi){
+      var rowY = H + 14 + (gi + 1) * 18;
+      riskRowsSvg += '<text x="4" y="' + rowY + '" font-size="10" fill="' + colors[gi % colors.length] + '" font-family="IBM Plex Sans, sans-serif" font-weight="600">' + escapeXml(g.name.length > 12 ? g.name.slice(0, 11) + "…" : g.name) + '</text>';
+      var groupTimes = g.raw.map(function(r){ return r.time; });
+      xTickTimes.forEach(function(t){
+        var n = atRiskCount(groupTimes, t);
+        riskRowsSvg += '<text x="' + sx(t).toFixed(1) + '" y="' + rowY + '" text-anchor="middle" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + n + '</text>';
+      });
+    });
+
+    var titleSvg = options.title ? '<text x="' + (W / 2) + '" y="12" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink)" font-family="Fraunces, Georgia, serif">' + escapeXml(options.title) + '</text>' : "";
+    var xLabelSvg = '<text x="' + ((mL + W - mR) / 2) + '" y="' + (H - mB + 32) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(options.xLabel) + '</text>';
+    var yLabelSvg = '<text x="14" y="' + ((mT + H - mB) / 2) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" transform="rotate(-90 14 ' + ((mT + H - mB) / 2) + ')">' + escapeXml(options.yLabel) + '</text>';
+    var riskDivider = '<line x1="0" y1="' + (H + 6) + '" x2="' + W + '" y2="' + (H + 6) + '" stroke="var(--line)"/>';
+
+    container.innerHTML = '<svg id="kmSvgRoot" viewBox="0 0 ' + W + ' ' + totalH + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Kaplan-Meier survival curve">' +
+      '<rect x="0" y="0" width="' + W + '" height="' + totalH + '" fill="var(--surface)"/>' +
+      titleSvg + yTicks + axes + bands + curves + ticks + xTicks + xLabelSvg + yLabelSvg + riskDivider + riskLabelSvg + riskRowsSvg + '</svg>';
+
+    legendEl.innerHTML = groups.length > 1 ? groups.map(function(g, gi){
+      var n = g.raw.length, e = g.raw.filter(function(r){ return r.event === 1; }).length;
+      return '<span class="legend-item"><span class="legend-swatch" style="background:' + colors[gi % colors.length] + ';"></span>' +
+        escapeXml(g.name) + ' (n=' + n + ', ' + e + ' events)</span>';
+    }).join("") : "";
+  }
+
+  function fmtTime(t){ return isFinite(t) ? fmtNum(t, t < 10 ? 2 : 1) + " " + timeUnitLabel() : "—"; }
+
+  function renderOneGroupResults(km, included){
+    var n = included.length;
+    var eventsN = included.filter(function(r){ return r.event === 1; }).length;
+    var censoredN = n - eventsN;
+    survEls.ogN.textContent = String(n);
+    survEls.ogEvents.textContent = String(eventsN);
+    survEls.ogCensored.textContent = String(censoredN);
+    survEls.ogPctCensored.textContent = n > 0 ? fmtNum(censoredN / n * 100, 1) + "%" : "—";
+    var medFollowup = median(included.map(function(r){ return r.time; }));
+    survEls.ogMedianFollowup.textContent = isFinite(medFollowup) ? fmtTime(medFollowup) + " (median of all observed times)" : "—";
+
+    if (isNaN(km.median)){
+      survEls.ogMedianSurv.textContent = "Median survival was not reached during the observed follow-up period.";
+      survEls.ogMedianCI.textContent = "Not estimable";
+    } else {
+      survEls.ogMedianSurv.textContent = fmtTime(km.median);
+      var lo = isFinite(km.medianCiLower) ? fmtNum(km.medianCiLower, 2) : "not reached";
+      var hi = isFinite(km.medianCiUpper) ? fmtNum(km.medianCiUpper, 2) : "not reached";
+      survEls.ogMedianCI.textContent = lo + " – " + hi + " " + timeUnitLabel();
+    }
+  }
+
+  function medianCellText(km){
+    if (isNaN(km.median)) return "Not reached";
+    return fmtNum(km.median, 2) + " " + timeUnitLabel();
+  }
+  function medianCiCellText(km){
+    if (isNaN(km.median)) return "—";
+    var lo = isFinite(km.medianCiLower) ? fmtNum(km.medianCiLower, 2) : "NR";
+    var hi = isFinite(km.medianCiUpper) ? fmtNum(km.medianCiUpper, 2) : "NR";
+    return lo + "–" + hi;
+  }
+
+  function renderTwoGroupResults(groups, lr){
+    survEls.tgResultsBody.innerHTML = groups.map(function(g){
+      var n = g.raw.length, e = g.raw.filter(function(r){ return r.event === 1; }).length, c = n - e;
+      return '<tr><th class="rowhead" style="text-align:left;">' + escapeXml(g.name) + '</th>' +
+        '<td class="total">' + n + '</td><td class="total">' + e + '</td><td class="total">' + c + '</td>' +
+        '<td class="total">' + (n ? fmtNum(c / n * 100, 1) + "%" : "—") + '</td>' +
+        '<td class="total">' + escapeXml(medianCellText(g.km)) + '</td>' +
+        '<td class="total">' + escapeXml(medianCiCellText(g.km)) + '</td></tr>';
+    }).join("");
+
+    if (lr.totalEvents === 0 || isNaN(lr.chi2)){
+      survEls.lrChi2.textContent = "—"; survEls.lrP.textContent = "—";
+      survEls.lrVerdict.innerHTML = "";
+      survEls.lrInterpretation.textContent = "The log-rank test cannot be computed — no events were observed in either group over the follow-up period, so there is nothing to compare.";
+      return;
+    }
+
+    survEls.lrChi2.textContent = fmtNum(lr.chi2, 3);
+    survEls.lrP.textContent = fmtP(lr.p);
+    survEls.lrVerdict.innerHTML = ""; survEls.lrVerdict.appendChild(verdictPill(lr.p));
+
+    var g1 = groups[0], g2 = groups[1];
+    var evidencePhrase = lr.p < 0.05 ? "evidence" : "no evidence";
+    survEls.lrInterpretation.textContent =
+      "The Kaplan–Meier curves for " + g1.name + " and " + g2.name + " were compared using a two-sided log-rank test, " +
+      "which tests the null hypothesis that the two survival functions are equal over the observed follow-up period. " +
+      "There was " + evidencePhrase + " of a difference between the survival distributions (log-rank χ² = " + fmtNum(lr.chi2, 2) + ", df = 1, p = " + fmtP(lr.p) + "). " +
+      "This describes a statistical difference between the observed curves and does not by itself indicate which group's treatment is better or establish clinical importance.";
+  }
+
+  function renderLifeTables(groups){
+    survEls.calcTableContainer.innerHTML = groups.map(function(g){
+      var rows = g.km.table.map(function(r){
+        return '<tr><td>' + fmtNum(r.time, 2) + '</td><td>' + r.atRisk + '</td><td>' + r.censored + '</td><td>' + r.events + '</td>' +
+          '<td>' + fmtNum(r.survival, 4) + '</td><td>' + (isNaN(r.se) ? "—" : fmtNum(r.se, 4)) + '</td>' +
+          '<td>' + (isNaN(r.ciLower) ? "—" : fmtNum(r.ciLower, 4) + "–" + fmtNum(r.ciUpper, 4)) + '</td></tr>';
+      }).join("");
+      return '<h3 style="font-family:\'Fraunces\',serif;font-size:14px;margin:16px 0 8px;">' + escapeXml(g.name) + '</h3>' +
+        '<div class="table-wrap"><table class="life-table"><thead><tr><th>Time</th><th>At risk</th><th>Censored</th><th>Events</th><th>Survival</th><th>SE</th><th>95% CI</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }).join("");
+  }
+
+  function recalcSurvival(){
+    var twoGroup = survEls.twoGroupRadio.checked;
+    survEls.oneGroupCard.classList.toggle("active", !twoGroup);
+    survEls.twoGroupCard.classList.toggle("active", twoGroup);
+    survEls.colGroupWrap.hidden = !twoGroup;
+    survEls.oneGroupResultsCard.hidden = twoGroup;
+    survEls.twoGroupResultsCard.hidden = !twoGroup;
+
+    var result = parseAndValidateSurvivalData();
+    renderQC(result);
+
+    if (!result.ok){
+      survEls.error.hidden = false;
+      survEls.error.innerHTML = '<span class="dot"></span> ' + escapeXml(result.error);
+      survEls.plotContainer.innerHTML = "";
+      survEls.legend.innerHTML = "";
+      survEls.calcTableContainer.innerHTML = "";
+      survEls.smallSampleWarning.hidden = true;
+      survLastGroups = null;
+      return;
+    }
+    survEls.error.hidden = true;
+
+    var groups;
+    if (!twoGroup){
+      var km = kaplanMeier(result.included.map(function(r){ return r.time; }), result.included.map(function(r){ return r.event; }));
+      groups = [{ name: "All patients", km: km, raw: result.included }];
+      renderOneGroupResults(km, result.included);
+    } else {
+      groups = result.groupNames.map(function(name){
+        var raw = result.included.filter(function(r){ return r.group === name; });
+        return { name: name, raw: raw, km: kaplanMeier(raw.map(function(r){ return r.time; }), raw.map(function(r){ return r.event; })) };
+      });
+      var lr = logRankTest(
+        groups[0].raw.map(function(r){ return { time: r.time, event: r.event }; }),
+        groups[1].raw.map(function(r){ return { time: r.time, event: r.event }; })
+      );
+      renderTwoGroupResults(groups, lr);
+    }
+
+    var warnings = checkSmallSample(groups);
+    if (warnings.length){
+      survEls.smallSampleWarning.hidden = false;
+      survEls.smallSampleWarning.innerHTML = '<span class="dot"></span> Small sample size or few events (' + escapeXml(warnings.join("; ")) + ') — estimates and any p-value here may be unstable.';
+    } else {
+      survEls.smallSampleWarning.hidden = true;
+    }
+
+    survEls.plotTitle.textContent = twoGroup ? "Survival by group" : "Survival curve";
+    var opts = {
+      title: survEls.chartTitleInput.value,
+      xLabel: survEls.xAxisLabelInput.value || ("Time (" + timeUnitLabel() + ")"),
+      yLabel: survEls.yAxisLabelInput.value || "Survival probability",
+      yScale: survEls.yScaleSelect.value,
+      showCI: survEls.showCIToggle.checked,
+      showCensor: survEls.showCensorToggle.checked
+    };
+    renderKMPlot(survEls.plotContainer, survEls.legend, groups, opts);
+    renderLifeTables(groups);
+    survLastGroups = groups;
+  }
+
+  function survivalExampleText(twoGroup){
+    if (!twoGroup){
+      return "time,event\n2,1\n3,1\n4,0\n5,1\n6,1\n6,0\n8,1\n9,0\n10,1\n11,1\n12,0\n14,1\n15,0\n17,1\n19,0\n22,1\n23,0\n25,1\n28,0\n30,1";
+    }
+    return "time,event,group\n5,1,A\n8,1,A\n12,0,A\n14,1,A\n18,0,A\n20,1,A\n24,0,A\n28,1,A\n30,0,A\n33,1,A\n3,1,B\n5,1,B\n7,1,B\n9,0,B\n10,1,B\n12,1,B\n14,0,B\n15,1,B\n17,1,B\n19,0,B";
+  }
+
+  survEls.oneGroupRadio.addEventListener("change", function(){ survLastHeaders = null; survEls.pasteArea.value = survivalExampleText(false); recalcSurvival(); });
+  survEls.twoGroupRadio.addEventListener("change", function(){ survLastHeaders = null; survEls.pasteArea.value = survivalExampleText(true); recalcSurvival(); });
+
+  survEls.loadExampleBtn.addEventListener("click", function(){
+    survLastHeaders = null;
+    survEls.pasteArea.value = survivalExampleText(survEls.twoGroupRadio.checked);
+    survEls.chartTitleInput.value = "";
+    survEls.xAxisLabelInput.value = "";
+    survEls.yAxisLabelInput.value = "";
+    recalcSurvival();
+  });
+
+  survEls.fileInput.addEventListener("change", function(e){
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(evt){
+      survLastHeaders = null;
+      survEls.pasteArea.value = String(evt.target.result || "");
+      recalcSurvival();
+    };
+    reader.readAsText(file);
+  });
+
+  [survEls.pasteArea, survEls.colTime, survEls.colEvent, survEls.colGroup,
+   survEls.chartTitleInput, survEls.xAxisLabelInput, survEls.yAxisLabelInput,
+   survEls.timeUnitSelect, survEls.timeUnitCustomInput, survEls.yScaleSelect,
+   survEls.showCIToggle, survEls.showCensorToggle].forEach(function(el){
+    el.addEventListener("input", recalcSurvival);
+    el.addEventListener("change", recalcSurvival);
+  });
+
+  survEls.timeUnitSelect.addEventListener("change", function(){
+    survEls.timeUnitCustomWrap.hidden = survEls.timeUnitSelect.value !== "custom";
+  });
+
+  survEls.calcTableToggleBtn.addEventListener("click", function(){
+    var showing = !survEls.calcTableContainer.hidden;
+    survEls.calcTableContainer.hidden = showing;
+    survEls.calcTableToggleBtn.textContent = showing ? "Show calculation table" : "Hide calculation table";
+  });
+
+  function survivalLifeTableCSV(){
+    if (!survLastGroups) return "";
+    var lines = ["group,time,at_risk,censored,events,survival,se,ci_lower,ci_upper"];
+    survLastGroups.forEach(function(g){
+      g.km.table.forEach(function(r){
+        lines.push([g.name, r.time, r.atRisk, r.censored, r.events, r.survival.toFixed(6),
+          isNaN(r.se) ? "" : r.se.toFixed(6), isNaN(r.ciLower) ? "" : r.ciLower.toFixed(6), isNaN(r.ciUpper) ? "" : r.ciUpper.toFixed(6)
+        ].join(","));
+      });
+    });
+    return lines.join("\n");
+  }
+
+  function triggerDownload(filename, blob){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  survEls.exportCsvBtn.addEventListener("click", function(){
+    var csv = survivalLifeTableCSV();
+    if (!csv) return;
+    triggerDownload("kaplan-meier-life-table.csv", new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+  });
+
+  survEls.exportSvgBtn.addEventListener("click", function(){
+    var svg = survEls.plotContainer.querySelector("svg");
+    if (!svg) return;
+    var xml = new XMLSerializer().serializeToString(svg);
+    triggerDownload("kaplan-meier-plot.svg", new Blob([xml], { type: "image/svg+xml;charset=utf-8;" }));
+  });
+
+  survEls.exportPngBtn.addEventListener("click", function(){
+    var svg = survEls.plotContainer.querySelector("svg");
+    if (!svg) return;
+    var xml = new XMLSerializer().serializeToString(svg);
+    var svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8;" });
+    var url = URL.createObjectURL(svgBlob);
+    var img = new Image();
+    img.onload = function(){
+      var vb = svg.viewBox.baseVal;
+      var scaleFactor = 2;
+      var canvas = document.createElement("canvas");
+      canvas.width = vb.width * scaleFactor; canvas.height = vb.height * scaleFactor;
+      var ctx = canvas.getContext("2d");
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function(blob){ triggerDownload("kaplan-meier-plot.png", blob); });
+    };
+    img.src = url;
+  });
+
+  survEls.exportPrintBtn.addEventListener("click", function(){ window.print(); });
+
+  function survivalResultsText(){
+    if (!survLastGroups) return "";
+    var twoGroup = survLastGroups.length > 1;
+    if (!twoGroup){
+      var g = survLastGroups[0];
+      var n = g.raw.length, e = g.raw.filter(function(r){ return r.event === 1; }).length, c = n - e;
+      var medLine = isNaN(g.km.median) ? "Median survival was not reached during the observed follow-up period." :
+        "Median survival: " + fmtTime(g.km.median) + " (95% CI " + medianCiCellText(g.km) + " " + timeUnitLabel() + ").";
+      return "Kaplan-Meier one-group analysis\nN = " + n + "\nEvents = " + e + "\nCensored = " + c + " (" + fmtNum(n ? c / n * 100 : 0, 1) + "%)\n" + medLine;
+    }
+    var lines = ["Kaplan-Meier two-group comparison"];
+    survLastGroups.forEach(function(g){
+      var n = g.raw.length, e = g.raw.filter(function(r){ return r.event === 1; }).length, c = n - e;
+      lines.push(g.name + ": N=" + n + ", events=" + e + ", censored=" + c + " (" + fmtNum(n ? c / n * 100 : 0, 1) + "%), median=" + medianCellText(g.km) + " (95% CI " + medianCiCellText(g.km) + ")");
+    });
+    lines.push(survEls.lrInterpretation.textContent);
+    return lines.join("\n");
+  }
+
+  function copyTextWithFallback(text, btn){
+    var original = btn.textContent;
+    function done(ok){ btn.textContent = ok ? "Copied!" : "Couldn't copy"; setTimeout(function(){ btn.textContent = original; }, 1800); }
+    try {
+      navigator.clipboard.writeText(text).then(function(){ done(true); }).catch(function(){ done(false); });
+    } catch (e){ done(false); }
+  }
+
+  survEls.copyResultsBtn.addEventListener("click", function(){
+    copyTextWithFallback(survivalResultsText(), survEls.copyResultsBtn);
+  });
+
+  survEls.generateManuscriptBtn.addEventListener("click", function(){
+    if (!survLastGroups) return;
+    var twoGroup = survLastGroups.length > 1;
+    var text;
+    if (!twoGroup){
+      var g = survLastGroups[0];
+      var n = g.raw.length, e = g.raw.filter(function(r){ return r.event === 1; }).length, c = n - e;
+      var medPhrase = isNaN(g.km.median) ? "median survival was not reached during the observed follow-up period" :
+        "median survival was " + fmtTime(g.km.median) + " (95% CI, " + medianCiCellText(g.km) + " " + timeUnitLabel() + ")";
+      text = "Kaplan-Meier survival analysis was performed for " + n + " patients, of whom " + e + " (" + fmtNum(n ? e / n * 100 : 0, 1) +
+        "%) experienced the event and " + c + " (" + fmtNum(n ? c / n * 100 : 0, 1) + "%) were censored; " + medPhrase + ".";
+    } else {
+      var g1 = survLastGroups[0], g2 = survLastGroups[1];
+      var lr2 = logRankTest(
+        g1.raw.map(function(r){ return { time: r.time, event: r.event }; }),
+        g2.raw.map(function(r){ return { time: r.time, event: r.event }; })
+      );
+      var med1 = isNaN(g1.km.median) ? "not reached" : fmtTime(g1.km.median) + " (95% CI " + medianCiCellText(g1.km) + ")";
+      var med2 = isNaN(g2.km.median) ? "not reached" : fmtTime(g2.km.median) + " (95% CI " + medianCiCellText(g2.km) + ")";
+      var sigPhrase = (lr2.totalEvents === 0 || isNaN(lr2.chi2)) ? "could not be computed, as no events were observed in either group" :
+        (lr2.p < 0.05 ? "showed evidence of a difference between the survival distributions" : "showed no evidence of a difference between the survival distributions");
+      text = "Kaplan-Meier survival curves were generated for " + g1.name + " (n=" + g1.raw.length + ") and " + g2.name + " (n=" + g2.raw.length +
+        "). Median survival was " + med1 + " in " + g1.name + " and " + med2 + " in " + g2.name + ". " +
+        "A two-sided log-rank test " + sigPhrase +
+        (isNaN(lr2.chi2) ? "" : " (χ² = " + fmtNum(lr2.chi2, 2) + ", df = 1, p = " + fmtP(lr2.p) + ")") + ".";
+    }
+    survEls.manuscriptText.hidden = false;
+    survEls.manuscriptText.value = text;
+    survEls.copyManuscriptBtn.hidden = false;
+  });
+
+  survEls.copyManuscriptBtn.addEventListener("click", function(){
+    copyTextWithFallback(survEls.manuscriptText.value, survEls.copyManuscriptBtn);
+  });
+
+  survEls.pasteArea.value = survivalExampleText(false);
+  recalcSurvival();
 
   recalc();
   recalcTtest();
