@@ -716,15 +716,20 @@
     <p class="eyebrow" id="corrEyebrow">Correlation</p>
     <h2 id="corrTitle">Pearson's r</h2>
     <div class="stat-row"><span class="stat-label" id="corrStatLabel">r</span><span class="stat-value" id="corrStat">—</span></div>
-    <div class="stat-row"><span class="stat-label">df</span><span class="stat-value" id="corrDf">—</span></div>
+    <div class="stat-row"><span class="stat-label" id="corrDfLabel">df</span><span class="stat-value" id="corrDf">—</span></div>
     <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="corrP">—</span></div>
     <div id="corrVerdict"></div>
+    <div class="assumption warn" id="corrKendallPrompt" hidden style="margin-top:14px;flex-direction:column;align-items:flex-start;gap:8px;">
+      <span><span class="dot"></span> <span id="corrKendallPromptText"></span></span>
+      <button class="ghost-btn" id="corrKendallPromptBtn" type="button">Use Kendall's tau instead</button>
+    </div>
     <div class="toggle-row" style="flex-direction:column;align-items:stretch;gap:8px;">
       <span class="toggle-label" style="font-weight:600;">Method</span>
       <select id="corrMethodSelect" class="label-input" style="text-align:left;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--paper);">
         <option value="auto">Auto (recommended)</option>
         <option value="pearson">Pearson's r</option>
         <option value="spearman">Spearman's rank correlation</option>
+        <option value="kendall">Kendall's tau</option>
       </select>
       <p class="norm-note" id="corrMethodReason"></p>
     </div>
@@ -753,7 +758,7 @@
   </section>
 
   <footer class="notes">
-    <b>How it's computed —</b> Pearson's r is the standardized covariance of X and Y; its significance test uses t = r√((n−2)⁄(1−r²)) with df = n−2. Spearman's rank correlation applies the same formula to the ranks of X and Y (average ranks for ties), which only assumes a monotonic relationship, not a linear or normal one. Linear regression fits y = b₀+b₁x by least squares; R² is the share of Y's variance the line explains (equal to r² for a simple regression), and the slope's t-test uses the same t-distribution relation as above. <b>Auto</b> picks Pearson's r when both variables are consistent with normality and the linearity check finds no significant curvature; otherwise it picks Spearman's. Linear regression itself always uses ordinary least squares — when its diagnostics flag non-normal residuals or unequal variance, that's shown as a caution on the result rather than switching methods, since Pearson's r above already gives the assumption-robust alternative.
+    <b>How it's computed —</b> Pearson's r is the standardized covariance of X and Y; its significance test uses t = r√((n−2)⁄(1−r²)) with df = n−2. Spearman's rank correlation applies the same formula to the ranks of X and Y (average ranks for ties), which only assumes a monotonic relationship, not a linear or normal one. Kendall's tau (tau-b) counts concordant minus discordant pairs among all n(n−1)⁄2 pairs of points, normalized by the pairs not tied on X or Y; its p-value uses the tie-corrected normal approximation for Kendall's S statistic (Kendall &amp; Gibbons), rather than a t-distribution. Kendall's tau is offered manually, and suggested (not auto-applied) whenever the sample is small and either variable has tied values, since it's generally considered more reliable than Spearman's in exactly that situation. Linear regression fits y = b₀+b₁x by least squares; R² is the share of Y's variance the line explains (equal to r² for a simple regression), and the slope's t-test uses the same t-distribution relation as above. <b>Auto</b> picks Pearson's r when both variables are consistent with normality and the linearity check finds no significant curvature; otherwise it picks Spearman's. Linear regression itself always uses ordinary least squares — when its diagnostics flag non-normal residuals or unequal variance, that's shown as a caution on the result rather than switching methods, since Pearson's r above already gives the assumption-robust alternative.
   </footer>
 
   </div>
@@ -2103,6 +2108,61 @@
     return { rho: res.r, df: res.df, p: res.p, t: res.t };
   }
 
+  function hasTies(arr){
+    return rankWithTies(arr).tieGroups.some(function(t){ return t > 1; });
+  }
+
+  function kendallTau(x, y){
+    var n = x.length;
+    if (n < 2) return { tau: NaN, z: NaN, p: NaN, n: n };
+    var nc = 0, nd = 0, txOnly = 0, tyOnly = 0, txy = 0, i, j;
+    for (i = 0; i < n; i++){
+      for (j = i + 1; j < n; j++){
+        var dx = x[i] - x[j], dy = y[i] - y[j];
+        if (dx === 0 && dy === 0) txy++;
+        else if (dx === 0) txOnly++;
+        else if (dy === 0) tyOnly++;
+        else if ((dx > 0) === (dy > 0)) nc++;
+        else nd++;
+      }
+    }
+    var n0 = n * (n - 1) / 2;
+    var n1 = txOnly + txy, n2 = tyOnly + txy;
+    var denom = Math.sqrt((n0 - n1) * (n0 - n2));
+    var tau = denom > 0 ? (nc - nd) / denom : NaN;
+
+    var xTies = rankWithTies(x).tieGroups.filter(function(t){ return t > 1; });
+    var yTies = rankWithTies(y).tieGroups.filter(function(t){ return t > 1; });
+
+    var vt = 0, sumT_t1 = 0, sumT_t1_t2 = 0;
+    xTies.forEach(function(t){
+      vt += t * (t - 1) * (2 * t + 5);
+      sumT_t1 += t * (t - 1);
+      sumT_t1_t2 += t * (t - 1) * (t - 2);
+    });
+    var vu = 0, sumU_u1 = 0, sumU_u1_u2 = 0;
+    yTies.forEach(function(u){
+      vu += u * (u - 1) * (2 * u + 5);
+      sumU_u1 += u * (u - 1);
+      sumU_u1_u2 += u * (u - 1) * (u - 2);
+    });
+
+    var S = nc - nd;
+    var v0term = n * (n - 1) * (2 * n + 5);
+    var variance;
+    if (n > 2){
+      var v1 = (sumT_t1 * sumU_u1) / (2 * n * (n - 1));
+      var v2 = (sumT_t1_t2 * sumU_u1_u2) / (9 * n * (n - 1) * (n - 2));
+      variance = (v0term - vt - vu) / 18 + v1 + v2;
+    } else {
+      variance = v0term / 18;
+    }
+    var z = variance > 0 ? S / Math.sqrt(variance) : NaN;
+    var p = isFinite(z) ? Math.min(1, Math.max(0, erfc(Math.abs(z) / Math.SQRT2))) : NaN;
+
+    return { tau: tau, S: S, z: z, p: p, n: n, nc: nc, nd: nd };
+  }
+
   function linearRegression(x, y){
     var n = x.length;
     if (n < 3) return null;
@@ -2292,11 +2352,15 @@
     corrTitle: document.getElementById("corrTitle"),
     corrStatLabel: document.getElementById("corrStatLabel"),
     corrStat: document.getElementById("corrStat"),
+    corrDfLabel: document.getElementById("corrDfLabel"),
     corrDf: document.getElementById("corrDf"),
     corrP: document.getElementById("corrP"),
     corrVerdict: document.getElementById("corrVerdict"),
     corrMethodSelect: document.getElementById("corrMethodSelect"),
     corrMethodReason: document.getElementById("corrMethodReason"),
+    kendallPrompt: document.getElementById("corrKendallPrompt"),
+    kendallPromptText: document.getElementById("corrKendallPromptText"),
+    kendallPromptBtn: document.getElementById("corrKendallPromptBtn"),
     regEquation: document.getElementById("regEquation"),
     regR2: document.getElementById("regR2"),
     regAdjR2: document.getElementById("regAdjR2"),
@@ -2312,9 +2376,10 @@
     normRowsReg.innerHTML = "";
     linRows.innerHTML = "";
     regDiagRows.innerHTML = "";
-    regEls.corrStat.textContent = "—"; regEls.corrDf.textContent = "—"; regEls.corrP.textContent = "—";
+    regEls.corrStat.textContent = "—"; regEls.corrDfLabel.textContent = "df"; regEls.corrDf.textContent = "—"; regEls.corrP.textContent = "—";
     regEls.corrVerdict.innerHTML = ""; regEls.corrVerdict.appendChild(verdictPill(NaN));
     regEls.corrMethodReason.textContent = "";
+    regEls.kendallPrompt.hidden = true;
     regEls.regEquation.textContent = "—"; regEls.regR2.textContent = "—"; regEls.regAdjR2.textContent = "—";
     regEls.regSlopeT.textContent = "—"; regEls.regSlopeP.textContent = "—";
     regEls.regVerdict.innerHTML = ""; regEls.regVerdict.appendChild(verdictPill(NaN));
@@ -2372,20 +2437,37 @@
     regEls.corrMethodReason.textContent = reason;
 
     var corrResult;
-    if (chosenMethod === "spearman"){
+    if (chosenMethod === "kendall"){
+      corrResult = kendallTau(x, y);
+      regEls.corrTitle.textContent = "Kendall's tau";
+      regEls.corrStatLabel.textContent = "τ";
+      regEls.corrStat.textContent = fmtNum(corrResult.tau, 3);
+      regEls.corrDfLabel.textContent = "z";
+      regEls.corrDf.textContent = fmtNum(corrResult.z, 3);
+    } else if (chosenMethod === "spearman"){
       corrResult = spearmanCorrelation(x, y);
       regEls.corrTitle.textContent = "Spearman's rank correlation";
       regEls.corrStatLabel.textContent = "ρ";
       regEls.corrStat.textContent = fmtNum(corrResult.rho, 3);
+      regEls.corrDfLabel.textContent = "df";
+      regEls.corrDf.textContent = String(corrResult.df);
     } else {
       corrResult = pearsonCorrelation(x, y);
       regEls.corrTitle.textContent = "Pearson's r";
       regEls.corrStatLabel.textContent = "r";
       regEls.corrStat.textContent = fmtNum(corrResult.r, 3);
+      regEls.corrDfLabel.textContent = "df";
+      regEls.corrDf.textContent = String(corrResult.df);
     }
-    regEls.corrDf.textContent = String(corrResult.df);
     regEls.corrP.textContent = fmtP(corrResult.p);
     regEls.corrVerdict.innerHTML = ""; regEls.corrVerdict.appendChild(verdictPill(corrResult.p));
+
+    if (selected !== "kendall" && n < 20 && (hasTies(x) || hasTies(y))){
+      regEls.kendallPrompt.hidden = false;
+      regEls.kendallPromptText.textContent = "This sample is small (n = " + n + ") and has tied values — Kendall's tau is often preferred here over Spearman's, since it handles ties more directly and tends to be more reliable at this sample size.";
+    } else {
+      regEls.kendallPrompt.hidden = true;
+    }
 
     var bp = breuschPaganTest(x, reg.residuals);
     var shResid = shapiroWilk(reg.residuals);
@@ -2424,6 +2506,11 @@
   [regEls.xData, regEls.yData, regEls.xLabel, regEls.yLabel, regEls.corrMethodSelect].forEach(function(el){
     el.addEventListener("input", recalcRegression);
     el.addEventListener("change", recalcRegression);
+  });
+
+  regEls.kendallPromptBtn.addEventListener("click", function(){
+    regEls.corrMethodSelect.value = "kendall";
+    recalcRegression();
   });
 
   /* ===================== Kaplan–Meier survival analysis ===================== */
