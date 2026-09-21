@@ -562,7 +562,33 @@
     border-radius:50%;animation:ml-spin .7s linear infinite;vertical-align:-2px;margin-right:6px;
   }
   @keyframes ml-spin{to{transform:rotate(360deg);}}
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.6);
+    display:flex;align-items:center;justify-content:center;
+    z-index:1000;padding:20px;
+  }
+  .modal-box{
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:26px;max-width:460px;width:100%;box-shadow:var(--shadow);
+  }
+  .modal-box h2{margin:0 0 12px;font-size:19px;}
+  .modal-box p{margin:0 0 12px;color:var(--ink-soft);font-size:13.5px;line-height:1.6;}
+  .modal-box p:last-of-type{margin-bottom:20px;}
+  .disclaimer-note{
+    font-size:12px;line-height:1.6;color:var(--ink-soft);
+    padding-top:14px;margin-top:14px;border-top:1px solid var(--line);
+  }
 </style>
+
+<div class="modal-overlay" id="disclaimerModal" role="dialog" aria-modal="true" aria-labelledby="disclaimerTitle" hidden>
+  <div class="modal-box">
+    <h2 id="disclaimerTitle">Before you start</h2>
+    <p>Statis was developed with the aid of AI. It's intended to assist statistics education and teaching, and should not be used for any other purpose — including clinical, research, or commercial decision-making.</p>
+    <p>Always check the results of any analysis here against an established statistical software package before relying on them.</p>
+    <button class="primary-btn" id="disclaimerAckBtn" type="button">I understand — Continue</button>
+  </div>
+</div>
 
 <div class="page">
 
@@ -1749,6 +1775,7 @@
   <footer class="notes">
     Concept, Direction &amp; Testing: Dr G Narenthiran FRCS(SN) · <a href="mailto:g_narenthiran@hotmail.com" style="color:inherit;">g_narenthiran@hotmail.com</a><br>
     © 2026 G Narenthiran. All rights reserved.
+    <p class="disclaimer-note">Statis was developed with the aid of AI. It's intended to assist statistics education and teaching, and should not be used for any other purpose — including clinical, research, or commercial decision-making. Always check the results of any analysis here against an established statistical software package before relying on them.</p>
   </footer>
 
 </div>
@@ -1756,6 +1783,25 @@
 <script>
 (function(){
   "use strict";
+
+  /* ===================== First-visit disclaimer ===================== */
+  (function(){
+    var DISCLAIMER_KEY = "statis-disclaimer-ack-v1";
+    var modal = document.getElementById("disclaimerModal");
+    var ackBtn = document.getElementById("disclaimerAckBtn");
+    var alreadyAcked = false;
+    try { alreadyAcked = !!localStorage.getItem(DISCLAIMER_KEY); } catch (e){ alreadyAcked = false; }
+    if (!alreadyAcked){
+      modal.hidden = false;
+      document.body.style.overflow = "hidden";
+      ackBtn.focus();
+    }
+    ackBtn.addEventListener("click", function(){
+      modal.hidden = true;
+      document.body.style.overflow = "";
+      try { localStorage.setItem(DISCLAIMER_KEY, "1"); } catch (e){}
+    });
+  })();
 
   function lgamma(x){
     var g = 7;
