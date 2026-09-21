@@ -423,6 +423,16 @@
     width:100%;min-height:90px;border:1px solid var(--line);border-radius:9px;background:var(--paper);
     color:var(--ink);font:13px/1.5 "IBM Plex Mono",monospace;padding:9px 11px;resize:vertical;
   }
+  .glm-type-select{
+    width:100%;border:1px solid var(--line);border-radius:8px;background:var(--paper);
+    color:var(--ink);font:12.5px "IBM Plex Sans",sans-serif;padding:6px 8px;margin-bottom:8px;
+  }
+  .glm-order-field{margin-top:8px;}
+  .glm-order-field input{
+    width:100%;border:1px solid var(--line);border-radius:8px;background:var(--paper);
+    color:var(--ink);font:12.5px "IBM Plex Sans",sans-serif;padding:6px 8px;
+  }
+  .glm-order-field p{font-size:11px;color:var(--ink-soft);margin:4px 0 0;}
 </style>
 
 <div class="page">
@@ -1110,14 +1120,14 @@
         <input type="radio" name="glmAnalysisType" id="glmLogistic" value="logistic" checked>
         <div>
           <div class="radio-card-title">Logistic regression</div>
-          <div class="radio-card-sub">A binary outcome (0/1) predicted by one continuous variable.</div>
+          <div class="radio-card-sub">A binary outcome (0/1) predicted by one or more variables.</div>
         </div>
       </label>
       <label class="radio-card" id="glmPoissonCard">
         <input type="radio" name="glmAnalysisType" id="glmPoisson" value="poisson">
         <div>
           <div class="radio-card-title">Poisson regression</div>
-          <div class="radio-card-sub">A count outcome (0, 1, 2, …) predicted by one continuous variable.</div>
+          <div class="radio-card-sub">A count outcome (0, 1, 2, …) predicted by one or more variables.</div>
         </div>
       </label>
     </div>
@@ -1125,21 +1135,25 @@
 
   <section class="card">
     <div class="card-head">
-      <div><p class="eyebrow">Step 2</p><h2>Data</h2></div>
-      <button class="ghost-btn" id="glmLoadExampleBtn" type="button">Load example</button>
+      <div><p class="eyebrow">Step 2</p><h2>Outcome</h2></div>
     </div>
-    <div class="data-grid">
-      <div class="data-field">
-        <input class="group-name-input" id="glmXLabel" value="Age (years)" aria-label="Predictor name">
-        <textarea id="glmXData" aria-label="Predictor values" rows="6"></textarea>
-        <p class="data-hint">One value per line, or comma-separated — you can paste directly from a spreadsheet column.</p>
-      </div>
-      <div class="data-field">
-        <input class="group-name-input" id="glmYLabel" value="Outcome (0/1)" aria-label="Outcome name">
-        <textarea id="glmYData" aria-label="Outcome values" rows="6"></textarea>
-        <p class="data-hint" id="glmYHint">0 = event did not occur, 1 = event occurred. Matched by position with the predictor.</p>
+    <div class="data-field">
+      <input class="group-name-input" id="glmYLabel" value="Outcome (0/1)" aria-label="Outcome name">
+      <textarea id="glmYData" aria-label="Outcome values" rows="5"></textarea>
+      <p class="data-hint" id="glmYHint">0 = event did not occur, 1 = event occurred. Matched by position with each predictor below.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 3</p><h2>Predictors</h2></div>
+      <div class="btn-row">
+        <button class="ghost-btn" id="glmAddPredictorBtn" type="button">+ Add predictor</button>
+        <button class="ghost-btn" id="glmLoadExampleBtn" type="button">Load example</button>
       </div>
     </div>
+    <p class="data-hint" style="margin-bottom:14px;">For each predictor, choose its measurement type — this changes how it enters the model. <b style="color:var(--ink);">Continuous</b> — used as-is (e.g. age, dose). <b style="color:var(--ink);">Ordinal</b> — categories with a natural order but no assumed equal spacing (e.g. stage I/II/III); entered as an equally-spaced numeric score in that order, which assumes a linear effect across categories. <b style="color:var(--ink);">Nominal</b> — unordered categories (e.g. treatment arm); automatically dummy-coded against a reference category, so each non-reference level gets its own coefficient.</p>
+    <div class="groups-grid" id="glmPredictorsContainer"></div>
     <div class="assumption warn" id="glmError" hidden style="margin-top:14px;"></div>
   </section>
 
@@ -1148,11 +1162,12 @@
       <div><p class="eyebrow">Visual check</p><h2 id="glmPlotTitle">Fitted probability curve</h2></div>
     </div>
     <div id="glmPlot"></div>
+    <p class="norm-note" id="glmPlotNote" hidden></p>
   </section>
 
   <section class="card">
     <div class="card-head">
-      <div><p class="eyebrow">Step 3</p><h2 id="glmDiagTitle">Model diagnostics</h2></div>
+      <div><p class="eyebrow">Step 4</p><h2 id="glmDiagTitle">Model diagnostics</h2></div>
     </div>
     <div id="glmDiagRows"></div>
     <p class="norm-note" id="glmDiagNote" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);"></p>
@@ -1162,17 +1177,12 @@
     <p class="eyebrow" id="glmEyebrow">Test result</p>
     <h2 id="glmTitle">Logistic regression</h2>
     <div class="table-wrap">
-      <table class="life-table" id="glmCoefTable" style="min-width:460px;">
-        <thead><tr><th>Term</th><th>Estimate</th><th>SE</th><th>z</th><th>p</th></tr></thead>
+      <table class="life-table" id="glmCoefTable" style="min-width:640px;">
+        <thead><tr><th>Term</th><th>Estimate</th><th>SE</th><th>z</th><th>p</th><th id="glmRatioColHead">OR</th><th>95% CI</th></tr></thead>
         <tbody id="glmCoefBody"></tbody>
       </table>
     </div>
-    <div class="effect-grid" style="margin-top:16px;">
-      <div>
-        <div class="effect-name" id="glmRatioName">Odds ratio</div>
-        <div class="effect-value" id="glmRatioValue">—</div>
-        <div class="effect-ci" id="glmRatioCi"></div>
-      </div>
+    <div class="effect-grid" style="margin-top:16px;grid-template-columns:1fr;">
       <div>
         <div class="effect-name">McFadden's pseudo-R²</div>
         <div class="effect-value" id="glmPseudoR2">—</div>
@@ -1180,7 +1190,7 @@
       </div>
     </div>
     <div class="stat-row" style="margin-top:16px;"><span class="stat-label">Likelihood ratio test</span><span class="stat-value" id="glmLrChi2">—</span></div>
-    <div class="stat-row"><span class="stat-label">df</span><span class="stat-value">1</span></div>
+    <div class="stat-row"><span class="stat-label">df</span><span class="stat-value" id="glmLrDf">1</span></div>
     <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="glmLrP">—</span></div>
     <div id="glmVerdict"></div>
     <p class="norm-note" id="glmInterpretation" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);"></p>
@@ -1208,13 +1218,14 @@
     <details class="info-box">
       <summary>How it's computed</summary>
       <div class="info-body">
-        <p><b>Fitting —</b> both models are fit by Newton–Raphson (equivalent to iteratively reweighted least squares) maximizing the exact log-likelihood — logistic: Σ[yᵢlog(pᵢ)+(1−yᵢ)log(1−pᵢ)] with pᵢ = 1⁄(1+e<sup>−(β₀+β₁xᵢ)</sup>); Poisson: Σ[yᵢlog(μᵢ)−μᵢ−log(yᵢ!)] with μᵢ = e<sup>β₀+β₁xᵢ</sup>. Standard errors come from the observed information matrix (inverse Hessian) at convergence.</p>
-        <p><b>Odds ratio / incidence rate ratio —</b> e<sup>β₁</sup>, the multiplicative change in odds (logistic) or rate (Poisson) per one-unit increase in the predictor, with a 95% CI from e<sup>β₁ ± 1.96·SE(β₁)</sup>.</p>
-        <p><b>Likelihood ratio test —</b> 2×(log-likelihood of this model − log-likelihood of an intercept-only model), compared to a chi-squared distribution with 1 df. This tests whether the predictor improves on a model with no predictor at all — it's the recommended overall significance test, more reliable than the per-coefficient Wald z-test when effects are large or samples are small.</p>
+        <p><b>Fitting —</b> both models are fit by Newton–Raphson (equivalent to iteratively reweighted least squares) maximizing the exact log-likelihood over all predictors at once — logistic: Σ[yᵢlog(pᵢ)+(1−yᵢ)log(1−pᵢ)] with pᵢ = 1⁄(1+e<sup>−ηᵢ</sup>); Poisson: Σ[yᵢlog(μᵢ)−μᵢ−log(yᵢ!)] with μᵢ = e<sup>ηᵢ</sup>, where ηᵢ = β₀ + β₁x₁ᵢ + β₂x₂ᵢ + … is the linear predictor. Standard errors come from the observed information matrix (inverse Hessian) at convergence.</p>
+        <p><b>How predictor type changes the model —</b> a <b>continuous</b> predictor contributes its raw value as one column of the design matrix, with one coefficient. An <b>ordinal</b> predictor is converted to an equally-spaced numeric score following its category order (typed order, or auto-detected: numeric sort if the categories are already numbers, otherwise the order they first appear) and enters as one column with one coefficient — this assumes the effect of moving up one category is the same size at every step, which is a simplification worth checking against subject-matter knowledge. A <b>nominal</b> predictor with k categories is dummy-coded into k−1 binary columns against a reference category (the first category encountered in the data), so each non-reference level gets its own coefficient, estimated without assuming any order or equal spacing between categories.</p>
+        <p><b>Odds ratio / incidence rate ratio —</b> for each term, e<sup>β</sup> — the multiplicative change in odds (logistic) or rate (Poisson) per one-unit increase (continuous or ordinal) or per category vs. the reference (nominal) — with a 95% CI from e<sup>β ± 1.96·SE(β)</sup>.</p>
+        <p><b>Likelihood ratio test —</b> 2×(log-likelihood of this model − log-likelihood of an intercept-only model), compared to a chi-squared distribution with degrees of freedom equal to the number of coefficients added (one per continuous/ordinal predictor, k−1 per nominal predictor with k categories). This tests whether the predictors jointly improve on a model with none of them — it's the recommended overall significance test, more reliable than the per-coefficient Wald z-test when effects are large or samples are small.</p>
         <p><b>McFadden's pseudo-R² —</b> 1 − (log-likelihood of this model ⁄ log-likelihood of the intercept-only model). It doesn't mean the same thing as R² in linear regression — values of 0.2–0.4 are often considered a good fit for this measure, not a low one.</p>
-        <p><b>Convergence —</b> if Newton–Raphson doesn't settle within 100 iterations, or a coefficient grows extremely large, that usually means perfect or near-perfect separation (the predictor sorts the outcome too cleanly for a finite estimate to exist) — the result is flagged rather than reported as if it were a stable estimate.</p>
-        <p><b>Overdispersion (Poisson only) —</b> checked with the Pearson dispersion statistic, Σ(yᵢ−μᵢ)²⁄μᵢ divided by the residual degrees of freedom (n−2). A value well above 1 means the data are more variable than a Poisson model allows; when that happens, this tool automatically widens the standard errors by √(dispersion) (a quasi-Poisson adjustment) rather than reporting overconfident p-values from the plain Poisson model.</p>
-        <p><b>Not implemented —</b> multiple predictors, interaction terms, and negative-binomial regression (a fuller alternative to quasi-Poisson for overdispersion) aren't available in this tool.</p>
+        <p><b>Convergence —</b> if Newton–Raphson doesn't settle within 100 iterations, or a coefficient grows extremely large, that usually means perfect or near-perfect separation (the predictors sort the outcome too cleanly for a finite estimate to exist) — the result is flagged rather than reported as if it were a stable estimate.</p>
+        <p><b>Overdispersion (Poisson only) —</b> checked with the Pearson dispersion statistic, Σ(yᵢ−μᵢ)²⁄μᵢ divided by the residual degrees of freedom (n − number of parameters). A value well above 1 means the data are more variable than a Poisson model allows; when that happens, this tool automatically widens all standard errors by √(dispersion) (a quasi-Poisson adjustment) rather than reporting overconfident p-values from the plain Poisson model.</p>
+        <p><b>Not implemented —</b> interaction terms and negative-binomial regression (a fuller alternative to quasi-Poisson for overdispersion) aren't available in this tool.</p>
       </div>
     </details>
   </section>
@@ -3975,50 +3986,59 @@
 
   /* ===================== Logistic / Poisson regression (GLM) ===================== */
 
-  function fitGLM(x, y, family){
-    var n = x.length;
-    var beta0 = 0, beta1 = 0;
-    var maxIter = 100, tol = 1e-10, converged = false, iterUsed = 0;
+  function invertMatrix(A){
+    var p = A.length;
+    var inv = [];
+    for (var row = 0; row < p; row++) inv.push(new Array(p).fill(0));
+    for (var col = 0; col < p; col++){
+      var e = new Array(p).fill(0);
+      e[col] = 1;
+      var solved = solveLinear(A.map(function(r){ return r.slice(); }), e);
+      if (!solved) return null;
+      for (row = 0; row < p; row++) inv[row][col] = solved[row];
+    }
+    return inv;
+  }
+
+  function fitGLM(X, y, family){
+    var n = X.length, p = X[0].length;
+    var beta = new Array(p).fill(0);
+    var maxIter = 100, tol = 1e-10, converged = false, iterUsed = 0, i, j, k;
     for (var iter = 0; iter < maxIter; iter++){
       iterUsed = iter;
-      var g0 = 0, g1 = 0, h00 = 0, h01 = 0, h11 = 0, i;
-      for (i = 0; i < n; i++){
-        var eta = beta0 + beta1 * x[i];
-        var mu, w;
-        if (family === "logistic"){ mu = 1 / (1 + Math.exp(-eta)); w = mu * (1 - mu); }
-        else { mu = Math.exp(eta); w = mu; }
-        var resid = y[i] - mu;
-        g0 += resid; g1 += resid * x[i];
-        h00 += w; h01 += w * x[i]; h11 += w * x[i] * x[i];
-      }
-      var det = h00 * h11 - h01 * h01;
-      if (Math.abs(det) < 1e-14) break;
-      var d0 = (g0 * h11 - g1 * h01) / det;
-      var d1 = (g1 * h00 - g0 * h01) / det;
-      beta0 += d0; beta1 += d1;
-      if (Math.abs(d0) < tol && Math.abs(d1) < tol){ converged = true; break; }
-      if (Math.abs(beta0) > 500 || Math.abs(beta1) > 500) break;
+      var eta = X.map(function(row){ var s = 0; for (var jj = 0; jj < p; jj++) s += row[jj] * beta[jj]; return s; });
+      var mu = eta.map(function(e){ return family === "logistic" ? 1 / (1 + Math.exp(-e)) : Math.exp(e); });
+      var w = mu.map(function(m){ return family === "logistic" ? m * (1 - m) : m; });
+      var grad = new Array(p).fill(0);
+      for (i = 0; i < n; i++){ var resid = y[i] - mu[i]; for (j = 0; j < p; j++) grad[j] += resid * X[i][j]; }
+      var H = [];
+      for (j = 0; j < p; j++) H.push(new Array(p).fill(0));
+      for (i = 0; i < n; i++) for (j = 0; j < p; j++) for (k = 0; k < p; k++) H[j][k] += w[i] * X[i][j] * X[i][k];
+      var delta = solveLinear(H, grad);
+      if (!delta) break;
+      var maxDelta = 0;
+      for (j = 0; j < p; j++){ beta[j] += delta[j]; maxDelta = Math.max(maxDelta, Math.abs(delta[j])); }
+      if (maxDelta < tol){ converged = true; break; }
+      if (beta.some(function(b){ return Math.abs(b) > 500; })) break;
     }
-    var h00f = 0, h01f = 0, h11f = 0, ll = 0;
+    var etaF = X.map(function(row){ var s = 0; for (var jj = 0; jj < p; jj++) s += row[jj] * beta[jj]; return s; });
+    var muF = etaF.map(function(e){ return family === "logistic" ? 1 / (1 + Math.exp(-e)) : Math.exp(e); });
+    var wF = muF.map(function(m){ return family === "logistic" ? m * (1 - m) : m; });
+    var Hf = [];
+    for (j = 0; j < p; j++) Hf.push(new Array(p).fill(0));
+    for (i = 0; i < n; i++) for (j = 0; j < p; j++) for (k = 0; k < p; k++) Hf[j][k] += wF[i] * X[i][j] * X[i][k];
+    var invHf = invertMatrix(Hf);
+    var se = invHf ? invHf.map(function(row, j){ return Math.sqrt(Math.max(0, row[j])); }) : new Array(p).fill(NaN);
+    var ll = 0;
     for (i = 0; i < n; i++){
-      var eta2 = beta0 + beta1 * x[i];
-      var mu2, w2;
       if (family === "logistic"){
-        mu2 = 1 / (1 + Math.exp(-eta2));
-        w2 = mu2 * (1 - mu2);
-        var muClamped = Math.min(1 - 1e-12, Math.max(1e-12, mu2));
-        ll += y[i] * Math.log(muClamped) + (1 - y[i]) * Math.log(1 - muClamped);
+        var muC = Math.min(1 - 1e-12, Math.max(1e-12, muF[i]));
+        ll += y[i] * Math.log(muC) + (1 - y[i]) * Math.log(1 - muC);
       } else {
-        mu2 = Math.exp(eta2);
-        w2 = mu2;
-        ll += y[i] * Math.log(mu2) - mu2 - lgamma(y[i] + 1);
+        ll += y[i] * Math.log(muF[i]) - muF[i] - lgamma(y[i] + 1);
       }
-      h00f += w2; h01f += w2 * x[i]; h11f += w2 * x[i] * x[i];
     }
-    var detf = h00f * h11f - h01f * h01f;
-    var seBeta0 = detf > 0 ? Math.sqrt(h11f / detf) : NaN;
-    var seBeta1 = detf > 0 ? Math.sqrt(h00f / detf) : NaN;
-    return { beta0: beta0, beta1: beta1, seBeta0: seBeta0, seBeta1: seBeta1, logLik: ll, converged: converged, iterations: iterUsed, n: n };
+    return { beta: beta, se: se, mu: muF, logLik: ll, converged: converged, iterations: iterUsed, n: n, p: p };
   }
 
   function glmNullLogLik(y, family){
@@ -4032,16 +4052,77 @@
     return ll;
   }
 
-  function poissonDispersion(x, y, beta0, beta1){
-    var n = x.length, chi2 = 0;
-    for (var i = 0; i < n; i++){
-      var mu = Math.exp(beta0 + beta1 * x[i]);
-      chi2 += (y[i] - mu) * (y[i] - mu) / mu;
-    }
-    return n > 2 ? chi2 / (n - 2) : NaN;
+  function poissonDispersion(y, mu, p){
+    var n = y.length, chi2 = 0;
+    for (var i = 0; i < n; i++){ chi2 += (y[i] - mu[i]) * (y[i] - mu[i]) / mu[i]; }
+    return n > p ? chi2 / (n - p) : NaN;
   }
 
-  function renderGlmPlot(container, x, y, fit, family, xLabel, yLabel){
+  function parseTokens(text){
+    return text.split(/[\r\n,]+/).map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0; });
+  }
+
+  function encodeOrdinal(tokens, orderText){
+    var distinct = [];
+    tokens.forEach(function(t){ if (distinct.indexOf(t) < 0) distinct.push(t); });
+    var explicitOrder = orderText && orderText.trim() ? parseTokens(orderText) : null;
+    var order;
+    if (explicitOrder && explicitOrder.length > 0){
+      order = explicitOrder;
+    } else {
+      var allNumeric = distinct.length > 0 && distinct.every(function(t){ return t !== "" && isFinite(Number(t)); });
+      order = allNumeric ? distinct.slice().sort(function(a, b){ return Number(a) - Number(b); }) : distinct.slice();
+    }
+    var rank = {};
+    order.forEach(function(cat, i){ rank[cat] = i + 1; });
+    return {
+      values: tokens.map(function(t){ return rank.hasOwnProperty(t) ? rank[t] : NaN; }),
+      order: order,
+      distinct: distinct,
+      usedDefaultOrder: !explicitOrder
+    };
+  }
+
+  function encodeNominal(tokens){
+    var distinct = [];
+    tokens.forEach(function(t){ if (distinct.indexOf(t) < 0) distinct.push(t); });
+    var reference = distinct[0];
+    var levels = distinct.slice(1);
+    var columns = levels.map(function(level){
+      return tokens.map(function(t){ return t === level ? 1 : 0; });
+    });
+    return { columns: columns, levels: levels, reference: reference, distinct: distinct };
+  }
+
+  function buildGlmDesignMatrix(predictors, n){
+    var terms = [];
+    predictors.forEach(function(pred){
+      if (pred.type === "continuous"){
+        terms.push({ name: pred.name, values: pred.values, kind: "continuous" });
+      } else if (pred.type === "ordinal"){
+        var enc = encodeOrdinal(pred.tokens, pred.orderText);
+        terms.push({ name: pred.name, values: enc.values, kind: "ordinal", meta: enc });
+      } else {
+        var encN = encodeNominal(pred.tokens);
+        encN.columns.forEach(function(col, i){
+          terms.push({
+            name: pred.name + " = " + encN.levels[i] + " (ref: " + encN.reference + ")",
+            values: col, kind: "nominal",
+            variable: pred.name, level: encN.levels[i], reference: encN.reference
+          });
+        });
+      }
+    });
+    var X = [];
+    for (var i = 0; i < n; i++){
+      var row = [1];
+      terms.forEach(function(t){ row.push(t.values[i]); });
+      X.push(row);
+    }
+    return { X: X, terms: terms };
+  }
+
+  function renderGlmPlot(container, x, y, beta, family, xLabel, yLabel){
     var W = 480, H = 300, mL = 50, mR = 16, mT = 16, mB = 38;
     var xMin = Math.min.apply(null, x), xMax = Math.max.apply(null, x);
     var xPad = (xMax - xMin) * 0.06 || 1;
@@ -4072,7 +4153,7 @@
     var steps = 60, curvePts = [];
     for (var i = 0; i <= steps; i++){
       var xv2 = xMin + (xMax - xMin) * i / steps;
-      var eta = fit.beta0 + fit.beta1 * xv2;
+      var eta = beta[0] + beta[1] * xv2;
       var muv = family === "logistic" ? 1 / (1 + Math.exp(-eta)) : Math.exp(eta);
       curvePts.push([xv2, muv]);
     }
@@ -4097,25 +4178,25 @@
     logisticCard: document.getElementById("glmLogisticCard"),
     poissonCard: document.getElementById("glmPoissonCard"),
     loadExampleBtn: document.getElementById("glmLoadExampleBtn"),
-    xLabel: document.getElementById("glmXLabel"),
+    addPredictorBtn: document.getElementById("glmAddPredictorBtn"),
+    predictorsContainer: document.getElementById("glmPredictorsContainer"),
     yLabel: document.getElementById("glmYLabel"),
-    xData: document.getElementById("glmXData"),
     yData: document.getElementById("glmYData"),
     yHint: document.getElementById("glmYHint"),
     error: document.getElementById("glmError"),
     plot: document.getElementById("glmPlot"),
     plotTitle: document.getElementById("glmPlotTitle"),
+    plotNote: document.getElementById("glmPlotNote"),
     diagTitle: document.getElementById("glmDiagTitle"),
     diagRows: document.getElementById("glmDiagRows"),
     diagNote: document.getElementById("glmDiagNote"),
     eyebrow: document.getElementById("glmEyebrow"),
     title: document.getElementById("glmTitle"),
     coefBody: document.getElementById("glmCoefBody"),
-    ratioName: document.getElementById("glmRatioName"),
-    ratioValue: document.getElementById("glmRatioValue"),
-    ratioCi: document.getElementById("glmRatioCi"),
+    ratioColHead: document.getElementById("glmRatioColHead"),
     pseudoR2: document.getElementById("glmPseudoR2"),
     lrChi2: document.getElementById("glmLrChi2"),
+    lrDf: document.getElementById("glmLrDf"),
     lrP: document.getElementById("glmLrP"),
     verdict: document.getElementById("glmVerdict"),
     interpretation: document.getElementById("glmInterpretation"),
@@ -4132,29 +4213,105 @@
   function glmExampleText(family){
     if (family === "poisson"){
       return {
-        xLabel: "Dose (mg)", yLabel: "Adverse events (count)",
-        x: "5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50",
-        y: "0, 0, 1, 1, 1, 2, 2, 3, 4, 5, 0, 1, 0, 1, 2, 2, 3, 3, 5, 6"
+        yLabel: "Adverse events (count)",
+        y: "3, 3, 1, 3, 2, 2, 1, 3, 1, 3, 1, 4, 3, 4, 1, 0, 1, 4, 2, 3, 2, 0, 4, 12, 4, 4, 1, 2, 1, 2, 3, 3, 1, 3, 4, 0, 4, 1, 2, 3",
+        predictors: [
+          { name: "Dose (mg)", type: "continuous", data: "15, 45, 45, 25, 30, 10, 30, 30, 15, 30, 25, 45, 15, 30, 45, 25, 30, 35, 40, 35, 50, 45, 45, 40, 40, 45, 15, 30, 20, 50, 45, 35, 35, 10, 50, 10, 45, 25, 30, 20", order: "" },
+          { name: "Symptom severity", type: "ordinal", data: "Mild, Moderate, Moderate, Mild, Severe, Moderate, Mild, Severe, Moderate, Moderate, Severe, Severe, Moderate, Moderate, Severe, Mild, Mild, Moderate, Severe, Mild, Mild, Moderate, Severe, Severe, Moderate, Moderate, Mild, Moderate, Mild, Severe, Severe, Moderate, Mild, Severe, Moderate, Mild, Mild, Moderate, Severe, Mild", order: "Mild, Moderate, Severe" },
+          { name: "Treatment arm", type: "nominal", data: "Control, Active, Active, Control, Active, Control, Control, Active, Control, Active, Control, Control, Control, Control, Active, Control, Active, Control, Active, Control, Active, Active, Control, Control, Control, Active, Active, Control, Active, Active, Control, Control, Active, Control, Control, Control, Active, Active, Active, Control", order: "" }
+        ]
       };
     }
     return {
-      xLabel: "Age (years)", yLabel: "Outcome (0/1)",
-      x: "22, 25, 28, 31, 34, 37, 40, 43, 46, 49, 52, 55, 58, 61, 64, 67, 70, 73, 76, 79",
-      y: "0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1"
+      yLabel: "Outcome (0/1)",
+      y: "0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0",
+      predictors: [
+        { name: "Age (years)", type: "continuous", data: "33, 46, 43, 44, 45, 35, 69, 59, 63, 35, 47, 51, 54, 49, 50, 36, 74, 34, 74, 49, 55, 44, 35, 33, 72, 47, 42, 48, 39, 51, 31, 43, 52, 59, 55, 34, 72, 30, 53, 59, 60, 39, 43, 59, 62, 45, 67, 66, 42, 46", order: "" },
+        { name: "Tumour stage", type: "ordinal", data: "II, I, II, III, IV, II, IV, I, I, I, III, I, III, III, I, IV, III, III, I, IV, IV, III, I, III, I, II, IV, II, I, I, II, I, III, IV, I, II, I, II, II, IV, I, IV, IV, II, IV, II, I, II, II, III", order: "I, II, III, IV" },
+        { name: "Treatment", type: "nominal", data: "Drug B, Drug B, Drug B, Drug A, Placebo, Placebo, Drug A, Drug B, Drug A, Drug A, Drug A, Drug B, Drug B, Drug B, Placebo, Drug A, Drug A, Drug B, Drug A, Drug B, Placebo, Placebo, Placebo, Placebo, Drug A, Placebo, Drug A, Drug A, Drug B, Drug B, Placebo, Placebo, Drug A, Drug B, Drug B, Drug A, Drug A, Placebo, Drug B, Drug A, Drug B, Placebo, Placebo, Drug B, Drug B, Placebo, Placebo, Placebo, Drug A, Placebo", order: "" }
+      ]
     };
   }
 
-  function renderGlmDiagnosticsLogistic(nEvents, nNonEvents){
+  function updateGlmRemoveButtons(){
+    var blocks = glmEls.predictorsContainer.querySelectorAll(".glm-predictor-block");
+    var show = blocks.length > 1;
+    blocks.forEach(function(b){
+      b.querySelector(".remove-group-btn").style.visibility = show ? "visible" : "hidden";
+    });
+  }
+
+  function createGlmPredictorBlock(name, type, data, order){
+    var block = document.createElement("div");
+    block.className = "data-field group-block glm-predictor-block";
+    block.innerHTML =
+      '<div class="group-block-head">' +
+        '<input class="group-name-input" value="' + escapeXml(name) + '" aria-label="Predictor name">' +
+        '<button class="remove-group-btn" type="button">Remove</button>' +
+      '</div>' +
+      '<select class="glm-type-select" aria-label="Variable type">' +
+        '<option value="continuous">Continuous</option>' +
+        '<option value="ordinal">Ordinal</option>' +
+        '<option value="nominal">Nominal</option>' +
+      '</select>' +
+      '<textarea aria-label="Predictor values" rows="4"></textarea>' +
+      '<p class="data-hint">One value per line, or comma-separated.</p>' +
+      '<div class="glm-order-field" hidden>' +
+        '<input type="text" class="glm-order-input" placeholder="Category order, low to high (e.g. Mild, Moderate, Severe)" aria-label="Category order">' +
+        '<p>Leave blank to auto-detect: numeric sort if the categories are numbers, otherwise the order they first appear.</p>' +
+      '</div>';
+    block.querySelector(".glm-type-select").value = type || "continuous";
+    block.querySelector("textarea").value = data || "";
+    block.querySelector(".glm-order-input").value = order || "";
+    var orderField = block.querySelector(".glm-order-field");
+    orderField.hidden = block.querySelector(".glm-type-select").value !== "ordinal";
+    block.querySelector(".remove-group-btn").addEventListener("click", function(){
+      if (glmEls.predictorsContainer.querySelectorAll(".glm-predictor-block").length <= 1) return;
+      block.remove();
+      updateGlmRemoveButtons();
+      recalcGlm();
+    });
+    block.querySelector(".group-name-input").addEventListener("input", recalcGlm);
+    block.querySelector("textarea").addEventListener("input", recalcGlm);
+    block.querySelector(".glm-order-input").addEventListener("input", recalcGlm);
+    block.querySelector(".glm-type-select").addEventListener("change", function(){
+      orderField.hidden = block.querySelector(".glm-type-select").value !== "ordinal";
+      recalcGlm();
+    });
+    return block;
+  }
+
+  function addGlmPredictor(name, type, data, order){
+    glmEls.predictorsContainer.appendChild(createGlmPredictorBlock(name, type, data, order));
+    updateGlmRemoveButtons();
+  }
+
+  function readGlmPredictors(){
+    var blocks = Array.prototype.slice.call(glmEls.predictorsContainer.querySelectorAll(".glm-predictor-block"));
+    return blocks.map(function(b, i){
+      var type = b.querySelector(".glm-type-select").value;
+      var name = b.querySelector(".group-name-input").value || ("Predictor " + (i + 1));
+      var rawText = b.querySelector("textarea").value;
+      if (type === "continuous"){
+        var values = parseNumbers(rawText);
+        return { name: name, type: type, values: values, n: values.length };
+      }
+      var tokens = parseTokens(rawText);
+      return { name: name, type: type, tokens: tokens, orderText: b.querySelector(".glm-order-input").value, n: tokens.length };
+    });
+  }
+
+  function renderGlmDiagnosticsLogistic(nEvents, nNonEvents, numPredictorTerms){
     glmEls.diagTitle.textContent = "Events per variable";
-    var epv = Math.min(nEvents, nNonEvents);
+    var epv = numPredictorTerms > 0 ? Math.min(nEvents, nNonEvents) / numPredictorTerms : NaN;
     glmEls.diagRows.innerHTML =
       '<div class="norm-row"><div class="norm-row-head"><span class="norm-name">Outcome balance</span><span class="norm-n">n = ' + (nEvents + nNonEvents) + '</span></div>' +
-      '<div class="norm-stats"><span class="norm-stat">Events (1) = <b>' + nEvents + '</b></span><span class="norm-stat">Non-events (0) = <b>' + nNonEvents + '</b></span><span class="norm-stat">EPV = <b>' + epv + '</b></span>' +
+      '<div class="norm-stats"><span class="norm-stat">Events (1) = <b>' + nEvents + '</b></span><span class="norm-stat">Non-events (0) = <b>' + nNonEvents + '</b></span><span class="norm-stat">EPV = <b>' + fmtNum(epv, 1) + '</b></span>' +
       (epv < 10
         ? '<span class="verdict border">Below 10 per predictor</span>'
         : '<span class="verdict sig">At least 10 per predictor</span>') +
       '</div></div>';
-    glmEls.diagNote.innerHTML = '<b style="color:var(--ink);">Why this matters —</b> a common rule of thumb (Peduzzi et al., 1996) calls for at least 10 events (and 10 non-events) per predictor for logistic regression’s large-sample approximations to be trustworthy. With fewer, coefficients and standard errors can be unstable even when the model converges normally.';
+    glmEls.diagNote.innerHTML = '<b style="color:var(--ink);">Why this matters —</b> a common rule of thumb (Peduzzi et al., 1996) calls for at least 10 events (and 10 non-events) per predictor coefficient — counting each dummy-coded level of a nominal variable separately — for logistic regression’s large-sample approximations to be trustworthy. With fewer, coefficients and standard errors can be unstable even when the model converges normally.';
   }
 
   function renderGlmDiagnosticsPoisson(dispersion){
@@ -4172,112 +4329,158 @@
       : '<b style="color:var(--ink);">Why this matters —</b> Poisson regression assumes variance equals the mean; φ close to 1 is consistent with that, so the standard Poisson standard errors are used as computed, with no adjustment.';
   }
 
+  function glmShowError(msg){
+    glmEls.error.hidden = false;
+    glmEls.error.innerHTML = '<span class="dot"></span> ' + msg;
+  }
+
   function recalcGlm(){
     var family = glmFamily();
     glmEls.logisticCard.classList.toggle("active", family === "logistic");
     glmEls.poissonCard.classList.toggle("active", family === "poisson");
     glmEls.classificationCard.hidden = family !== "logistic";
     glmEls.yHint.textContent = family === "logistic"
-      ? "0 = event did not occur, 1 = event occurred. Matched by position with the predictor."
-      : "A non-negative integer count (0, 1, 2, …). Matched by position with the predictor.";
+      ? "0 = event did not occur, 1 = event occurred. Matched by position with each predictor below."
+      : "A non-negative integer count (0, 1, 2, …). Matched by position with each predictor below.";
+    glmEls.ratioColHead.textContent = family === "logistic" ? "OR" : "IRR";
 
-    var x = parseNumbers(glmEls.xData.value);
     var yRaw = parseNumbers(glmEls.yData.value);
-    var xLabel = glmEls.xLabel.value || "X";
     var yLabel = glmEls.yLabel.value || "Y";
+    var predictors = readGlmPredictors();
+    var n = yRaw.length;
 
     glmEls.error.hidden = true;
 
-    if (x.length !== yRaw.length){
-      glmEls.error.hidden = false;
-      glmEls.error.innerHTML = '<span class="dot"></span> Predictor and outcome need equal counts — currently ' + x.length + ' vs ' + yRaw.length + '.';
+    var mismatched = predictors.filter(function(pred){ return pred.n !== n; });
+    if (mismatched.length > 0){
+      glmShowError('Every predictor needs the same number of values as the outcome (n = ' + n + ') — "' + mismatched[0].name + '" has ' + mismatched[0].n + '.');
       return;
     }
-    if (x.length < 8){
-      glmEls.error.hidden = false;
-      glmEls.error.innerHTML = '<span class="dot"></span> Need at least 8 paired observations to fit a stable model.';
+    if (n < 8){
+      glmShowError('Need at least 8 observations to fit a stable model.');
       return;
     }
     if (family === "logistic"){
       var badY = yRaw.filter(function(v){ return v !== 0 && v !== 1; });
       if (badY.length > 0){
-        glmEls.error.hidden = false;
-        glmEls.error.innerHTML = '<span class="dot"></span> Outcome must be 0 or 1 for logistic regression — found ' + badY.length + ' other value(s) (e.g. "' + badY[0] + '").';
+        glmShowError('Outcome must be 0 or 1 for logistic regression — found ' + badY.length + ' other value(s) (e.g. "' + badY[0] + '").');
         return;
       }
     } else {
       var badCount = yRaw.filter(function(v){ return v < 0 || !Number.isInteger(v); });
       if (badCount.length > 0){
-        glmEls.error.hidden = false;
-        glmEls.error.innerHTML = '<span class="dot"></span> Outcome must be a non-negative integer count for Poisson regression — found ' + badCount.length + ' other value(s) (e.g. "' + badCount[0] + '").';
+        glmShowError('Outcome must be a non-negative integer count for Poisson regression — found ' + badCount.length + ' other value(s) (e.g. "' + badCount[0] + '").');
         return;
       }
     }
-
-    var y = yRaw;
-    var fit = fitGLM(x, y, family);
-
-    if (!fit.converged){
-      glmEls.error.hidden = false;
-      glmEls.error.innerHTML = '<span class="dot"></span> The model did not converge — this usually means the predictor separates the outcome too cleanly (perfect or near-perfect separation) for a finite estimate to exist. Results below are shown but should not be trusted.';
+    var tooFewCategories = predictors.filter(function(pred){
+      if (pred.type === "continuous") return false;
+      var distinct = []; pred.tokens.forEach(function(t){ if (distinct.indexOf(t) < 0) distinct.push(t); });
+      return distinct.length < 2;
+    });
+    if (tooFewCategories.length > 0){
+      glmShowError('"' + tooFewCategories[0].name + '" needs at least 2 distinct categories to be used as an ordinal or nominal predictor.');
+      return;
+    }
+    var badOrder = predictors.filter(function(pred){
+      if (pred.type !== "ordinal") return false;
+      var enc = encodeOrdinal(pred.tokens, pred.orderText);
+      return enc.values.some(function(v){ return isNaN(v); });
+    });
+    if (badOrder.length > 0){
+      glmShowError('The category order given for "' + badOrder[0].name + '" doesn\'t cover every category present in its data — add the missing categor' + (badOrder[0].name ? 'ies' : 'y') + ' or leave the order field blank to auto-detect.');
+      return;
     }
 
-    renderGlmPlot(glmEls.plot, x, y, fit, family, xLabel, yLabel);
-    glmEls.plotTitle.textContent = family === "logistic" ? "Fitted probability curve" : "Fitted count curve";
+    var y = yRaw;
+    var design = buildGlmDesignMatrix(predictors, n);
+    var terms = design.terms;
+
+    if (n <= design.X[0].length){
+      glmShowError('Too many parameters (' + design.X[0].length + ', including the intercept) for only ' + n + ' observations — remove a predictor or add more data.');
+      return;
+    }
+
+    var fit = fitGLM(design.X, y, family);
+
+    if (!fit.converged){
+      glmShowError('The model did not converge — this usually means the predictors separate the outcome too cleanly (perfect or near-perfect separation) for a finite estimate to exist. Results below are shown but should not be trusted.');
+    }
+
+    var singleContinuous = predictors.length === 1 && predictors[0].type === "continuous";
+    if (singleContinuous){
+      glmEls.plot.hidden = false;
+      glmEls.plotNote.hidden = true;
+      renderGlmPlot(glmEls.plot, predictors[0].values, y, fit.beta, family, predictors[0].name, yLabel);
+      glmEls.plotTitle.textContent = family === "logistic" ? "Fitted probability curve" : "Fitted count curve";
+    } else {
+      glmEls.plot.hidden = true;
+      glmEls.plot.innerHTML = "";
+      glmEls.plotNote.hidden = false;
+      glmEls.plotTitle.textContent = family === "logistic" ? "Fitted probability curve" : "Fitted count curve";
+      glmEls.plotNote.textContent = "A single fitted curve isn't meaningful with more than one predictor (or a non-continuous predictor) — the coefficient table below shows each term's effect instead.";
+    }
 
     var llNull = glmNullLogLik(y, family);
     var lr = 2 * (fit.logLik - llNull);
-    var lrP = chiSquaredPGeneral(lr, 1);
+    var df = terms.length;
+    var lrP = chiSquaredPGeneral(lr, df);
     var pseudoR2 = 1 - fit.logLik / llNull;
 
-    var seBeta0 = fit.seBeta0, seBeta1 = fit.seBeta1;
+    var se = fit.se.slice();
     var dispersion = NaN;
     if (family === "poisson"){
-      dispersion = poissonDispersion(x, y, fit.beta0, fit.beta1);
+      dispersion = poissonDispersion(y, fit.mu, fit.p);
       if (isFinite(dispersion) && dispersion > 1.5){
-        seBeta0 = seBeta0 * Math.sqrt(dispersion);
-        seBeta1 = seBeta1 * Math.sqrt(dispersion);
+        se = se.map(function(s){ return s * Math.sqrt(dispersion); });
       }
       renderGlmDiagnosticsPoisson(dispersion);
     } else {
       var nEvents = y.filter(function(v){ return v === 1; }).length;
-      renderGlmDiagnosticsLogistic(nEvents, y.length - nEvents);
+      renderGlmDiagnosticsLogistic(nEvents, y.length - nEvents, terms.length);
     }
-
-    var z0 = fit.beta0 / seBeta0, z1 = fit.beta1 / seBeta1;
-    var p0 = Math.min(1, Math.max(0, erfc(Math.abs(z0) / Math.SQRT2)));
-    var p1 = Math.min(1, Math.max(0, erfc(Math.abs(z1) / Math.SQRT2)));
 
     var quasiAdjusted = family === "poisson" && isFinite(dispersion) && dispersion > 1.5;
     glmEls.title.textContent = (family === "logistic" ? "Logistic regression" : "Poisson regression") + (quasiAdjusted ? " (quasi-Poisson SEs)" : "");
-    glmEls.coefBody.innerHTML =
-      '<tr><td>Intercept</td><td>' + fmtNum(fit.beta0, 4) + '</td><td>' + fmtNum(seBeta0, 4) + '</td><td>' + fmtNum(z0, 3) + '</td><td>' + fmtP(p0) + '</td></tr>' +
-      '<tr><td>' + escapeXml(xLabel) + '</td><td>' + fmtNum(fit.beta1, 4) + '</td><td>' + fmtNum(seBeta1, 4) + '</td><td>' + fmtNum(z1, 3) + '</td><td>' + fmtP(p1) + '</td></tr>';
 
-    var ratio = Math.exp(fit.beta1);
-    var ratioLo = Math.exp(fit.beta1 - 1.96 * seBeta1);
-    var ratioHi = Math.exp(fit.beta1 + 1.96 * seBeta1);
-    glmEls.ratioName.textContent = family === "logistic" ? "Odds ratio" : "Incidence rate ratio";
-    glmEls.ratioValue.textContent = fmtNum(ratio, 3);
-    glmEls.ratioCi.textContent = "95% CI " + fmtNum(ratioLo, 3) + "–" + fmtNum(ratioHi, 3) + " per unit " + xLabel;
+    var rows = ['<tr><td>Intercept</td><td>' + fmtNum(fit.beta[0], 4) + '</td><td>' + fmtNum(se[0], 4) + '</td><td>' +
+      fmtNum(fit.beta[0] / se[0], 3) + '</td><td>' + fmtP(Math.min(1, Math.max(0, erfc(Math.abs(fit.beta[0] / se[0]) / Math.SQRT2)))) + '</td><td>—</td><td>—</td></tr>'];
+    var termEffects = [];
+    terms.forEach(function(term, idx){
+      var j = idx + 1;
+      var z = fit.beta[j] / se[j];
+      var p = Math.min(1, Math.max(0, erfc(Math.abs(z) / Math.SQRT2)));
+      var ratio = Math.exp(fit.beta[j]);
+      var ratioLo = Math.exp(fit.beta[j] - 1.96 * se[j]);
+      var ratioHi = Math.exp(fit.beta[j] + 1.96 * se[j]);
+      rows.push('<tr><td>' + escapeXml(term.name) + '</td><td>' + fmtNum(fit.beta[j], 4) + '</td><td>' + fmtNum(se[j], 4) + '</td><td>' +
+        fmtNum(z, 3) + '</td><td>' + fmtP(p) + '</td><td>' + fmtNum(ratio, 3) + '</td><td>' + fmtNum(ratioLo, 3) + '–' + fmtNum(ratioHi, 3) + '</td></tr>');
+      termEffects.push({ name: term.name, kind: term.kind, variable: term.variable, level: term.level, reference: term.reference, ratio: ratio, ratioLo: ratioLo, ratioHi: ratioHi });
+    });
+    glmEls.coefBody.innerHTML = rows.join("");
     glmEls.pseudoR2.textContent = fmtNum(pseudoR2, 3);
 
     glmEls.lrChi2.textContent = fmtNum(lr, 3);
+    glmEls.lrDf.textContent = df;
     glmEls.lrP.textContent = fmtP(lrP);
     glmEls.verdict.innerHTML = ""; glmEls.verdict.appendChild(verdictPill(lrP));
 
     var ratioWord = family === "logistic" ? "odds ratio" : "incidence rate ratio";
-    glmEls.interpretation.textContent = (family === "logistic" ? "A logistic" : "A Poisson") + " regression of " + yLabel + " on " + xLabel + " found " +
-      (lrP < 0.05 ? "evidence" : "no evidence") + " that " + xLabel + " improves on a model with no predictor (likelihood ratio χ² = " + fmtNum(lr, 2) + ", df = 1, p = " + fmtP(lrP) + "). " +
-      "Each one-unit increase in " + xLabel + " is associated with the " + ratioWord + " changing by a factor of " + fmtNum(ratio, 2) + " (95% CI " + fmtNum(ratioLo, 2) + "–" + fmtNum(ratioHi, 2) + "). " +
-      "This describes an association, not a causal effect, and doesn't account for any other variable that might explain it.";
+    var predictorNames = predictors.map(function(p){ return p.name; }).join(", ");
+    var termSentences = termEffects.map(function(te, idx){
+      var change = te.kind === "nominal" ? te.variable + " = " + te.level + " (vs. " + te.reference + ")" : "each one-unit increase in " + te.name;
+      if (idx === 0) change = change.charAt(0).toUpperCase() + change.slice(1);
+      return change + " is associated with the " + ratioWord + " changing by a factor of " + fmtNum(te.ratio, 2) + " (95% CI " + fmtNum(te.ratioLo, 2) + "–" + fmtNum(te.ratioHi, 2) + ")";
+    });
+    glmEls.interpretation.textContent = (family === "logistic" ? "A logistic" : "A Poisson") + " regression of " + yLabel + " on " + predictorNames + " found " +
+      (lrP < 0.05 ? "evidence" : "no evidence") + " that these predictors jointly improve on a model with none of them (likelihood ratio χ² = " + fmtNum(lr, 2) + ", df = " + df + ", p = " + fmtP(lrP) + "). " +
+      (termSentences.length > 0 ? termSentences.join("; ") + "." : "") +
+      " This describes an association, not a causal effect, and doesn't account for any variable not included in the model.";
 
     if (family === "logistic"){
       var tp = 0, tn = 0, fp = 0, fn = 0;
-      for (var i = 0; i < x.length; i++){
-        var eta = fit.beta0 + fit.beta1 * x[i];
-        var pHat = 1 / (1 + Math.exp(-eta));
-        var predicted = pHat >= 0.5 ? 1 : 0;
+      for (var i = 0; i < n; i++){
+        var predicted = fit.mu[i] >= 0.5 ? 1 : 0;
         if (predicted === 1 && y[i] === 1) tp++;
         else if (predicted === 0 && y[i] === 0) tn++;
         else if (predicted === 1 && y[i] === 0) fp++;
@@ -4285,37 +4488,30 @@
       }
       glmEls.cm00.textContent = tn; glmEls.cm01.textContent = fp;
       glmEls.cm10.textContent = fn; glmEls.cm11.textContent = tp;
-      glmEls.accuracy.textContent = fmtNum((tp + tn) / x.length * 100, 1) + "%";
+      glmEls.accuracy.textContent = fmtNum((tp + tn) / n * 100, 1) + "%";
     }
   }
 
-  [glmEls.xData, glmEls.yData, glmEls.xLabel, glmEls.yLabel].forEach(function(el){
-    el.addEventListener("input", recalcGlm);
-  });
-  glmEls.logisticRadio.addEventListener("change", function(){
-    var ex = glmExampleText("logistic");
-    glmEls.xLabel.value = ex.xLabel; glmEls.yLabel.value = ex.yLabel;
-    glmEls.xData.value = ex.x; glmEls.yData.value = ex.y;
+  function loadGlmExample(family){
+    var ex = glmExampleText(family);
+    glmEls.yLabel.value = ex.yLabel;
+    glmEls.yData.value = ex.y;
+    glmEls.predictorsContainer.innerHTML = "";
+    ex.predictors.forEach(function(p){ addGlmPredictor(p.name, p.type, p.data, p.order); });
     recalcGlm();
-  });
-  glmEls.poissonRadio.addEventListener("change", function(){
-    var ex = glmExampleText("poisson");
-    glmEls.xLabel.value = ex.xLabel; glmEls.yLabel.value = ex.yLabel;
-    glmEls.xData.value = ex.x; glmEls.yData.value = ex.y;
-    recalcGlm();
-  });
-  glmEls.loadExampleBtn.addEventListener("click", function(){
-    var ex = glmExampleText(glmFamily());
-    glmEls.xLabel.value = ex.xLabel; glmEls.yLabel.value = ex.yLabel;
-    glmEls.xData.value = ex.x; glmEls.yData.value = ex.y;
+  }
+
+  glmEls.yData.addEventListener("input", recalcGlm);
+  glmEls.yLabel.addEventListener("input", recalcGlm);
+  glmEls.logisticRadio.addEventListener("change", function(){ loadGlmExample("logistic"); });
+  glmEls.poissonRadio.addEventListener("change", function(){ loadGlmExample("poisson"); });
+  glmEls.loadExampleBtn.addEventListener("click", function(){ loadGlmExample(glmFamily()); });
+  glmEls.addPredictorBtn.addEventListener("click", function(){
+    addGlmPredictor("Predictor " + (glmEls.predictorsContainer.querySelectorAll(".glm-predictor-block").length + 1), "continuous", "");
     recalcGlm();
   });
 
-  (function(){
-    var ex = glmExampleText("logistic");
-    glmEls.xData.value = ex.x; glmEls.yData.value = ex.y;
-  })();
-  recalcGlm();
+  loadGlmExample("logistic");
 
   recalc();
   recalcTtest();
