@@ -646,8 +646,10 @@
         <div class="effect-name" id="ttEffectName">Standardized mean difference</div>
         <div class="effect-value" id="ttCohenD">—</div>
         <div class="effect-ci" id="ttCohenDNote"></div>
+        <div id="ttEffectMagnitude" style="margin-top:8px;"></div>
       </div>
     </div>
+    <p class="norm-note" id="ttEffectGuide" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);"></p>
   </section>
 
   <footer class="notes">
@@ -1539,6 +1541,8 @@
     varianceCard: document.getElementById("variance-card"),
     effectTitle: document.getElementById("ttEffectTitle"),
     effectName: document.getElementById("ttEffectName"),
+    effectMagnitude: document.getElementById("ttEffectMagnitude"),
+    effectGuide: document.getElementById("ttEffectGuide"),
     cohenD: document.getElementById("ttCohenD"),
     cohenDNote: document.getElementById("ttCohenDNote"),
     barChart: document.getElementById("ttBarChart"),
@@ -1636,6 +1640,34 @@
     ttEls.effectName.textContent = info.effectName;
   }
 
+  function effectMagnitudeLabel(absVal, thresholds){
+    if (absVal < thresholds[0]) return "Negligible";
+    if (absVal < thresholds[1]) return "Small";
+    if (absVal < thresholds[2]) return "Medium";
+    return "Large";
+  }
+
+  function renderEffectMagnitude(value, kind){
+    if (isNaN(value)){
+      ttEls.effectMagnitude.innerHTML = "";
+      ttEls.effectGuide.innerHTML = "";
+      return;
+    }
+    var thresholds = kind === "d" ? [0.2, 0.5, 0.8] : [0.1, 0.3, 0.5];
+    var label = effectMagnitudeLabel(Math.abs(value), thresholds);
+    var span = document.createElement("span");
+    span.className = "verdict ns";
+    span.textContent = label + " effect";
+    ttEls.effectMagnitude.innerHTML = "";
+    ttEls.effectMagnitude.appendChild(span);
+
+    if (kind === "d"){
+      ttEls.effectGuide.innerHTML = '<b style="color:var(--ink);">Interpreting Cohen’s d —</b> conventional benchmarks (Cohen, 1988): |d| &lt; 0.2 negligible, 0.2–0.5 small, 0.5–0.8 medium, ≥ 0.8 large. These describe the mean difference in pooled SD units — they’re rough guides, not fixed rules. A "small" effect can still matter clinically, and a "large" one can be trivial, depending on what’s being measured and the stakes involved.';
+    } else {
+      ttEls.effectGuide.innerHTML = '<b style="color:var(--ink);">Interpreting rank-biserial r —</b> conventional benchmarks (Cohen, 1988, applied to correlation-scale effect sizes): |r| &lt; 0.1 negligible, 0.1–0.3 small, 0.3–0.5 medium, ≥ 0.5 large. As with Cohen’s d, these are rough guides, not fixed rules — the size that matters depends on context, not the label.';
+    }
+  }
+
   function decideIndependentMethod(shA, shB, lev){
     if (isNaN(shA) || isNaN(shB)){
       return { method: "welch", reason: "Not enough data in one or both groups to test normality (need n ≥ 3 each) — defaulting to Welch's t-test, the safer general-purpose choice." };
@@ -1698,6 +1730,7 @@
     ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(NaN));
     ttEls.meanDiff.textContent = "—";
     ttEls.cohenD.textContent = "—"; ttEls.cohenDNote.textContent = "";
+    renderEffectMagnitude(NaN, "d");
     ttEls.barChart.innerHTML = ""; ttEls.barChartCaption.textContent = "";
   }
 
@@ -1785,6 +1818,7 @@
         ttEls.cohenD.textContent = fmtNum(wres.r, 2);
         ttEls.cohenDNote.textContent = "matched-pairs rank-biserial correlation" +
           (wres.n < diffs.length ? " (" + (diffs.length - wres.n) + " zero difference(s) dropped)" : "");
+        renderEffectMagnitude(wres.r, "r");
       } else {
         var dSd = sampleSd(diffs);
         if (dSd === 0){
@@ -1801,6 +1835,7 @@
         ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(p));
         ttEls.cohenD.textContent = fmtNum(dMean / dSd, 2);
         ttEls.cohenDNote.textContent = "mean difference in SD units of the differences";
+        renderEffectMagnitude(dMean / dSd, "d");
       }
     } else {
       if (arrA.length < 2 || arrB.length < 2){
@@ -1827,6 +1862,7 @@
         ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(mwres.p));
         ttEls.cohenD.textContent = fmtNum(mwres.r, 2);
         ttEls.cohenDNote.textContent = "rank-biserial correlation";
+        renderEffectMagnitude(mwres.r, "r");
       } else {
         var vA = sampleVariance(arrA), vB = sampleVariance(arrB);
         var pooledSd = Math.sqrt(((nA - 1) * vA + (nB - 1) * vB) / (nA + nB - 2));
@@ -1847,6 +1883,7 @@
         ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(pVal));
         ttEls.cohenD.textContent = fmtNum(meanDiff / pooledSd, 2);
         ttEls.cohenDNote.textContent = "mean difference in pooled SD units";
+        renderEffectMagnitude(meanDiff / pooledSd, "d");
       }
     }
   }
