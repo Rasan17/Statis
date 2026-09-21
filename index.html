@@ -480,6 +480,70 @@
     font-size:12.5px;color:var(--ink-soft);margin-top:14px;transition:border-color .15s,background .15s;
   }
   .dropzone.dragover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);}
+
+  .ml-preview-wrap{overflow-x:auto;max-height:280px;overflow-y:auto;border:1px solid var(--line);border-radius:9px;}
+  table.ml-preview{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap;}
+  table.ml-preview th, table.ml-preview td{border:1px solid var(--line);padding:5px 8px;text-align:left;font-family:"IBM Plex Mono",monospace;}
+  table.ml-preview th{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;position:sticky;top:0;}
+
+  table.ml-schema{border-collapse:collapse;width:100%;font-size:12.5px;}
+  table.ml-schema th, table.ml-schema td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:middle;}
+  table.ml-schema th{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;}
+  table.ml-schema td.col-name{font-family:"IBM Plex Mono",monospace;font-weight:600;}
+  table.ml-schema select{
+    width:100%;border:1px solid var(--line);border-radius:7px;background:var(--paper);
+    color:var(--ink);font:12px "IBM Plex Sans",sans-serif;padding:5px 7px;
+  }
+  table.ml-schema td.col-meta{font-size:11px;color:var(--ink-soft);font-family:"IBM Plex Mono",monospace;}
+  table.ml-schema tr.role-target{background:var(--accent-soft);}
+  table.ml-schema tr.role-ignore{opacity:0.55;}
+
+  .ml-hp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:14px;}
+  .ml-hp-field label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-soft);margin-bottom:6px;}
+  .ml-hp-field select, .ml-hp-field input[type="number"]{
+    width:100%;border:1px solid var(--line);border-radius:8px;background:var(--paper);
+    color:var(--ink);font:13px "IBM Plex Sans",sans-serif;padding:7px 9px;
+  }
+  .ml-hp-field .ml-hp-value{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-soft);margin-top:4px;}
+  input[type="range"].ml-slider{
+    width:100%;accent-color:var(--accent);cursor:pointer;
+  }
+
+  .ml-layer-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .ml-layer-row span{font-size:12px;color:var(--ink-soft);min-width:64px;}
+  .ml-layer-row select{flex:1;}
+
+  .heatmap-wrap{overflow-x:auto;}
+  table.heatmap{border-collapse:collapse;margin:0 auto;}
+  table.heatmap th, table.heatmap td{
+    border:1px solid var(--line);padding:10px 14px;text-align:center;font-family:"IBM Plex Mono",monospace;
+    font-size:13px;font-variant-numeric:tabular-nums;min-width:64px;
+  }
+  table.heatmap th{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:11.5px;}
+  table.heatmap td.cell{font-weight:700;font-size:16px;}
+  table.heatmap td.axis-label{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:11px;color:var(--ink-soft);}
+
+  .confidence-bar-track{width:100%;height:22px;border-radius:999px;background:var(--neutral-soft);overflow:hidden;position:relative;margin-top:8px;}
+  .confidence-bar-fill{height:100%;background:var(--accent);border-radius:999px;width:0%;transition:width .5s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;}
+  .confidence-bar-fill span{font-size:11px;font-weight:700;color:var(--surface);white-space:nowrap;}
+
+  .ml-playground-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
+  .ml-play-field label{display:block;font-size:11.5px;font-weight:600;color:var(--ink);margin-bottom:6px;}
+  .ml-play-field select{
+    width:100%;border:1px solid var(--line);border-radius:8px;background:var(--paper);
+    color:var(--ink);font:13px "IBM Plex Sans",sans-serif;padding:7px 9px;
+  }
+  .ml-play-field .ml-play-value{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink-soft);margin-top:4px;text-align:right;}
+
+  .ml-task-badge{
+    display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);padding:6px 12px;border-radius:999px;margin-bottom:14px;
+  }
+  .ml-spinner{
+    display:inline-block;width:14px;height:14px;border:2px solid var(--neutral-soft);border-top-color:var(--accent);
+    border-radius:50%;animation:ml-spin .7s linear infinite;vertical-align:-2px;margin-right:6px;
+  }
+  @keyframes ml-spin{to{transform:rotate(360deg);}}
 </style>
 
 <div class="page">
@@ -510,6 +574,7 @@
     <button class="tab-btn" id="tabBtnSurvival" type="button" role="tab" aria-selected="false">Survival</button>
     <button class="tab-btn" id="tabBtnGlm" type="button" role="tab" aria-selected="false">GLM</button>
     <button class="tab-btn" id="tabBtnMeta" type="button" role="tab" aria-selected="false">Meta-Analysis<span class="tab-badge" id="metaTabBadge" hidden>0</span></button>
+    <button class="tab-btn" id="tabBtnMl" type="button" role="tab" aria-selected="false">ML/NN</button>
   </nav>
 
   <div class="toast" id="toast"></div>
@@ -1436,6 +1501,231 @@
 
   </div>
 
+  <div class="tab-panel" id="panel-ml" hidden>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 1</p><h2>Data</h2></div>
+      <div class="btn-row">
+        <span class="ghost-btn file-btn">Upload CSV<input type="file" id="mlCsvInput" accept=".csv,.txt"></span>
+        <button class="ghost-btn" id="mlPasteToggleBtn" type="button">Paste CSV</button>
+        <button class="ghost-btn" id="mlLoadSampleBtn" type="button">Load sample medical dataset</button>
+      </div>
+    </div>
+    <div id="mlPasteWrap" hidden style="margin-bottom:14px;">
+      <textarea id="mlPasteArea" rows="6" style="width:100%;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font:13px/1.5 'IBM Plex Mono',monospace;padding:10px 12px;resize:vertical;" placeholder="Paste CSV text here, first row as header…"></textarea>
+      <button class="primary-btn" id="mlPasteLoadBtn" type="button" style="margin-top:8px;">Load pasted data</button>
+    </div>
+    <div class="dropzone" id="mlDropzone">Drag and drop a CSV file here — first row is treated as the header.</div>
+    <div class="assumption warn" id="mlDataError" hidden style="margin-top:14px;"></div>
+    <div id="mlDataSummary" style="margin-top:14px;"></div>
+    <div class="ml-preview-wrap" id="mlPreviewWrap" style="margin-top:10px;" hidden>
+      <table class="ml-preview" id="mlPreviewTable"></table>
+    </div>
+  </section>
+
+  <section class="card" id="mlSchemaCard" hidden>
+    <div class="card-head">
+      <div><p class="eyebrow">Step 2</p><h2>Variable roles &amp; types</h2></div>
+    </div>
+    <p class="data-hint" style="margin-bottom:12px;">Choose exactly one <b style="color:var(--ink);">Target</b> (what the model predicts) and at least one <b style="color:var(--ink);">Feature</b>. Numeric features are standardized (z-score); categorical features are one-hot encoded; binary variables are mapped to 0/1. <b style="color:var(--ink);">Meta / ID</b> columns are kept for reference but never enter the model.</p>
+    <div class="table-wrap">
+      <table class="ml-schema">
+        <thead><tr><th>Column</th><th>Role</th><th>Data type</th><th>Summary</th></tr></thead>
+        <tbody id="mlSchemaBody"></tbody>
+      </table>
+    </div>
+    <div class="assumption warn" id="mlSchemaError" hidden style="margin-top:14px;"></div>
+  </section>
+
+  <section class="card" id="mlModelCard" hidden>
+    <div class="card-head">
+      <div><p class="eyebrow">Step 3</p><h2>Model &amp; hyperparameters</h2></div>
+    </div>
+    <div class="ml-task-badge" id="mlTaskBadge"></div>
+    <div class="radio-group" role="radiogroup" id="mlModelRadioGroup">
+      <label class="radio-card active" id="mlModelLogisticCard">
+        <input type="radio" name="mlModelFamily" id="mlModelLogistic" value="logistic" checked>
+        <div><div class="radio-card-title">Logistic / softmax regression</div><div class="radio-card-sub">Interpretable linear model, fit by gradient descent.</div></div>
+      </label>
+      <label class="radio-card" id="mlModelTreeCard">
+        <input type="radio" name="mlModelFamily" id="mlModelTree" value="tree">
+        <div><div class="radio-card-title">Decision tree</div><div class="radio-card-sub">A single tree of if/else splits — captures non-linear interactions.</div></div>
+      </label>
+      <label class="radio-card" id="mlModelForestCard">
+        <input type="radio" name="mlModelFamily" id="mlModelForest" value="forest">
+        <div><div class="radio-card-title">Random forest</div><div class="radio-card-sub">An ensemble of trees on bootstrapped samples — more stable than one tree.</div></div>
+      </label>
+      <label class="radio-card" id="mlModelKnnCard">
+        <input type="radio" name="mlModelFamily" id="mlModelKnn" value="knn">
+        <div><div class="radio-card-title">k-Nearest Neighbors</div><div class="radio-card-sub">Predicts from the k most similar training rows.</div></div>
+      </label>
+      <label class="radio-card" id="mlModelNnCard">
+        <input type="radio" name="mlModelFamily" id="mlModelNn" value="nn">
+        <div><div class="radio-card-title">Neural network (MLP)</div><div class="radio-card-sub">A configurable multilayer perceptron, trained with TensorFlow.js.</div></div>
+      </label>
+    </div>
+
+    <div id="mlHpLogistic" class="ml-hp-grid">
+      <div class="ml-hp-field">
+        <label for="mlLogisticLr">Learning rate</label>
+        <input type="range" class="ml-slider" id="mlLogisticLr" min="0.01" max="1" step="0.01" value="0.3">
+        <div class="ml-hp-value" id="mlLogisticLrValue">0.30</div>
+      </div>
+      <div class="ml-hp-field">
+        <label for="mlLogisticIters">Iterations</label>
+        <input type="range" class="ml-slider" id="mlLogisticIters" min="100" max="3000" step="100" value="1000">
+        <div class="ml-hp-value" id="mlLogisticItersValue">1000</div>
+      </div>
+    </div>
+
+    <div id="mlHpTree" class="ml-hp-grid" hidden>
+      <div class="ml-hp-field">
+        <label for="mlTreeDepth">Max depth</label>
+        <input type="range" class="ml-slider" id="mlTreeDepth" min="1" max="15" step="1" value="5">
+        <div class="ml-hp-value" id="mlTreeDepthValue">5</div>
+      </div>
+    </div>
+
+    <div id="mlHpForest" class="ml-hp-grid" hidden>
+      <div class="ml-hp-field">
+        <label for="mlForestTrees">Number of trees</label>
+        <input type="range" class="ml-slider" id="mlForestTrees" min="5" max="150" step="5" value="50">
+        <div class="ml-hp-value" id="mlForestTreesValue">50</div>
+      </div>
+      <div class="ml-hp-field">
+        <label for="mlForestDepth">Max depth per tree</label>
+        <input type="range" class="ml-slider" id="mlForestDepth" min="1" max="15" step="1" value="6">
+        <div class="ml-hp-value" id="mlForestDepthValue">6</div>
+      </div>
+    </div>
+
+    <div id="mlHpKnn" class="ml-hp-grid" hidden>
+      <div class="ml-hp-field">
+        <label for="mlKnnK">k (number of neighbors)</label>
+        <input type="range" class="ml-slider" id="mlKnnK" min="1" max="25" step="1" value="5">
+        <div class="ml-hp-value" id="mlKnnKValue">5</div>
+      </div>
+    </div>
+
+    <div id="mlHpNn" hidden>
+      <p class="data-hint" style="margin:14px 0 8px;font-weight:600;color:var(--ink);">Hidden layers</p>
+      <div id="mlNnLayers"></div>
+      <button class="ghost-btn" id="mlNnAddLayerBtn" type="button" style="margin-bottom:10px;">+ Add layer</button>
+      <div class="ml-hp-grid">
+        <div class="ml-hp-field">
+          <label for="mlNnActivation">Activation function</label>
+          <select id="mlNnActivation">
+            <option value="relu">ReLU</option>
+            <option value="sigmoid">Sigmoid</option>
+            <option value="tanh">Tanh</option>
+          </select>
+        </div>
+        <div class="ml-hp-field">
+          <label for="mlNnLr">Learning rate</label>
+          <input type="range" class="ml-slider" id="mlNnLr" min="0.001" max="0.1" step="0.001" value="0.01">
+          <div class="ml-hp-value" id="mlNnLrValue">0.010</div>
+        </div>
+        <div class="ml-hp-field">
+          <label for="mlNnEpochs">Epochs</label>
+          <input type="range" class="ml-slider" id="mlNnEpochs" min="10" max="200" step="10" value="60">
+          <div class="ml-hp-value" id="mlNnEpochsValue">60</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ml-hp-grid" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
+      <div class="ml-hp-field" style="grid-column:1/-1;">
+        <label for="mlSplitSlider">Train / test split — <span id="mlSplitLabel">80% train / 20% test</span></label>
+        <input type="range" class="ml-slider" id="mlSplitSlider" min="50" max="90" step="5" value="80">
+      </div>
+    </div>
+
+    <button class="primary-btn" id="mlTrainBtn" type="button" style="margin-top:16px;">Train model</button>
+    <div class="assumption warn" id="mlTrainError" hidden style="margin-top:14px;"></div>
+  </section>
+
+  <section class="card" id="mlProgressCard" hidden>
+    <div class="card-head">
+      <div><p class="eyebrow">Training</p><h2 id="mlProgressTitle">Progress</h2></div>
+    </div>
+    <div id="mlProgressStatus" class="data-hint"></div>
+    <div id="mlLossPlot" style="margin-top:10px;"></div>
+    <div class="legend-row" id="mlLossLegend"></div>
+  </section>
+
+  <section class="card" id="mlEvalCard" hidden>
+    <p class="eyebrow">Evaluation</p>
+    <h2 id="mlEvalTitle">Performance on the held-out test set</h2>
+
+    <div id="mlEvalClassification" hidden>
+      <div class="qc-grid" style="grid-template-columns:repeat(4,1fr);">
+        <div class="qc-tile"><div class="qc-num" id="mlAccuracy">—</div><div class="qc-label">Accuracy</div></div>
+        <div class="qc-tile"><div class="qc-num" id="mlPrecision">—</div><div class="qc-label">Precision</div></div>
+        <div class="qc-tile"><div class="qc-num" id="mlRecall">—</div><div class="qc-label">Recall</div></div>
+        <div class="qc-tile"><div class="qc-num" id="mlF1">—</div><div class="qc-label">F1-score</div></div>
+      </div>
+      <div class="table-wrap" style="margin-top:18px;">
+        <p class="data-hint" style="margin-bottom:8px;font-weight:600;color:var(--ink);">Confusion matrix</p>
+        <div class="heatmap-wrap" id="mlConfusionMatrix"></div>
+      </div>
+      <div style="margin-top:20px;" id="mlRocSection">
+        <p class="data-hint" style="margin-bottom:8px;font-weight:600;color:var(--ink);">ROC curve <span id="mlAucValue" style="font-weight:400;"></span></p>
+        <div id="mlRocPlot"></div>
+        <p class="norm-note" id="mlRocNote" style="margin-top:8px;"></p>
+      </div>
+    </div>
+
+    <div id="mlEvalRegression" hidden>
+      <div class="qc-grid">
+        <div class="qc-tile"><div class="qc-num" id="mlR2">—</div><div class="qc-label">R²</div></div>
+        <div class="qc-tile"><div class="qc-num" id="mlMse">—</div><div class="qc-label">MSE</div></div>
+        <div class="qc-tile"><div class="qc-num" id="mlMae">—</div><div class="qc-label">MAE</div></div>
+      </div>
+      <div style="margin-top:18px;">
+        <p class="data-hint" style="margin-bottom:8px;font-weight:600;color:var(--ink);">Actual vs. predicted</p>
+        <div id="mlScatterPlot"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="mlPlaygroundCard" hidden>
+    <p class="eyebrow">Live prediction</p>
+    <h2>Try the trained model</h2>
+    <div class="ml-playground-grid" id="mlPlaygroundInputs"></div>
+    <button class="primary-btn" id="mlPredictBtn" type="button" style="margin-top:16px;">Predict</button>
+    <div id="mlPredictionResult" style="margin-top:16px;"></div>
+  </section>
+
+  <section class="card" id="mlBatchCard" hidden>
+    <div class="card-head">
+      <div><p class="eyebrow">Batch prediction</p><h2>Score a CSV file</h2></div>
+      <span class="ghost-btn file-btn">Upload CSV<input type="file" id="mlBatchCsvInput" accept=".csv,.txt"></span>
+    </div>
+    <p class="data-hint">Upload a CSV with the same feature columns (the target column isn't needed). Predictions and probabilities are appended as new columns and offered as a download.</p>
+    <div class="assumption warn" id="mlBatchError" hidden style="margin-top:14px;"></div>
+    <div id="mlBatchResult" style="margin-top:10px;"></div>
+  </section>
+
+  <section class="card">
+    <details class="info-box">
+      <summary>How it's computed</summary>
+      <div class="info-body">
+        <p><b>Preprocessing —</b> numeric features are z-score standardized (mean 0, SD 1) using training-set statistics only; categorical features are one-hot encoded into one column per category seen in the training data; binary variables (features or the target) are mapped to 0/1. A category seen only at prediction time (playground or batch) that wasn't in the training data is encoded as all-zero — effectively "unseen category" — since the model has no coefficient for it.</p>
+        <p><b>Task type —</b> determined automatically from the target's data type: <i>Binary</i> → two-class classification, <i>Categorical</i> → multi-class classification, <i>Numeric</i> → regression. The model list, evaluation metrics, and prediction display all adapt accordingly.</p>
+        <p><b>Logistic / softmax regression —</b> a linear model fit by batch gradient descent — binary cross-entropy for two classes, categorical cross-entropy (softmax) for more than two, mean squared error for regression — validated against this app's existing Newton–Raphson GLM engine and against closed-form ordinary least squares, which it reproduces almost exactly given enough iterations.</p>
+        <p><b>Decision tree —</b> built by recursive binary splitting (CART), choosing at each node the feature and threshold that most reduces Gini impurity (classification) or variance (regression), down to the chosen max depth.</p>
+        <p><b>Random forest —</b> an ensemble of trees, each grown on a bootstrap resample of the training rows; predictions are averaged (regression) or majority-voted with class probabilities from the vote fractions (classification). This generally trades a little training time for a more stable, less overfit result than a single tree.</p>
+        <p><b>k-Nearest Neighbors —</b> predicts a new point from the k closest training rows by Euclidean distance (after standardization) — majority class fraction for classification, mean value for regression. No explicit "training" step beyond storing the data.</p>
+        <p><b>Neural network —</b> a multilayer perceptron built and trained with TensorFlow.js (loaded from a CDN only when you train one), with your chosen hidden-layer sizes and activation function, Adam optimization at your chosen learning rate, and a sigmoid, softmax, or linear output layer depending on the task. The live loss curve is training loss on a further split of the training data (not the held-out test set), so the test-set evaluation below stays honest.</p>
+        <p><b>Evaluation —</b> all metrics are computed on the held-out test set only, never on data the model trained on. Precision, recall, and F1 are macro-averaged across classes for multi-class problems. The ROC curve and AUC are shown only for two-class problems.</p>
+        <p><b>Not implemented —</b> support vector machines, cross-validation / hyperparameter search, feature importance, stratified splitting, and REML-style iterative estimators aren't available in this tool.</p>
+      </div>
+    </details>
+  </section>
+
+  </div>
+
   <footer class="notes">
     Supervising Developer: Dr G Narenthiran FRCS(SN) · <a href="mailto:g_narenthiran@hotmail.com" style="color:inherit;">g_narenthiran@hotmail.com</a><br>
     © 2026 G Narenthiran. All rights reserved.
@@ -1683,7 +1973,8 @@
     regression:  { btn: document.getElementById("tabBtnRegression"),  panel: document.getElementById("panel-regression") },
     survival:    { btn: document.getElementById("tabBtnSurvival"),    panel: document.getElementById("panel-survival") },
     glm:         { btn: document.getElementById("tabBtnGlm"),         panel: document.getElementById("panel-glm") },
-    meta:        { btn: document.getElementById("tabBtnMeta"),        panel: document.getElementById("panel-meta") }
+    meta:        { btn: document.getElementById("tabBtnMeta"),        panel: document.getElementById("panel-meta") },
+    ml:          { btn: document.getElementById("tabBtnMl"),          panel: document.getElementById("panel-ml") }
   };
 
   function showTab(name){
@@ -5399,6 +5690,1146 @@
   renderMetaTable();
   updateMetaBadge();
   recalcMeta();
+
+  /* ===================== Machine Learning & Neural Networks ===================== */
+
+  function mlUnique(arr){
+    var out = [];
+    arr.forEach(function(v){ if (out.indexOf(v) < 0) out.push(v); });
+    return out;
+  }
+
+  /* --- CSV parsing (quote-aware) --- */
+  function mlParseCsvRaw(text){
+    var rows = [], field = "", row = [], inQuotes = false, i = 0, n = text.length;
+    while (i < n){
+      var ch = text[i];
+      if (inQuotes){
+        if (ch === '"'){
+          if (text[i + 1] === '"'){ field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += ch; i++; continue;
+      }
+      if (ch === '"'){ inQuotes = true; i++; continue; }
+      if (ch === ","){ row.push(field); field = ""; i++; continue; }
+      if (ch === "\r"){ i++; continue; }
+      if (ch === "\n"){ row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+      field += ch; i++;
+    }
+    if (field.length > 0 || row.length > 0){ row.push(field); rows.push(row); }
+    return rows.filter(function(r){ return !(r.length === 1 && r[0].trim() === ""); });
+  }
+
+  function mlCsvToObjects(text){
+    var rows = mlParseCsvRaw(text);
+    if (rows.length < 2) return { columns: [], rows: [], error: "Need a header row and at least one data row." };
+    var seen = {};
+    var header = rows[0].map(function(h, i){
+      var name = (h || "").trim() || ("Column " + (i + 1));
+      if (seen[name]){ seen[name]++; name = name + "_" + seen[name]; } else seen[name] = 1;
+      return name;
+    });
+    var dataRows = rows.slice(1).filter(function(r){ return r.some(function(c){ return c.trim() !== ""; }); }).map(function(r){
+      var obj = {};
+      header.forEach(function(h, i){ obj[h] = r[i] !== undefined ? r[i].trim() : ""; });
+      return obj;
+    });
+    return { columns: header, rows: dataRows, error: null };
+  }
+
+  function mlInferColumnType(values){
+    var nonEmpty = values.filter(function(v){ return v !== "" && v != null; });
+    if (nonEmpty.length === 0) return "categorical";
+    var distinct = mlUnique(nonEmpty);
+    if (distinct.length <= 2) return "binary";
+    var allNumeric = nonEmpty.every(function(v){ return isFinite(Number(v)); });
+    return allNumeric ? "numeric" : "categorical";
+  }
+
+  /* --- State --- */
+  var mlState = {
+    columns: [], rows: [], schema: {},
+    featureCols: [], targetCol: null, featureMeta: {}, targetMeta: null, task: null,
+    trainX: [], trainY: [], testX: [], testY: [],
+    model: null
+  };
+
+  var mlEls = {
+    csvInput: document.getElementById("mlCsvInput"),
+    pasteToggleBtn: document.getElementById("mlPasteToggleBtn"),
+    pasteWrap: document.getElementById("mlPasteWrap"),
+    pasteArea: document.getElementById("mlPasteArea"),
+    pasteLoadBtn: document.getElementById("mlPasteLoadBtn"),
+    loadSampleBtn: document.getElementById("mlLoadSampleBtn"),
+    dropzone: document.getElementById("mlDropzone"),
+    dataError: document.getElementById("mlDataError"),
+    dataSummary: document.getElementById("mlDataSummary"),
+    previewWrap: document.getElementById("mlPreviewWrap"),
+    previewTable: document.getElementById("mlPreviewTable"),
+    schemaCard: document.getElementById("mlSchemaCard"),
+    schemaBody: document.getElementById("mlSchemaBody"),
+    schemaError: document.getElementById("mlSchemaError"),
+    modelCard: document.getElementById("mlModelCard"),
+    taskBadge: document.getElementById("mlTaskBadge"),
+    trainBtn: document.getElementById("mlTrainBtn"),
+    trainError: document.getElementById("mlTrainError"),
+    splitSlider: document.getElementById("mlSplitSlider"),
+    splitLabel: document.getElementById("mlSplitLabel"),
+    progressCard: document.getElementById("mlProgressCard"),
+    progressTitle: document.getElementById("mlProgressTitle"),
+    progressStatus: document.getElementById("mlProgressStatus"),
+    lossPlot: document.getElementById("mlLossPlot"),
+    lossLegend: document.getElementById("mlLossLegend"),
+    evalCard: document.getElementById("mlEvalCard"),
+    evalClassification: document.getElementById("mlEvalClassification"),
+    evalRegression: document.getElementById("mlEvalRegression"),
+    accuracy: document.getElementById("mlAccuracy"),
+    precision: document.getElementById("mlPrecision"),
+    recall: document.getElementById("mlRecall"),
+    f1: document.getElementById("mlF1"),
+    confusionMatrix: document.getElementById("mlConfusionMatrix"),
+    rocSection: document.getElementById("mlRocSection"),
+    rocPlot: document.getElementById("mlRocPlot"),
+    rocNote: document.getElementById("mlRocNote"),
+    aucValue: document.getElementById("mlAucValue"),
+    r2: document.getElementById("mlR2"),
+    mse: document.getElementById("mlMse"),
+    mae: document.getElementById("mlMae"),
+    scatterPlot: document.getElementById("mlScatterPlot"),
+    playgroundCard: document.getElementById("mlPlaygroundCard"),
+    playgroundInputs: document.getElementById("mlPlaygroundInputs"),
+    predictBtn: document.getElementById("mlPredictBtn"),
+    predictionResult: document.getElementById("mlPredictionResult"),
+    batchCard: document.getElementById("mlBatchCard"),
+    batchCsvInput: document.getElementById("mlBatchCsvInput"),
+    batchError: document.getElementById("mlBatchError"),
+    batchResult: document.getElementById("mlBatchResult")
+  };
+
+  /* --- Data loading --- */
+
+  function mlDefaultSchema(columns, rows){
+    var schema = {};
+    columns.forEach(function(c, idx){
+      var values = rows.map(function(r){ return r[c]; });
+      var type = mlInferColumnType(values);
+      var isLikelyId = /(^id$|_id$|id$)/i.test(c) && mlUnique(values).length === rows.length;
+      var role = "feature";
+      if (isLikelyId) role = "ignore";
+      else if (idx === columns.length - 1) role = "target";
+      schema[c] = { role: role, type: type };
+    });
+    return schema;
+  }
+
+  function mlColumnSummary(c, values, type){
+    var nonEmpty = values.filter(function(v){ return v !== ""; });
+    if (type === "numeric"){
+      var nums = nonEmpty.map(Number).filter(isFinite);
+      if (nums.length === 0) return "no numeric values";
+      var m = mean(nums);
+      return nums.length + " values, mean " + fmtNum(m, 2) + ", range " + fmtNum(Math.min.apply(null, nums), 1) + "–" + fmtNum(Math.max.apply(null, nums), 1);
+    }
+    var distinct = mlUnique(nonEmpty);
+    if (type === "binary") return distinct.length + " value(s): " + distinct.slice(0, 2).join(" / ");
+    return distinct.length + " categories: " + distinct.slice(0, 4).join(", ") + (distinct.length > 4 ? ", …" : "");
+  }
+
+  function mlHideResultCards(){
+    mlEls.progressCard.hidden = true;
+    mlEls.evalCard.hidden = true;
+    mlEls.playgroundCard.hidden = true;
+    mlEls.batchCard.hidden = true;
+    mlState.model = null;
+  }
+
+  function mlLoadDataset(columns, rows){
+    mlState.columns = columns;
+    mlState.rows = rows;
+    mlState.schema = mlDefaultSchema(columns, rows);
+    mlEls.dataError.hidden = true;
+    mlEls.dataSummary.innerHTML = '<span class="ml-task-badge">' + rows.length + ' rows × ' + columns.length + ' columns</span>';
+    mlRenderPreview(columns, rows);
+    mlEls.schemaCard.hidden = false;
+    mlEls.modelCard.hidden = false;
+    mlRenderSchemaTable();
+    mlHideResultCards();
+    mlUpdateTaskBadge();
+  }
+
+  function mlRenderPreview(columns, rows){
+    var preview = rows.slice(0, 8);
+    var thead = "<thead><tr>" + columns.map(function(c){ return "<th>" + escapeXml(c) + "</th>"; }).join("") + "</tr></thead>";
+    var tbody = "<tbody>" + preview.map(function(r){
+      return "<tr>" + columns.map(function(c){ return "<td>" + escapeXml(r[c]) + "</td>"; }).join("") + "</tr>";
+    }).join("") + "</tbody>";
+    mlEls.previewTable.innerHTML = thead + tbody;
+    mlEls.previewWrap.hidden = false;
+  }
+
+  function mlRenderSchemaTable(){
+    var tbody = mlEls.schemaBody;
+    tbody.innerHTML = "";
+    mlState.columns.forEach(function(c){
+      var s = mlState.schema[c];
+      var values = mlState.rows.map(function(r){ return r[c]; });
+      var tr = document.createElement("tr");
+      tr.className = "role-" + s.role;
+      tr.innerHTML =
+        '<td class="col-name">' + escapeXml(c) + '</td>' +
+        '<td><select class="ml-role-select">' +
+          '<option value="feature"' + (s.role === "feature" ? " selected" : "") + '>Feature (Input)</option>' +
+          '<option value="target"' + (s.role === "target" ? " selected" : "") + '>Target (Output)</option>' +
+          '<option value="ignore"' + (s.role === "ignore" ? " selected" : "") + '>Meta / ID (Ignore)</option>' +
+        '</select></td>' +
+        '<td><select class="ml-type-select">' +
+          '<option value="numeric"' + (s.type === "numeric" ? " selected" : "") + '>Numeric</option>' +
+          '<option value="categorical"' + (s.type === "categorical" ? " selected" : "") + '>Categorical</option>' +
+          '<option value="binary"' + (s.type === "binary" ? " selected" : "") + '>Binary</option>' +
+        '</select></td>' +
+        '<td class="col-meta">' + escapeXml(mlColumnSummary(c, values, s.type)) + '</td>';
+      tr.querySelector(".ml-role-select").addEventListener("change", function(e){
+        mlState.schema[c].role = e.target.value;
+        tr.className = "role-" + e.target.value;
+        mlUpdateSchemaValidation();
+        mlUpdateTaskBadge();
+        mlHideResultCards();
+      });
+      tr.querySelector(".ml-type-select").addEventListener("change", function(e){
+        mlState.schema[c].type = e.target.value;
+        tr.querySelector(".col-meta").textContent = mlColumnSummary(c, values, e.target.value);
+        mlUpdateSchemaValidation();
+        mlUpdateTaskBadge();
+        mlHideResultCards();
+      });
+      tbody.appendChild(tr);
+    });
+    mlUpdateSchemaValidation();
+  }
+
+  function mlValidateSchema(){
+    var targets = mlState.columns.filter(function(c){ return mlState.schema[c].role === "target"; });
+    var features = mlState.columns.filter(function(c){ return mlState.schema[c].role === "feature"; });
+    if (targets.length !== 1) return { ok: false, message: "Choose exactly one Target column — currently " + targets.length + "." };
+    if (features.length < 1) return { ok: false, message: "Choose at least one Feature column." };
+    var targetCol = targets[0];
+    var targetVals = mlUnique(mlState.rows.map(function(r){ return r[targetCol]; }).filter(function(v){ return v !== ""; }));
+    if (mlState.schema[targetCol].type !== "numeric" && targetVals.length < 2){
+      return { ok: false, message: "The target column needs at least 2 distinct values for classification." };
+    }
+    return { ok: true, message: "" };
+  }
+
+  function mlUpdateSchemaValidation(){
+    var v = mlValidateSchema();
+    mlEls.schemaError.hidden = v.ok;
+    if (!v.ok) mlEls.schemaError.innerHTML = '<span class="dot"></span> ' + v.message;
+  }
+
+  function mlUpdateTaskBadge(){
+    var v = mlValidateSchema();
+    if (!v.ok){ mlEls.taskBadge.textContent = "Configure roles below to determine the task type"; return; }
+    var targetCol = mlState.columns.filter(function(c){ return mlState.schema[c].role === "target"; })[0];
+    var type = mlState.schema[targetCol].type;
+    if (type === "numeric"){ mlEls.taskBadge.textContent = "Task: Regression (predicting " + targetCol + ")"; return; }
+    var k = mlUnique(mlState.rows.map(function(r){ return r[targetCol]; }).filter(function(v){ return v !== ""; })).length;
+    mlEls.taskBadge.textContent = "Task: " + (k <= 2 ? "Binary classification" : ("Multi-class classification, " + k + " classes")) + " (predicting " + targetCol + ")";
+  }
+
+  /* --- File / paste / sample / dropzone wiring --- */
+
+  function mlHandleCsvText(text){
+    var result = mlCsvToObjects(text);
+    if (result.error || result.columns.length === 0){
+      mlEls.dataError.hidden = false;
+      mlEls.dataError.innerHTML = '<span class="dot"></span> ' + (result.error || "Could not parse this file as CSV.");
+      return;
+    }
+    mlLoadDataset(result.columns, result.rows);
+  }
+
+  mlEls.csvInput.addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){ mlHandleCsvText(String(reader.result)); };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+
+  mlEls.pasteToggleBtn.addEventListener("click", function(){ mlEls.pasteWrap.hidden = !mlEls.pasteWrap.hidden; });
+  mlEls.pasteLoadBtn.addEventListener("click", function(){
+    if (!mlEls.pasteArea.value.trim()) return;
+    mlHandleCsvText(mlEls.pasteArea.value);
+    mlEls.pasteWrap.hidden = true;
+  });
+
+  ["dragenter", "dragover"].forEach(function(evt){
+    mlEls.dropzone.addEventListener(evt, function(e){ e.preventDefault(); mlEls.dropzone.classList.add("dragover"); });
+  });
+  ["dragleave", "drop"].forEach(function(evt){
+    mlEls.dropzone.addEventListener(evt, function(e){ e.preventDefault(); mlEls.dropzone.classList.remove("dragover"); });
+  });
+  mlEls.dropzone.addEventListener("drop", function(e){
+    var file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){ mlHandleCsvText(String(reader.result)); };
+    reader.readAsText(file);
+  });
+
+  mlEls.loadSampleBtn.addEventListener("click", function(){ mlHandleCsvText(ML_SAMPLE_CSV); });
+
+  /* --- Preprocessing --- */
+
+  function mlBuildPreprocessing(trainRows){
+    var featureCols = mlState.columns.filter(function(c){ return mlState.schema[c].role === "feature"; });
+    var targetCol = mlState.columns.filter(function(c){ return mlState.schema[c].role === "target"; })[0];
+    var featureMeta = {};
+    featureCols.forEach(function(c){
+      var type = mlState.schema[c].type;
+      var vals = trainRows.map(function(r){ return r[c]; });
+      if (type === "numeric"){
+        var nums = vals.map(Number).filter(isFinite);
+        var m = nums.length ? mean(nums) : 0;
+        var sd = nums.length ? Math.sqrt(nums.reduce(function(s, v){ return s + (v - m) * (v - m); }, 0) / nums.length) : 1;
+        featureMeta[c] = { type: "numeric", mean: m, sd: sd || 1, sampleMin: nums.length ? Math.min.apply(null, nums) : 0, sampleMax: nums.length ? Math.max.apply(null, nums) : 1 };
+      } else if (type === "binary"){
+        var distinctB = mlUnique(vals.filter(function(v){ return v !== ""; }));
+        featureMeta[c] = { type: "binary", categories: distinctB.slice(0, 2) };
+      } else {
+        var distinctC = mlUnique(vals.filter(function(v){ return v !== ""; }));
+        featureMeta[c] = { type: "categorical", categories: distinctC };
+      }
+    });
+    var targetType = mlState.schema[targetCol].type;
+    var targetMeta;
+    if (targetType === "numeric"){
+      var tnums = trainRows.map(function(r){ return Number(r[targetCol]); }).filter(isFinite);
+      var tm = mean(tnums);
+      var tsd = Math.sqrt(tnums.reduce(function(s, v){ return s + (v - tm) * (v - tm); }, 0) / tnums.length) || 1;
+      targetMeta = { type: "numeric", mean: tm, sd: tsd };
+    } else {
+      var tdistinct = mlUnique(trainRows.map(function(r){ return r[targetCol]; }).filter(function(v){ return v !== ""; }));
+      targetMeta = { type: targetType, categories: tdistinct };
+    }
+    var task = targetType === "numeric" ? "regression" : (targetMeta.categories.length <= 2 ? "binary" : "multiclass");
+    mlState.featureCols = featureCols;
+    mlState.targetCol = targetCol;
+    mlState.featureMeta = featureMeta;
+    mlState.targetMeta = targetMeta;
+    mlState.task = task;
+  }
+
+  function mlEncodeRow(rawRow){
+    var vec = [];
+    mlState.featureCols.forEach(function(c){
+      var meta = mlState.featureMeta[c];
+      var raw = rawRow[c];
+      if (meta.type === "numeric"){
+        var v = Number(raw);
+        if (!isFinite(v)) v = meta.mean;
+        vec.push((v - meta.mean) / meta.sd);
+      } else if (meta.type === "binary"){
+        vec.push(raw === meta.categories[1] ? 1 : 0);
+      } else {
+        meta.categories.forEach(function(cat){ vec.push(raw === cat ? 1 : 0); });
+      }
+    });
+    return vec;
+  }
+
+  function mlEncodeTarget(rawValue){
+    if (mlState.task === "regression"){
+      var v = Number(rawValue);
+      return (v - mlState.targetMeta.mean) / mlState.targetMeta.sd;
+    }
+    return mlState.targetMeta.categories.indexOf(rawValue);
+  }
+
+  function mlSplitTrainTest(rows, trainFraction){
+    var shuffled = rows.slice();
+    for (var i = shuffled.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+    }
+    var splitIdx = Math.round(shuffled.length * trainFraction);
+    return { train: shuffled.slice(0, splitIdx), test: shuffled.slice(splitIdx) };
+  }
+
+  /* --- Classical models --- */
+
+  function mlTrainLinearModel(X, y, task, numClasses, opts){
+    var n = X.length, p = X[0].length;
+    var lr = opts.lr, iters = opts.iters;
+    var Xb = X.map(function(row){ return [1].concat(row); });
+    var pb = p + 1, i, j, c;
+    if (task === "multiclass"){
+      var W = []; for (c = 0; c < numClasses; c++) W.push(new Array(pb).fill(0));
+      for (var it = 0; it < iters; it++){
+        var grad = []; for (c = 0; c < numClasses; c++) grad.push(new Array(pb).fill(0));
+        for (i = 0; i < n; i++){
+          var z = W.map(function(wc){ var s = 0; for (var jj = 0; jj < pb; jj++) s += wc[jj] * Xb[i][jj]; return s; });
+          var maxZ = Math.max.apply(null, z);
+          var exps = z.map(function(zz){ return Math.exp(zz - maxZ); });
+          var sumExp = exps.reduce(function(a, b){ return a + b; }, 0);
+          var probs = exps.map(function(e){ return e / sumExp; });
+          for (c = 0; c < numClasses; c++){
+            var err = probs[c] - (y[i] === c ? 1 : 0);
+            for (j = 0; j < pb; j++) grad[c][j] += err * Xb[i][j];
+          }
+        }
+        for (c = 0; c < numClasses; c++) for (j = 0; j < pb; j++) W[c][j] -= lr * grad[c][j] / n;
+      }
+      return { type: "multiclass", W: W };
+    }
+    var w = new Array(pb).fill(0);
+    for (it = 0; it < iters; it++){
+      var g = new Array(pb).fill(0);
+      for (i = 0; i < n; i++){
+        var zz2 = 0; for (j = 0; j < pb; j++) zz2 += w[j] * Xb[i][j];
+        var pred = task === "binary" ? 1 / (1 + Math.exp(-zz2)) : zz2;
+        var err2 = pred - y[i];
+        for (j = 0; j < pb; j++) g[j] += err2 * Xb[i][j];
+      }
+      var scale = task === "binary" ? 1 / n : 2 / n;
+      for (j = 0; j < pb; j++) w[j] -= lr * scale * g[j];
+    }
+    return { type: task, w: w };
+  }
+
+  function mlPredictLinearRaw(model, xRow){
+    var xb = [1].concat(xRow);
+    if (model.type === "multiclass"){
+      var z = model.W.map(function(wc){ var s = 0; for (var j = 0; j < xb.length; j++) s += wc[j] * xb[j]; return s; });
+      var maxZ = Math.max.apply(null, z);
+      var exps = z.map(function(zz){ return Math.exp(zz - maxZ); });
+      var sumExp = exps.reduce(function(a, b){ return a + b; }, 0);
+      return exps.map(function(e){ return e / sumExp; });
+    }
+    var s = 0; for (var j = 0; j < xb.length; j++) s += model.w[j] * xb[j];
+    if (model.type === "binary") return 1 / (1 + Math.exp(-s));
+    return s;
+  }
+
+  function mlGiniImpurity(labels, numClasses){
+    var counts = new Array(numClasses).fill(0);
+    labels.forEach(function(l){ counts[l]++; });
+    var n = labels.length, g = 1;
+    counts.forEach(function(c){ var p = c / n; g -= p * p; });
+    return g;
+  }
+  function mlVariance(values){
+    if (values.length === 0) return 0;
+    var m = mean(values);
+    return values.reduce(function(s, v){ return s + (v - m) * (v - m); }, 0) / values.length;
+  }
+  function mlMakeLeaf(y, task, numClasses){
+    if (task === "classification"){
+      var counts = new Array(numClasses).fill(0);
+      y.forEach(function(l){ counts[l]++; });
+      return { leaf: true, probs: counts.map(function(c){ return c / y.length; }) };
+    }
+    return { leaf: true, value: mean(y) };
+  }
+  function mlBuildTree(X, y, task, numClasses, depth, maxDepth, minSamples){
+    var n = X.length;
+    var impurityBase = task === "classification" ? mlGiniImpurity(y, numClasses) : mlVariance(y);
+    if (depth >= maxDepth || n < minSamples * 2 || impurityBase === 0) return mlMakeLeaf(y, task, numClasses);
+    var p = X[0].length;
+    var bestGain = -Infinity, bestFeat = -1, bestThresh = null, bestSplit = null;
+    for (var f = 0; f < p; f++){
+      var vals = X.map(function(row){ return row[f]; });
+      var uniq = mlUnique(vals).sort(function(a, b){ return a - b; });
+      for (var u = 0; u < uniq.length - 1; u++){
+        var thresh = (uniq[u] + uniq[u + 1]) / 2;
+        var leftIdx = [], rightIdx = [];
+        for (var i = 0; i < n; i++){ if (X[i][f] <= thresh) leftIdx.push(i); else rightIdx.push(i); }
+        if (leftIdx.length === 0 || rightIdx.length === 0) continue;
+        var leftY = leftIdx.map(function(idx){ return y[idx]; });
+        var rightY = rightIdx.map(function(idx){ return y[idx]; });
+        var impL = task === "classification" ? mlGiniImpurity(leftY, numClasses) : mlVariance(leftY);
+        var impR = task === "classification" ? mlGiniImpurity(rightY, numClasses) : mlVariance(rightY);
+        var weighted = (leftY.length / n) * impL + (rightY.length / n) * impR;
+        var gain = impurityBase - weighted;
+        if (gain > bestGain){ bestGain = gain; bestFeat = f; bestThresh = thresh; bestSplit = { leftIdx: leftIdx, rightIdx: rightIdx }; }
+      }
+    }
+    if (bestFeat === -1 || bestGain <= 1e-12) return mlMakeLeaf(y, task, numClasses);
+    var leftX = bestSplit.leftIdx.map(function(idx){ return X[idx]; });
+    var leftYv = bestSplit.leftIdx.map(function(idx){ return y[idx]; });
+    var rightX = bestSplit.rightIdx.map(function(idx){ return X[idx]; });
+    var rightYv = bestSplit.rightIdx.map(function(idx){ return y[idx]; });
+    return {
+      leaf: false, feature: bestFeat, threshold: bestThresh,
+      left: mlBuildTree(leftX, leftYv, task, numClasses, depth + 1, maxDepth, minSamples),
+      right: mlBuildTree(rightX, rightYv, task, numClasses, depth + 1, maxDepth, minSamples)
+    };
+  }
+  function mlPredictTreeRaw(node, x){
+    if (node.leaf) return node;
+    return x[node.feature] <= node.threshold ? mlPredictTreeRaw(node.left, x) : mlPredictTreeRaw(node.right, x);
+  }
+
+  function mlBootstrapSample(X, y){
+    var n = X.length, Xb = [], yb = [];
+    for (var i = 0; i < n; i++){ var idx = Math.floor(Math.random() * n); Xb.push(X[idx]); yb.push(y[idx]); }
+    return { X: Xb, y: yb };
+  }
+  function mlBuildForest(X, y, task, numClasses, numTrees, maxDepth){
+    var trees = [];
+    for (var t = 0; t < numTrees; t++){
+      var bs = mlBootstrapSample(X, y);
+      trees.push(mlBuildTree(bs.X, bs.y, task, numClasses, 0, maxDepth, 2));
+    }
+    return trees;
+  }
+  function mlPredictForestRaw(trees, x, task, numClasses){
+    if (task === "classification"){
+      var agg = new Array(numClasses).fill(0);
+      trees.forEach(function(tree){ mlPredictTreeRaw(tree, x).probs.forEach(function(p, i){ agg[i] += p; }); });
+      return agg.map(function(a){ return a / trees.length; });
+    }
+    var sum = 0; trees.forEach(function(tree){ sum += mlPredictTreeRaw(tree, x).value; });
+    return sum / trees.length;
+  }
+
+  function mlKnnPredictRaw(X, y, xq, k, task, numClasses){
+    var dists = X.map(function(row, i){
+      var s = 0; for (var j = 0; j < row.length; j++){ var d = row[j] - xq[j]; s += d * d; }
+      return { d: Math.sqrt(s), idx: i };
+    });
+    dists.sort(function(a, b){ return a.d - b.d; });
+    var neighbors = dists.slice(0, k).map(function(o){ return o.idx; });
+    if (task === "classification"){
+      var counts = new Array(numClasses).fill(0);
+      neighbors.forEach(function(idx){ counts[y[idx]]++; });
+      return counts.map(function(c){ return c / k; });
+    }
+    var sum = 0; neighbors.forEach(function(idx){ sum += y[idx]; });
+    return sum / k;
+  }
+
+  /* --- Neural network via TensorFlow.js (loaded lazily from CDN) --- */
+
+  var mlTfjsPromise = null;
+  function mlEnsureTfjs(){
+    if (window.tf) return Promise.resolve();
+    if (mlTfjsPromise) return mlTfjsPromise;
+    mlTfjsPromise = new Promise(function(resolve, reject){
+      var script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4/dist/tf.min.js";
+      script.onload = function(){ resolve(); };
+      script.onerror = function(){ mlTfjsPromise = null; reject(new Error("Could not load TensorFlow.js from the CDN — check your internet connection.")); };
+      document.head.appendChild(script);
+    });
+    return mlTfjsPromise;
+  }
+
+  function mlBuildNnModel(inputDim, layers, activation, task, numClasses){
+    var model = tf.sequential();
+    layers.forEach(function(units, idx){
+      var config = { units: units, activation: activation };
+      if (idx === 0) config.inputShape = [inputDim];
+      model.add(tf.layers.dense(config));
+    });
+    var outUnits = task === "multiclass" ? numClasses : 1;
+    var outActivation = task === "regression" ? "linear" : (task === "binary" ? "sigmoid" : "softmax");
+    model.add(tf.layers.dense({ units: outUnits, activation: outActivation }));
+    var loss = task === "regression" ? "meanSquaredError" : (task === "binary" ? "binaryCrossentropy" : "categoricalCrossentropy");
+    return { model: model, loss: loss };
+  }
+
+  function mlTrainNnModel(X, y, task, numClasses, layers, activation, lr, epochs, onEpoch){
+    return mlEnsureTfjs().then(function(){
+      var built = mlBuildNnModel(X[0].length, layers, activation, task, numClasses);
+      var nnModel = built.model;
+      nnModel.compile({ optimizer: tf.train.adam(lr), loss: built.loss });
+
+      var n = X.length;
+      var idx = []; for (var ii = 0; ii < n; ii++) idx.push(ii);
+      for (var i = n - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)); var t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
+      var valCount = Math.max(1, Math.round(n * 0.2));
+      var valIdx = idx.slice(0, valCount), subIdx = idx.slice(valCount);
+      var subX = subIdx.map(function(k){ return X[k]; }), subY = subIdx.map(function(k){ return y[k]; });
+      var valX = valIdx.map(function(k){ return X[k]; }), valY = valIdx.map(function(k){ return y[k]; });
+
+      var xsSub = tf.tensor2d(subX), xsVal = tf.tensor2d(valX), ysSub, ysVal;
+      if (task === "multiclass"){
+        ysSub = tf.oneHot(tf.tensor1d(subY, "int32"), numClasses);
+        ysVal = tf.oneHot(tf.tensor1d(valY, "int32"), numClasses);
+      } else {
+        ysSub = tf.tensor2d(subY, [subY.length, 1]);
+        ysVal = tf.tensor2d(valY, [valY.length, 1]);
+      }
+
+      return nnModel.fit(xsSub, ysSub, {
+        epochs: epochs,
+        validationData: [xsVal, ysVal],
+        callbacks: {
+          onEpochEnd: function(epoch, logs){
+            if (onEpoch) onEpoch(epoch + 1, epochs, logs.loss, logs.val_loss);
+            return tf.nextFrame();
+          }
+        }
+      }).then(function(){
+        xsSub.dispose(); xsVal.dispose(); ysSub.dispose(); ysVal.dispose();
+        return nnModel;
+      });
+    });
+  }
+
+  function mlPredictNnRaw(nnModel, xRow, task, numClasses){
+    var t = tf.tensor2d([xRow]);
+    var out = nnModel.predict(t);
+    var arr = out.dataSync();
+    t.dispose(); out.dispose();
+    if (task === "binary") return [1 - arr[0], arr[0]];
+    if (task === "multiclass") return Array.prototype.slice.call(arr);
+    return arr[0];
+  }
+
+  /* --- Unified predict dispatcher --- */
+
+  function mlPredictVector(vec){
+    var m = mlState.model, task = mlState.task;
+    var numClasses = mlState.targetMeta && mlState.targetMeta.categories ? mlState.targetMeta.categories.length : null;
+    var raw;
+    if (m.kind === "logistic") raw = mlPredictLinearRaw(m.data, vec);
+    else if (m.kind === "tree") raw = task === "regression" ? mlPredictTreeRaw(m.data, vec).value : mlPredictTreeRaw(m.data, vec).probs;
+    else if (m.kind === "forest") raw = mlPredictForestRaw(m.data, vec, task === "regression" ? "regression" : "classification", numClasses);
+    else if (m.kind === "knn") raw = mlKnnPredictRaw(mlState.trainX, mlState.trainY, vec, m.k, task === "regression" ? "regression" : "classification", numClasses);
+    else raw = mlPredictNnRaw(m.data, vec, task, numClasses);
+    if (task === "regression") return { value: raw * mlState.targetMeta.sd + mlState.targetMeta.mean };
+    if (task === "binary" && m.kind === "logistic") return { probs: [1 - raw, raw] };
+    return { probs: raw };
+  }
+
+  /* --- Metrics --- */
+
+  function mlConfusionMatrix(yTrue, yPred, numClasses){
+    var m = []; for (var i = 0; i < numClasses; i++) m.push(new Array(numClasses).fill(0));
+    for (i = 0; i < yTrue.length; i++) m[yTrue[i]][yPred[i]]++;
+    return m;
+  }
+  function mlClassificationMetrics(yTrue, yPred, numClasses){
+    var cm = mlConfusionMatrix(yTrue, yPred, numClasses);
+    var n = yTrue.length, i, j;
+    var correct = 0; for (i = 0; i < numClasses; i++) correct += cm[i][i];
+    var precisions = [], recalls = [], f1s = [];
+    for (i = 0; i < numClasses; i++){
+      var tp = cm[i][i], fp = 0, fn = 0;
+      for (j = 0; j < numClasses; j++){ if (j !== i){ fp += cm[j][i]; fn += cm[i][j]; } }
+      var prec = tp + fp > 0 ? tp / (tp + fp) : 0;
+      var rec = tp + fn > 0 ? tp / (tp + fn) : 0;
+      precisions.push(prec); recalls.push(rec);
+      f1s.push(prec + rec > 0 ? 2 * prec * rec / (prec + rec) : 0);
+    }
+    return {
+      accuracy: correct / n, confusionMatrix: cm,
+      precision: mean(precisions), recall: mean(recalls), f1: mean(f1s)
+    };
+  }
+  function mlRocCurve(yTrue, probs1){
+    var pts = yTrue.map(function(y, i){ return { y: y, p: probs1[i] }; });
+    pts.sort(function(a, b){ return b.p - a.p; });
+    var P = yTrue.filter(function(y){ return y === 1; }).length;
+    var N = yTrue.length - P;
+    var tp = 0, fp = 0;
+    var points = [{ fpr: 0, tpr: 0 }];
+    pts.forEach(function(pt){
+      if (pt.y === 1) tp++; else fp++;
+      points.push({ fpr: N > 0 ? fp / N : 0, tpr: P > 0 ? tp / P : 0 });
+    });
+    var auc = 0;
+    for (var i = 1; i < points.length; i++){
+      auc += (points[i].fpr - points[i - 1].fpr) * (points[i].tpr + points[i - 1].tpr) / 2;
+    }
+    return { points: points, auc: auc };
+  }
+  function mlRegressionMetrics(yTrue, yPred){
+    var n = yTrue.length, meanY = mean(yTrue), ssRes = 0, ssTot = 0, sae = 0;
+    for (var i = 0; i < n; i++){
+      ssRes += (yTrue[i] - yPred[i]) * (yTrue[i] - yPred[i]);
+      ssTot += (yTrue[i] - meanY) * (yTrue[i] - meanY);
+      sae += Math.abs(yTrue[i] - yPred[i]);
+    }
+    return { r2: ssTot > 0 ? 1 - ssRes / ssTot : NaN, mse: ssRes / n, mae: sae / n };
+  }
+
+  /* --- Hyperparameter UI wiring --- */
+
+  function mlWireSlider(sliderId, valueId, formatFn){
+    var slider = document.getElementById(sliderId), valueEl = document.getElementById(valueId);
+    function update(){ valueEl.textContent = formatFn(Number(slider.value)); }
+    slider.addEventListener("input", update);
+    update();
+  }
+  mlWireSlider("mlLogisticLr", "mlLogisticLrValue", function(v){ return v.toFixed(2); });
+  mlWireSlider("mlLogisticIters", "mlLogisticItersValue", function(v){ return String(v); });
+  mlWireSlider("mlTreeDepth", "mlTreeDepthValue", function(v){ return String(v); });
+  mlWireSlider("mlForestTrees", "mlForestTreesValue", function(v){ return String(v); });
+  mlWireSlider("mlForestDepth", "mlForestDepthValue", function(v){ return String(v); });
+  mlWireSlider("mlKnnK", "mlKnnKValue", function(v){ return String(v); });
+  mlWireSlider("mlNnLr", "mlNnLrValue", function(v){ return v.toFixed(3); });
+  mlWireSlider("mlNnEpochs", "mlNnEpochsValue", function(v){ return String(v); });
+  document.getElementById("mlSplitSlider").addEventListener("input", function(e){
+    var v = Number(e.target.value);
+    mlEls.splitLabel.textContent = v + "% train / " + (100 - v) + "% test";
+  });
+
+  var mlModelCards = {
+    logistic: document.getElementById("mlModelLogisticCard"), tree: document.getElementById("mlModelTreeCard"),
+    forest: document.getElementById("mlModelForestCard"), knn: document.getElementById("mlModelKnnCard"), nn: document.getElementById("mlModelNnCard")
+  };
+  var mlHpPanels = {
+    logistic: document.getElementById("mlHpLogistic"), tree: document.getElementById("mlHpTree"),
+    forest: document.getElementById("mlHpForest"), knn: document.getElementById("mlHpKnn"), nn: document.getElementById("mlHpNn")
+  };
+  function mlSelectedFamily(){
+    var checked = document.querySelector('input[name="mlModelFamily"]:checked');
+    return checked ? checked.value : "logistic";
+  }
+  document.querySelectorAll('input[name="mlModelFamily"]').forEach(function(radio){
+    radio.addEventListener("change", function(){
+      var fam = mlSelectedFamily();
+      Object.keys(mlModelCards).forEach(function(k){ mlModelCards[k].classList.toggle("active", k === fam); });
+      Object.keys(mlHpPanels).forEach(function(k){ mlHpPanels[k].hidden = k !== fam; });
+    });
+  });
+
+  function mlNnLayerRows(){ return document.getElementById("mlNnLayers").querySelectorAll(".ml-layer-row"); }
+  function mlCreateNnLayerRow(units){
+    var row = document.createElement("div");
+    row.className = "ml-layer-row";
+    row.innerHTML = '<span>Layer</span><select>' +
+      [8, 16, 32, 64].map(function(u){ return '<option value="' + u + '"' + (u === units ? " selected" : "") + '>' + u + ' neurons</option>'; }).join("") +
+      '</select><button class="remove-group-btn" type="button">Remove</button>';
+    row.querySelector("button").addEventListener("click", function(){
+      if (mlNnLayerRows().length <= 1) return;
+      row.remove();
+      mlUpdateNnAddButton();
+    });
+    return row;
+  }
+  function mlUpdateNnAddButton(){
+    document.getElementById("mlNnAddLayerBtn").hidden = mlNnLayerRows().length >= 3;
+  }
+  document.getElementById("mlNnAddLayerBtn").addEventListener("click", function(){
+    if (mlNnLayerRows().length >= 3) return;
+    document.getElementById("mlNnLayers").appendChild(mlCreateNnLayerRow(16));
+    mlUpdateNnAddButton();
+  });
+  document.getElementById("mlNnLayers").appendChild(mlCreateNnLayerRow(16));
+  mlUpdateNnAddButton();
+
+  /* --- Plot rendering --- */
+
+  function mlRenderLineChart(container, series, xLabel, yLabel){
+    var W = 560, H = 260, mL = 50, mR = 16, mT = 16, mB = 38;
+    var allX = [], allY = [];
+    series.forEach(function(s){ s.points.forEach(function(p){ allX.push(p.x); allY.push(p.y); }); });
+    var xMin = Math.min.apply(null, allX), xMax = Math.max.apply(null, allX);
+    var yMin = Math.min(0, Math.min.apply(null, allY)), yMax = Math.max.apply(null, allY) * 1.08 || 1;
+    if (xMax === xMin) xMax = xMin + 1;
+    if (yMax === yMin) yMax = yMin + 1;
+    function sx(v){ return mL + (v - xMin) / (xMax - xMin) * (W - mL - mR); }
+    function sy(v){ return H - mB - (v - yMin) / (yMax - yMin) * (H - mT - mB); }
+    var svg = [];
+    svg.push('<line x1="' + mL + '" y1="' + (H - mB) + '" x2="' + (W - mR) + '" y2="' + (H - mB) + '" stroke="var(--line)"/>');
+    svg.push('<line x1="' + mL + '" y1="' + mT + '" x2="' + mL + '" y2="' + (H - mB) + '" stroke="var(--line)"/>');
+    for (var t = 0; t <= 4; t++){
+      var yv = yMin + (yMax - yMin) * t / 4, yPix = sy(yv);
+      svg.push('<line x1="' + (mL - 4) + '" y1="' + yPix.toFixed(1) + '" x2="' + mL + '" y2="' + yPix.toFixed(1) + '" stroke="var(--line)"/>');
+      svg.push('<text x="' + (mL - 8) + '" y="' + (yPix + 3.5).toFixed(1) + '" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(yv, 2) + '</text>');
+    }
+    var xDecimals = (xMax - xMin) < 3 ? 2 : 0;
+    for (var xt = 0; xt <= 5; xt++){
+      var xv = xMin + (xMax - xMin) * xt / 5, xPix = sx(xv);
+      svg.push('<line x1="' + xPix.toFixed(1) + '" y1="' + (H - mB) + '" x2="' + xPix.toFixed(1) + '" y2="' + (H - mB + 4) + '" stroke="var(--line)"/>');
+      svg.push('<text x="' + xPix.toFixed(1) + '" y="' + (H - mB + 16) + '" text-anchor="middle" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(xv, xDecimals) + '</text>');
+    }
+    series.forEach(function(s){
+      var d = s.points.map(function(p, idx){ return (idx === 0 ? "M" : "L") + sx(p.x).toFixed(1) + "," + sy(p.y).toFixed(1); }).join(" ");
+      svg.push('<path d="' + d + '" fill="none" stroke="' + s.color + '" stroke-width="2" stroke-dasharray="' + (s.dash || "none") + '"/>');
+    });
+    svg.push('<text x="' + ((mL + W - mR) / 2) + '" y="' + (H - mB + 32) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(xLabel) + '</text>');
+    svg.push('<text x="14" y="' + ((mT + H - mB) / 2) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" transform="rotate(-90 14 ' + ((mT + H - mB) / 2) + ')">' + escapeXml(yLabel) + '</text>');
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="' + escapeXml(yLabel) + ' chart">' + svg.join("") + '</svg>';
+  }
+
+  function mlRenderScatterChart(container, points, xLabel, yLabel, diagonal){
+    var W = 480, H = 340, mL = 54, mR = 20, mT = 16, mB = 40;
+    var allVals = [];
+    points.forEach(function(p){ allVals.push(p.x, p.y); });
+    var vMin = Math.min.apply(null, allVals), vMax = Math.max.apply(null, allVals);
+    var pad = (vMax - vMin) * 0.08 || 1;
+    vMin -= pad; vMax += pad;
+    function sx(v){ return mL + (v - vMin) / (vMax - vMin) * (W - mL - mR); }
+    function sy(v){ return H - mB - (v - vMin) / (vMax - vMin) * (H - mT - mB); }
+    var svg = [];
+    svg.push('<line x1="' + mL + '" y1="' + (H - mB) + '" x2="' + (W - mR) + '" y2="' + (H - mB) + '" stroke="var(--line)"/>');
+    svg.push('<line x1="' + mL + '" y1="' + mT + '" x2="' + mL + '" y2="' + (H - mB) + '" stroke="var(--line)"/>');
+    if (diagonal) svg.push('<line x1="' + sx(vMin).toFixed(1) + '" y1="' + sy(vMin).toFixed(1) + '" x2="' + sx(vMax).toFixed(1) + '" y2="' + sy(vMax).toFixed(1) + '" stroke="var(--ink-soft)" stroke-dasharray="4,3"/>');
+    for (var t = 0; t <= 4; t++){
+      var v = vMin + (vMax - vMin) * t / 4;
+      svg.push('<text x="' + (mL - 8) + '" y="' + (sy(v) + 3.5).toFixed(1) + '" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(v, 1) + '</text>');
+      svg.push('<text x="' + sx(v).toFixed(1) + '" y="' + (H - mB + 16) + '" text-anchor="middle" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(v, 1) + '</text>');
+    }
+    points.forEach(function(p){
+      svg.push('<circle cx="' + sx(p.x).toFixed(1) + '" cy="' + sy(p.y).toFixed(1) + '" r="4" fill="var(--accent)" fill-opacity="0.5" stroke="var(--accent)" stroke-width="1"/>');
+    });
+    svg.push('<text x="' + ((mL + W - mR) / 2) + '" y="' + (H - mB + 32) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(xLabel) + '</text>');
+    svg.push('<text x="14" y="' + ((mT + H - mB) / 2) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" transform="rotate(-90 14 ' + ((mT + H - mB) / 2) + ')">' + escapeXml(yLabel) + '</text>');
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Actual vs predicted scatter">' + svg.join("") + '</svg>';
+  }
+
+  function mlRenderConfusionMatrix(cm, categories){
+    var k = categories.length;
+    var maxVal = Math.max.apply(null, cm.map(function(row){ return Math.max.apply(null, row); }));
+    var html = '<table class="heatmap"><thead><tr><th></th><th colspan="' + k + '">Predicted</th></tr><tr><td class="axis-label">Actual</td>' +
+      categories.map(function(c){ return '<th>' + escapeXml(c) + '</th>'; }).join("") + '</tr></thead><tbody>';
+    cm.forEach(function(row, i){
+      html += '<tr><td class="axis-label">' + escapeXml(categories[i]) + '</td>';
+      row.forEach(function(val, j){
+        var alpha = maxVal > 0 ? (0.12 + 0.75 * (val / maxVal)) : 0.12;
+        var isDiag = i === j;
+        html += '<td class="cell" style="background:rgba(' + (isDiag ? "31,110,92" : "156,107,18") + ',' + alpha.toFixed(2) + ');">' + val + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  /* --- Training orchestration --- */
+
+  function mlGetHyperparams(family){
+    if (family === "logistic") return { lr: Number(document.getElementById("mlLogisticLr").value), iters: Number(document.getElementById("mlLogisticIters").value) };
+    if (family === "tree") return { maxDepth: Number(document.getElementById("mlTreeDepth").value) };
+    if (family === "forest") return { numTrees: Number(document.getElementById("mlForestTrees").value), maxDepth: Number(document.getElementById("mlForestDepth").value) };
+    if (family === "knn") return { k: Number(document.getElementById("mlKnnK").value) };
+    var layers = Array.prototype.map.call(mlNnLayerRows(), function(row){ return Number(row.querySelector("select").value); });
+    return {
+      layers: layers,
+      activation: document.getElementById("mlNnActivation").value,
+      lr: Number(document.getElementById("mlNnLr").value),
+      epochs: Number(document.getElementById("mlNnEpochs").value)
+    };
+  }
+
+  var mlLossHistory = [];
+
+  function mlTrainModel(){
+    var v = mlValidateSchema();
+    if (!v.ok){ mlEls.trainError.hidden = false; mlEls.trainError.innerHTML = '<span class="dot"></span> ' + v.message; return; }
+    if (mlState.rows.length < 10){
+      mlEls.trainError.hidden = false; mlEls.trainError.innerHTML = '<span class="dot"></span> Need at least 10 rows to train a model.';
+      return;
+    }
+    mlEls.trainError.hidden = true;
+    mlHideResultCards();
+
+    var trainFraction = Number(mlEls.splitSlider.value) / 100;
+    var split = mlSplitTrainTest(mlState.rows, trainFraction);
+    mlBuildPreprocessing(split.train);
+
+    var numClasses = mlState.targetMeta.categories ? mlState.targetMeta.categories.length : null;
+    mlState.trainX = split.train.map(mlEncodeRow);
+    mlState.trainY = split.train.map(function(r){ return mlEncodeTarget(r[mlState.targetCol]); });
+    mlState.testX = split.test.map(mlEncodeRow);
+    mlState.testY = split.test.map(function(r){ return mlEncodeTarget(r[mlState.targetCol]); });
+
+    var family = mlSelectedFamily();
+    var opts = mlGetHyperparams(family);
+    mlEls.trainBtn.disabled = true;
+    mlEls.trainBtn.innerHTML = '<span class="ml-spinner"></span>Training…';
+    mlEls.progressCard.hidden = false;
+    mlEls.lossPlot.innerHTML = ""; mlEls.lossLegend.innerHTML = "";
+    mlLossHistory = [];
+
+    var trainPromise;
+    if (family === "logistic"){
+      mlEls.progressStatus.textContent = "Fitting a linear model by gradient descent…";
+      trainPromise = Promise.resolve().then(function(){
+        return { kind: "logistic", data: mlTrainLinearModel(mlState.trainX, mlState.trainY, mlState.task, numClasses, opts) };
+      });
+    } else if (family === "tree"){
+      mlEls.progressStatus.textContent = "Building a decision tree…";
+      trainPromise = Promise.resolve().then(function(){
+        return { kind: "tree", data: mlBuildTree(mlState.trainX, mlState.trainY, mlState.task === "regression" ? "regression" : "classification", numClasses, 0, opts.maxDepth, 2) };
+      });
+    } else if (family === "forest"){
+      mlEls.progressStatus.textContent = "Growing " + opts.numTrees + " trees…";
+      trainPromise = Promise.resolve().then(function(){
+        return { kind: "forest", data: mlBuildForest(mlState.trainX, mlState.trainY, mlState.task === "regression" ? "regression" : "classification", numClasses, opts.numTrees, opts.maxDepth) };
+      });
+    } else if (family === "knn"){
+      mlEls.progressStatus.textContent = "Indexing training data for k-NN (k = " + opts.k + ")…";
+      trainPromise = Promise.resolve().then(function(){ return { kind: "knn", data: null, k: opts.k }; });
+    } else {
+      mlEls.progressTitle.textContent = "Training neural network";
+      mlEls.progressStatus.textContent = "Loading TensorFlow.js…";
+      trainPromise = mlTrainNnModel(mlState.trainX, mlState.trainY, mlState.task, numClasses, opts.layers, opts.activation, opts.lr, opts.epochs, function(epoch, totalEpochs, trainLoss, valLoss){
+        mlEls.progressStatus.textContent = "Epoch " + epoch + " / " + totalEpochs + " — loss " + fmtNum(trainLoss, 4) + ", val loss " + fmtNum(valLoss, 4);
+        mlLossHistory.push({ epoch: epoch, trainLoss: trainLoss, valLoss: valLoss });
+        mlRenderLineChart(mlEls.lossPlot, [
+          { points: mlLossHistory.map(function(h){ return { x: h.epoch, y: h.trainLoss }; }), color: "var(--accent)" },
+          { points: mlLossHistory.map(function(h){ return { x: h.epoch, y: h.valLoss }; }), color: "var(--accent2)", dash: "4,3" }
+        ], "Epoch", "Loss");
+        mlEls.lossLegend.innerHTML =
+          '<span class="legend-item"><span class="legend-swatch" style="background:var(--accent);"></span>Training loss</span>' +
+          '<span class="legend-item"><span class="legend-swatch" style="background:var(--accent2);"></span>Validation loss</span>';
+      }).then(function(nnModel){ return { kind: "nn", data: nnModel }; });
+    }
+
+    trainPromise.then(function(model){
+      mlState.model = model;
+      mlEls.progressTitle.textContent = "Training complete";
+      mlEls.progressStatus.textContent = family === "nn" ? "Trained for " + opts.epochs + " epochs." : "Model trained on " + mlState.trainX.length + " rows.";
+      mlRenderEvaluation();
+      mlBuildPlayground();
+      mlEls.playgroundCard.hidden = false;
+      mlEls.batchCard.hidden = false;
+      mlEls.trainBtn.disabled = false;
+      mlEls.trainBtn.textContent = "Train model";
+    }).catch(function(err){
+      mlEls.trainError.hidden = false;
+      mlEls.trainError.innerHTML = '<span class="dot"></span> ' + (err && err.message ? err.message : "Training failed.");
+      mlEls.trainBtn.disabled = false;
+      mlEls.trainBtn.textContent = "Train model";
+      mlEls.progressCard.hidden = true;
+    });
+  }
+  mlEls.trainBtn.addEventListener("click", mlTrainModel);
+
+  /* --- Evaluation dashboard --- */
+
+  function mlRenderEvaluation(){
+    mlEls.evalCard.hidden = false;
+    var task = mlState.task;
+    mlEls.evalClassification.hidden = task === "regression";
+    mlEls.evalRegression.hidden = task !== "regression";
+
+    if (task === "regression"){
+      var predsValue = mlState.testX.map(function(vec){ return mlPredictVector(vec).value; });
+      var truesValue = mlState.testY.map(function(v){ return v * mlState.targetMeta.sd + mlState.targetMeta.mean; });
+      var rm = mlRegressionMetrics(truesValue, predsValue);
+      mlEls.r2.textContent = fmtNum(rm.r2, 3);
+      mlEls.mse.textContent = fmtNum(rm.mse, 3);
+      mlEls.mae.textContent = fmtNum(rm.mae, 3);
+      mlRenderScatterChart(mlEls.scatterPlot, truesValue.map(function(t, i){ return { x: t, y: predsValue[i] }; }), "Actual " + mlState.targetCol, "Predicted " + mlState.targetCol, true);
+      return;
+    }
+
+    var numClasses = mlState.targetMeta.categories.length;
+    var predsClass = [], probs1 = [];
+    mlState.testX.forEach(function(vec){
+      var out = mlPredictVector(vec).probs;
+      var idx = out.indexOf(Math.max.apply(null, out));
+      predsClass.push(idx);
+      if (task === "binary") probs1.push(out[1]);
+    });
+    var cmetrics = mlClassificationMetrics(mlState.testY, predsClass, numClasses);
+    mlEls.accuracy.textContent = fmtNum(cmetrics.accuracy * 100, 1) + "%";
+    mlEls.precision.textContent = fmtNum(cmetrics.precision * 100, 1) + "%";
+    mlEls.recall.textContent = fmtNum(cmetrics.recall * 100, 1) + "%";
+    mlEls.f1.textContent = fmtNum(cmetrics.f1 * 100, 1) + "%";
+    mlEls.confusionMatrix.innerHTML = mlRenderConfusionMatrix(cmetrics.confusionMatrix, mlState.targetMeta.categories);
+
+    if (task === "binary"){
+      mlEls.rocSection.hidden = false;
+      var roc = mlRocCurve(mlState.testY, probs1);
+      mlEls.aucValue.textContent = "AUC = " + fmtNum(roc.auc, 3);
+      mlRenderLineChart(mlEls.rocPlot, [
+        { points: roc.points.map(function(p){ return { x: p.fpr, y: p.tpr }; }), color: "var(--accent)" },
+        { points: [{ x: 0, y: 0 }, { x: 1, y: 1 }], color: "var(--ink-soft)", dash: "4,3" }
+      ], "False positive rate", "True positive rate");
+      mlEls.rocNote.textContent = "The dashed diagonal is a no-discrimination baseline (AUC = 0.5); AUC = 1.0 is a perfect classifier.";
+    } else {
+      mlEls.rocSection.hidden = true;
+    }
+  }
+
+  /* --- Prediction playground --- */
+
+  function mlBuildPlayground(){
+    var container = mlEls.playgroundInputs;
+    container.innerHTML = "";
+    mlState.featureCols.forEach(function(c){
+      var meta = mlState.featureMeta[c];
+      var field = document.createElement("div");
+      field.className = "ml-play-field";
+      if (meta.type === "numeric"){
+        var span = meta.sampleMax - meta.sampleMin || 1;
+        field.innerHTML = '<label>' + escapeXml(c) + '</label>' +
+          '<input type="range" class="ml-slider" min="' + (meta.sampleMin - span * 0.1) + '" max="' + (meta.sampleMax + span * 0.1) + '" step="' + (span / 100 || 0.1) + '" value="' + meta.mean + '" data-col="' + escapeXml(c) + '">' +
+          '<div class="ml-play-value">' + fmtNum(meta.mean, 2) + '</div>';
+        container.appendChild(field);
+        var slider = field.querySelector("input");
+        var valueDiv = field.querySelector(".ml-play-value");
+        slider.addEventListener("input", function(){ valueDiv.textContent = fmtNum(Number(slider.value), 2); });
+      } else {
+        var cats = meta.categories.length ? meta.categories : ["(no data)"];
+        field.innerHTML = '<label>' + escapeXml(c) + '</label>' +
+          '<select data-col="' + escapeXml(c) + '">' + cats.map(function(cat){ return '<option value="' + escapeXml(cat) + '">' + escapeXml(cat) + '</option>'; }).join("") + '</select>';
+        container.appendChild(field);
+      }
+    });
+  }
+
+  function mlRunPrediction(){
+    var rawRow = {};
+    mlEls.playgroundInputs.querySelectorAll("[data-col]").forEach(function(el){
+      rawRow[el.getAttribute("data-col")] = el.value;
+    });
+    var vec = mlEncodeRow(rawRow);
+    var out = mlPredictVector(vec);
+    var container = mlEls.predictionResult;
+    if (mlState.task === "regression"){
+      container.innerHTML = '<div class="effect-name">Predicted ' + escapeXml(mlState.targetCol) + '</div><div class="effect-value">' + fmtNum(out.value, 3) + '</div>' +
+        '<p class="norm-note" style="margin-top:8px;">This is a single point estimate from the trained model, not a confidence interval.</p>';
+      return;
+    }
+    var idx = out.probs.indexOf(Math.max.apply(null, out.probs));
+    var label = mlState.targetMeta.categories[idx];
+    var pct = out.probs[idx] * 100;
+    var breakdown = mlState.targetMeta.categories.map(function(cat, i){
+      return '<div class="stat-row"><span class="stat-label">' + escapeXml(cat) + '</span><span class="stat-value">' + fmtNum(out.probs[i] * 100, 1) + '%</span></div>';
+    }).join("");
+    container.innerHTML =
+      '<div class="effect-name">Predicted ' + escapeXml(mlState.targetCol) + '</div><div class="effect-value">' + escapeXml(label) + '</div>' +
+      '<div class="confidence-bar-track"><div class="confidence-bar-fill" id="mlConfidenceFill"><span>' + fmtNum(pct, 1) + '%</span></div></div>' +
+      '<p class="norm-note" style="margin:10px 0 6px;">Probability breakdown</p>' + breakdown;
+    requestAnimationFrame(function(){
+      var fill = document.getElementById("mlConfidenceFill");
+      if (fill) fill.style.width = pct + "%";
+    });
+  }
+  mlEls.predictBtn.addEventListener("click", mlRunPrediction);
+
+  /* --- Batch prediction --- */
+
+  function mlHandleBatchCsv(file){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var result = mlCsvToObjects(String(reader.result));
+      mlEls.batchError.hidden = true;
+      if (result.error || result.columns.length === 0){
+        mlEls.batchError.hidden = false;
+        mlEls.batchError.innerHTML = '<span class="dot"></span> ' + (result.error || "Could not parse this file as CSV.");
+        return;
+      }
+      var missing = mlState.featureCols.filter(function(c){ return result.columns.indexOf(c) < 0; });
+      if (missing.length > 0){
+        mlEls.batchError.hidden = false;
+        mlEls.batchError.innerHTML = '<span class="dot"></span> Missing feature column(s): ' + missing.map(escapeXml).join(", ") + '.';
+        return;
+      }
+      var predCol = "Predicted_" + mlState.targetCol;
+      var probCol = "Confidence_%";
+      var outColumns = result.columns.concat([predCol]).concat(mlState.task === "regression" ? [] : [probCol]);
+      var outRows = result.rows.map(function(row){
+        var vec = mlEncodeRow(row);
+        var out = mlPredictVector(vec);
+        var newRow = {};
+        result.columns.forEach(function(c){ newRow[c] = row[c]; });
+        if (mlState.task === "regression"){
+          newRow[predCol] = fmtNum(out.value, 4);
+        } else {
+          var idx = out.probs.indexOf(Math.max.apply(null, out.probs));
+          newRow[predCol] = mlState.targetMeta.categories[idx];
+          newRow[probCol] = fmtNum(out.probs[idx] * 100, 1);
+        }
+        return newRow;
+      });
+      var csvLines = [outColumns.join(",")];
+      outRows.forEach(function(row){
+        csvLines.push(outColumns.map(function(c){
+          var v = row[c] == null ? "" : String(row[c]);
+          return v.indexOf(",") >= 0 ? '"' + v.replace(/"/g, '""') + '"' : v;
+        }).join(","));
+      });
+      mlEls.batchResult.innerHTML = '<p class="data-hint">' + outRows.length + ' rows scored.</p>';
+      var dlBtn = document.createElement("button");
+      dlBtn.className = "primary-btn"; dlBtn.type = "button"; dlBtn.textContent = "Download predictions CSV";
+      dlBtn.addEventListener("click", function(){
+        saveFile("ml-predictions.csv", new Blob([csvLines.join("\n")], { type: "text/csv;charset=utf-8;" }), dlBtn);
+      });
+      mlEls.batchResult.appendChild(dlBtn);
+    };
+    reader.readAsText(file);
+  }
+  mlEls.batchCsvInput.addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if (file) mlHandleBatchCsv(file);
+    e.target.value = "";
+  });
+
+  /* --- Sample dataset (synthetic, illustrative only — not real patient data) --- */
+
+  var ML_SAMPLE_CSV = "PatientID,Age,TumorSize_mm,NodesPositive,Grade,ER_Status,MenopausalStatus,Outcome\n" +
+"PT-001,34,21.4,0,Intermediate,Negative,Pre,Recurrence\nPT-002,45,49.5,0,Intermediate,Negative,Post,No Recurrence\n" +
+"PT-003,43,16.3,1,Intermediate,Positive,Pre,No Recurrence\nPT-004,60,43.7,0,Low,Negative,Pre,Recurrence\n" +
+"PT-005,60,48.7,1,Intermediate,Positive,Post,Recurrence\nPT-006,39,40.8,3,High,Negative,Post,Recurrence\n" +
+"PT-007,73,44.7,4,Low,Positive,Post,Recurrence\nPT-008,66,33.9,3,High,Negative,Post,Recurrence\n" +
+"PT-009,57,11.7,4,Low,Positive,Post,No Recurrence\nPT-010,36,41.2,4,Low,Positive,Pre,Recurrence\n" +
+"PT-011,36,43.6,6,Low,Positive,Pre,No Recurrence\nPT-012,67,29.8,1,Low,Negative,Post,Recurrence\n" +
+"PT-013,32,30.6,0,High,Positive,Pre,Recurrence\nPT-014,74,21.9,1,High,Positive,Pre,Recurrence\n" +
+"PT-015,69,34.9,1,Low,Positive,Post,Recurrence\nPT-016,49,10,3,High,Positive,Pre,No Recurrence\n" +
+"PT-017,53,31.4,5,High,Positive,Pre,Recurrence\nPT-018,68,19.4,0,High,Positive,Post,No Recurrence\n" +
+"PT-019,34,21.8,2,High,Positive,Pre,No Recurrence\nPT-020,37,39.2,6,Low,Positive,Pre,Recurrence\n" +
+"PT-021,72,49,0,Low,Negative,Post,Recurrence\nPT-022,37,39.7,4,Intermediate,Positive,Post,Recurrence\n" +
+"PT-023,33,21.5,5,High,Positive,Post,Recurrence\nPT-024,34,40.9,3,High,Positive,Pre,Recurrence\n" +
+"PT-025,62,6.7,5,Intermediate,Positive,Pre,Recurrence\nPT-026,74,41.8,0,Low,Positive,Post,No Recurrence\n" +
+"PT-027,45,47.3,3,High,Positive,Pre,Recurrence\nPT-028,42,14.6,1,Intermediate,Negative,Pre,Recurrence\n" +
+"PT-029,37,9.4,0,Intermediate,Positive,Pre,No Recurrence\nPT-030,73,38.6,0,Low,Negative,Pre,Recurrence\n" +
+"PT-031,44,12.9,1,Low,Negative,Pre,No Recurrence\nPT-032,56,11.4,1,Low,Positive,Post,No Recurrence\n" +
+"PT-033,72,16.9,1,High,Positive,Post,No Recurrence\nPT-034,69,48.9,2,Intermediate,Positive,Post,Recurrence\n" +
+"PT-035,34,48,0,Low,Negative,Pre,No Recurrence\nPT-036,54,13.7,2,High,Negative,Post,Recurrence\n" +
+"PT-037,65,46.4,1,Low,Positive,Pre,Recurrence\nPT-038,40,49.9,0,Intermediate,Positive,Post,No Recurrence\n" +
+"PT-039,54,22.4,0,Low,Positive,Post,No Recurrence\nPT-040,30,31.6,3,Low,Negative,Pre,Recurrence\n" +
+"PT-041,42,16.6,5,Intermediate,Negative,Pre,Recurrence\nPT-042,41,32.4,2,Low,Positive,Post,No Recurrence\n" +
+"PT-043,36,8.9,3,Intermediate,Negative,Pre,No Recurrence\nPT-044,60,17.8,0,High,Negative,Post,No Recurrence\n" +
+"PT-045,56,15.5,3,High,Positive,Pre,Recurrence\nPT-046,38,42,0,Low,Negative,Post,No Recurrence\n" +
+"PT-047,57,30.8,2,High,Negative,Pre,Recurrence\nPT-048,61,5.5,0,High,Negative,Post,No Recurrence\n" +
+"PT-049,57,32.2,0,Intermediate,Positive,Post,No Recurrence\nPT-050,71,19.4,0,Intermediate,Positive,Post,No Recurrence\n" +
+"PT-051,42,41.8,0,Low,Positive,Pre,Recurrence\nPT-052,54,9.3,0,Low,Positive,Pre,No Recurrence\n" +
+"PT-053,73,26.3,4,High,Positive,Pre,Recurrence\nPT-054,59,7,1,Intermediate,Negative,Post,Recurrence\n" +
+"PT-055,65,42.2,3,Low,Negative,Post,No Recurrence\nPT-056,57,37.5,5,High,Positive,Post,Recurrence\n" +
+"PT-057,70,49.9,1,Intermediate,Positive,Pre,No Recurrence\nPT-058,65,20.1,1,Low,Positive,Post,No Recurrence\n" +
+"PT-059,57,5,0,High,Negative,Pre,Recurrence\nPT-060,55,33.1,1,Low,Positive,Post,No Recurrence\n" +
+"PT-061,56,49,7,Low,Negative,Pre,Recurrence\nPT-062,62,19.3,0,Low,Positive,Post,No Recurrence\n" +
+"PT-063,46,49.6,1,Intermediate,Positive,Pre,No Recurrence\nPT-064,39,45,0,High,Negative,Post,Recurrence\n" +
+"PT-065,38,8.6,1,High,Positive,Pre,No Recurrence\nPT-066,35,14.6,0,Low,Positive,Post,No Recurrence\n" +
+"PT-067,41,18.3,4,Low,Positive,Pre,Recurrence\nPT-068,59,44.2,1,High,Positive,Post,Recurrence\n" +
+"PT-069,40,44.7,0,Intermediate,Positive,Pre,No Recurrence\nPT-070,70,29.2,5,High,Positive,Post,Recurrence\n" +
+"PT-071,67,10.6,1,High,Negative,Pre,Recurrence\nPT-072,47,21.2,0,Intermediate,Positive,Pre,No Recurrence\n" +
+"PT-073,34,23,0,Low,Positive,Pre,No Recurrence\nPT-074,51,13,1,High,Positive,Post,Recurrence\n" +
+"PT-075,43,34.9,1,High,Positive,Pre,No Recurrence\nPT-076,71,41.2,4,Low,Positive,Pre,Recurrence\n" +
+"PT-077,56,27.9,6,Intermediate,Positive,Pre,Recurrence\nPT-078,66,22.5,0,Intermediate,Positive,Post,No Recurrence\n" +
+"PT-079,66,6.1,0,High,Positive,Post,No Recurrence\nPT-080,44,34.6,0,High,Positive,Pre,No Recurrence\n" +
+"PT-081,75,45.4,0,Low,Negative,Post,No Recurrence\nPT-082,75,5.7,1,High,Positive,Pre,Recurrence\n" +
+"PT-083,51,26,0,High,Positive,Pre,Recurrence\nPT-084,68,33.1,1,Low,Positive,Pre,No Recurrence\n" +
+"PT-085,49,28.3,0,High,Negative,Pre,Recurrence\nPT-086,57,16.1,0,High,Positive,Post,Recurrence\n" +
+"PT-087,62,27.2,6,Intermediate,Negative,Pre,Recurrence\nPT-088,58,17.1,1,High,Positive,Post,Recurrence\n" +
+"PT-089,72,19.1,0,Intermediate,Negative,Post,Recurrence\nPT-090,75,17.7,0,Low,Positive,Post,No Recurrence\n" +
+"PT-091,66,24,2,Intermediate,Negative,Pre,No Recurrence\nPT-092,37,21.8,1,Low,Negative,Pre,No Recurrence\n" +
+"PT-093,31,42.2,1,Low,Positive,Pre,No Recurrence\nPT-094,47,14.4,0,High,Negative,Pre,Recurrence\n" +
+"PT-095,39,41.9,0,High,Positive,Pre,Recurrence\nPT-096,45,32.4,1,High,Negative,Pre,No Recurrence\n" +
+"PT-097,56,11.2,1,High,Negative,Post,No Recurrence\nPT-098,53,48.8,0,Low,Positive,Post,No Recurrence\n" +
+"PT-099,33,43,5,Intermediate,Negative,Pre,Recurrence\nPT-100,70,19.5,0,High,Negative,Post,No Recurrence\n" +
+"PT-101,62,21.3,0,Intermediate,Positive,Post,No Recurrence\nPT-102,66,32.1,1,High,Positive,Post,Recurrence\n" +
+"PT-103,35,41,4,Intermediate,Positive,Post,Recurrence\nPT-104,63,40.2,0,Intermediate,Positive,Post,No Recurrence\n" +
+"PT-105,66,30.6,0,Low,Positive,Pre,Recurrence\nPT-106,59,22.3,0,Low,Positive,Pre,Recurrence\n" +
+"PT-107,44,14.9,4,High,Positive,Pre,No Recurrence\nPT-108,54,49.5,0,Low,Negative,Pre,Recurrence\n" +
+"PT-109,38,40.7,0,High,Positive,Pre,Recurrence\nPT-110,68,17,1,Low,Positive,Post,No Recurrence\n" +
+"PT-111,60,31.5,2,Intermediate,Positive,Post,No Recurrence\nPT-112,59,35,0,Intermediate,Positive,Post,Recurrence\n" +
+"PT-113,32,23.3,1,High,Positive,Pre,No Recurrence\nPT-114,54,10.9,1,Intermediate,Negative,Post,Recurrence\n" +
+"PT-115,37,26.8,1,High,Positive,Post,No Recurrence\nPT-116,56,40.3,3,Intermediate,Positive,Post,Recurrence\n" +
+"PT-117,74,35.3,3,Intermediate,Negative,Post,Recurrence\nPT-118,48,11.2,3,Low,Positive,Pre,No Recurrence\n" +
+"PT-119,69,6.4,0,High,Negative,Post,Recurrence\nPT-120,38,36.8,5,Low,Negative,Pre,Recurrence\n";
 
   recalc();
   recalcTtest();
