@@ -585,7 +585,7 @@
       <div><p class="eyebrow">Visual check</p><h2>Distribution</h2></div>
     </div>
     <div class="data-grid" id="ttHistograms"></div>
-    <p class="norm-note" style="margin-top:8px;">Each histogram is drawn with its own bins (Sturges' rule) — the two aren't on a shared scale, so compare shape, not bar-to-bar height. This is the visual complement to the Shapiro–Wilk check above.</p>
+    <p class="norm-note" style="margin-top:8px;">Each histogram picks its own bin width from its data via the Freedman–Diaconis rule (2·IQR⁄∛n) — wider spread gives wider bins, and it's robust to outliers since it's based on the interquartile range rather than the min/max. The two histograms aren't on a shared scale, so compare shape, not bar-to-bar height. This is the visual complement to the Shapiro–Wilk check above.</p>
   </section>
 
   <section class="card" id="variance-card">
@@ -1341,13 +1341,26 @@
       yTicks + axes + bars + labels + '</svg>';
   }
 
+  function quantile(sorted, p){
+    var n = sorted.length;
+    if (n === 1) return sorted[0];
+    var idx = p * (n - 1), lo = Math.floor(idx), hi = Math.ceil(idx);
+    if (lo === hi) return sorted[lo];
+    return sorted[lo] + (idx - lo) * (sorted[hi] - sorted[lo]);
+  }
+
   function histogramBins(arr){
     var n = arr.length;
     var lo = Math.min.apply(null, arr), hi = Math.max.apply(null, arr);
     if (lo === hi){
       return { bins: [{ x0: lo - 0.5, x1: hi + 0.5, count: n }], min: lo - 0.5, max: hi + 0.5 };
     }
-    var k = Math.min(12, Math.max(4, Math.ceil(Math.log2(n) + 1)));
+    var sorted = arr.slice().sort(function(a, b){ return a - b; });
+    var iqr = quantile(sorted, 0.75) - quantile(sorted, 0.25);
+    // Freedman-Diaconis: bin width from the IQR, robust to outliers unlike a plain range-based rule;
+    // fall back to a Sturges-style width when the IQR collapses to 0 (heavy ties), so h stays finite.
+    var h = iqr > 0 ? 2 * iqr / Math.cbrt(n) : (hi - lo) / Math.max(4, Math.ceil(Math.log2(n) + 1));
+    var k = Math.min(15, Math.max(3, Math.ceil((hi - lo) / h)));
     var width = (hi - lo) / k;
     var bins = [];
     for (var i = 0; i < k; i++) bins.push({ x0: lo + i * width, x1: lo + (i + 1) * width, count: 0 });
