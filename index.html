@@ -481,10 +481,18 @@
   }
   .dropzone.dragover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);}
 
-  .ml-preview-wrap{overflow-x:auto;max-height:280px;overflow-y:auto;border:1px solid var(--line);border-radius:9px;}
-  table.ml-preview{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap;}
+  .ml-preview-wrap{
+    overflow-x:scroll;overflow-y:scroll;max-height:340px;border:1px solid var(--line);border-radius:9px;
+    scrollbar-width:auto;scrollbar-color:var(--ink-soft) var(--neutral-soft);
+  }
+  .ml-preview-wrap::-webkit-scrollbar{width:12px;height:12px;}
+  .ml-preview-wrap::-webkit-scrollbar-track{background:var(--neutral-soft);}
+  .ml-preview-wrap::-webkit-scrollbar-thumb{background:var(--ink-soft);border-radius:8px;border:2px solid var(--neutral-soft);}
+  .ml-preview-wrap::-webkit-scrollbar-thumb:hover{background:var(--accent);}
+  .ml-preview-wrap::-webkit-scrollbar-corner{background:var(--neutral-soft);}
+  table.ml-preview{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px;white-space:nowrap;}
   table.ml-preview th, table.ml-preview td{border:1px solid var(--line);padding:5px 8px;text-align:left;font-family:"IBM Plex Mono",monospace;}
-  table.ml-preview th{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;position:sticky;top:0;}
+  table.ml-preview th{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;position:sticky;top:0;z-index:1;}
 
   table.ml-schema{border-collapse:collapse;width:100%;font-size:12.5px;}
   table.ml-schema th, table.ml-schema td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:middle;}
@@ -1522,6 +1530,7 @@
     <div class="ml-preview-wrap" id="mlPreviewWrap" style="margin-top:10px;" hidden>
       <table class="ml-preview" id="mlPreviewTable"></table>
     </div>
+    <p class="data-hint" id="mlPreviewCaption" style="margin-top:6px;"></p>
   </section>
 
   <section class="card" id="mlSchemaCard" hidden>
@@ -5859,13 +5868,17 @@
   }
 
   function mlRenderPreview(columns, rows){
-    var preview = rows.slice(0, 8);
+    var previewLimit = 50;
+    var preview = rows.slice(0, previewLimit);
     var thead = "<thead><tr>" + columns.map(function(c){ return "<th>" + escapeXml(c) + "</th>"; }).join("") + "</tr></thead>";
     var tbody = "<tbody>" + preview.map(function(r){
       return "<tr>" + columns.map(function(c){ return "<td>" + escapeXml(r[c]) + "</td>"; }).join("") + "</tr>";
     }).join("") + "</tbody>";
     mlEls.previewTable.innerHTML = thead + tbody;
     mlEls.previewWrap.hidden = false;
+    document.getElementById("mlPreviewCaption").textContent = rows.length > previewLimit
+      ? "Showing " + previewLimit + " of " + rows.length + " rows — scroll to see more, and scroll right for all columns."
+      : "Scroll right to see all columns.";
   }
 
   function mlRenderSchemaTable(){
