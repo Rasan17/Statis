@@ -448,9 +448,9 @@
   <nav class="tabs" role="tablist">
     <button class="tab-btn active" id="tabBtnContingency" type="button" role="tab" aria-selected="true">Contingency table</button>
     <button class="tab-btn" id="tabBtnTtest" type="button" role="tab" aria-selected="false">T-test</button>
+    <button class="tab-btn" id="tabBtnAnova" type="button" role="tab" aria-selected="false">ANOVA</button>
     <button class="tab-btn" id="tabBtnRegression" type="button" role="tab" aria-selected="false">Correlation</button>
     <button class="tab-btn" id="tabBtnSurvival" type="button" role="tab" aria-selected="false">Survival</button>
-    <button class="tab-btn" id="tabBtnAnova" type="button" role="tab" aria-selected="false">ANOVA</button>
   </nav>
 
   <div class="tab-panel" id="panel-contingency">
@@ -1341,9 +1341,9 @@
   var TABS = {
     contingency: { btn: document.getElementById("tabBtnContingency"), panel: document.getElementById("panel-contingency") },
     ttest:       { btn: document.getElementById("tabBtnTtest"),       panel: document.getElementById("panel-ttest") },
+    anova:       { btn: document.getElementById("tabBtnAnova"),       panel: document.getElementById("panel-anova") },
     regression:  { btn: document.getElementById("tabBtnRegression"),  panel: document.getElementById("panel-regression") },
-    survival:    { btn: document.getElementById("tabBtnSurvival"),    panel: document.getElementById("panel-survival") },
-    anova:       { btn: document.getElementById("tabBtnAnova"),       panel: document.getElementById("panel-anova") }
+    survival:    { btn: document.getElementById("tabBtnSurvival"),    panel: document.getElementById("panel-survival") }
   };
 
   function showTab(name){
