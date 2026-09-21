@@ -13,6 +13,6 @@ A single-page calculator with eight tabs:
 
 Open `index.html` in a browser, or serve the repo with GitHub Pages — no build step, npm, or backend. The ML/NN tab's neural network loads TensorFlow.js from a CDN on first use; every other feature, including the ML tab's classical models, has no external dependency.
 
-**Supervising Developer:** Dr G Narenthiran FRCS(SN) — g_narenthiran@hotmail.com
+**Concept, Direction & Testing:** Dr G Narenthiran FRCS(SN) — g_narenthiran@hotmail.com
 
 © 2026 G Narenthiran. All rights reserved.
