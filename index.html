@@ -555,12 +555,12 @@
       <div class="data-field">
         <input class="group-name-input" id="groupALabel" value="Group A" aria-label="Group A name">
         <textarea id="groupAData" aria-label="Group A values" rows="5">23, 19, 27, 31, 22, 25, 29, 18, 24, 26</textarea>
-        <p class="data-hint">One value per line, or comma-separated.</p>
+        <p class="data-hint">One value per line, or comma-separated — you can paste directly from a spreadsheet column.</p>
       </div>
       <div class="data-field">
         <input class="group-name-input" id="groupBLabel" value="Group B" aria-label="Group B name">
         <textarea id="groupBData" aria-label="Group B values" rows="5">31, 28, 35, 30, 33, 29, 32, 27, 34, 30</textarea>
-        <p class="data-hint">One value per line, or comma-separated.</p>
+        <p class="data-hint">One value per line, or comma-separated — you can paste directly from a spreadsheet column.</p>
       </div>
     </div>
 
@@ -671,12 +671,12 @@
       <div class="data-field">
         <input class="group-name-input" id="regXLabel" value="Age (years)" aria-label="X variable name">
         <textarea id="regXData" aria-label="X values" rows="5">42, 51, 36, 63, 47, 55, 39, 60, 44, 58, 49, 33</textarea>
-        <p class="data-hint">One value per line, or comma-separated.</p>
+        <p class="data-hint">One value per line, or comma-separated — you can paste directly from a spreadsheet column.</p>
       </div>
       <div class="data-field">
         <input class="group-name-input" id="regYLabel" value="Systolic BP (mmHg)" aria-label="Y variable name">
         <textarea id="regYData" aria-label="Y values" rows="5">128, 138, 118, 152, 133, 141, 122, 148, 130, 145, 135, 115</textarea>
-        <p class="data-hint">One value per line, or comma-separated. Matched by position with X.</p>
+        <p class="data-hint">One value per line, or comma-separated — you can paste directly from a spreadsheet column. Matched by position with X.</p>
       </div>
     </div>
 
@@ -1418,7 +1418,11 @@
   }
 
   function parseNumbers(text){
-    return text.split(/[\s,]+/)
+    // Strip thousands-separator commas from number-like tokens (e.g. Excel showing "1,234")
+    // before splitting on commas as list separators — only matches proper 3-digit groupings,
+    // so a typed list like "23, 19, 27" is untouched.
+    var normalized = text.replace(/-?\d{1,3}(,\d{3})+(\.\d+)?\b/g, function(m){ return m.replace(/,/g, ""); });
+    return normalized.split(/[\s,]+/)
       .map(function(s){ return s.trim(); })
       .filter(function(s){ return s.length > 0; })
       .map(Number)
