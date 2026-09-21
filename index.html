@@ -1305,6 +1305,13 @@
           <div class="radio-card-sub">A count outcome (0, 1, 2, …) predicted by one or more variables.</div>
         </div>
       </label>
+      <label class="radio-card" id="glmPoissonRrCard">
+        <input type="radio" name="glmAnalysisType" id="glmPoissonRr" value="poisson-rr">
+        <div>
+          <div class="radio-card-title">Poisson regression for binary outcomes</div>
+          <div class="radio-card-sub">A binary outcome (0/1), reported as relative risk instead of odds ratio, with robust standard errors.</div>
+        </div>
+      </label>
     </div>
   </section>
 
@@ -1395,11 +1402,12 @@
       <div class="info-body">
         <p><b>Fitting —</b> both models are fit by Newton–Raphson (equivalent to iteratively reweighted least squares) maximizing the exact log-likelihood over all predictors at once — logistic: Σ[yᵢlog(pᵢ)+(1−yᵢ)log(1−pᵢ)] with pᵢ = 1⁄(1+e<sup>−ηᵢ</sup>); Poisson: Σ[yᵢlog(μᵢ)−μᵢ−log(yᵢ!)] with μᵢ = e<sup>ηᵢ</sup>, where ηᵢ = β₀ + β₁x₁ᵢ + β₂x₂ᵢ + … is the linear predictor. Standard errors come from the observed information matrix (inverse Hessian) at convergence.</p>
         <p><b>How predictor type changes the model —</b> a <b>continuous</b> predictor contributes its raw value as one column of the design matrix, with one coefficient. An <b>ordinal</b> predictor is converted to an equally-spaced numeric score following its category order (typed order, or auto-detected: numeric sort if the categories are already numbers, otherwise the order they first appear) and enters as one column with one coefficient — this assumes the effect of moving up one category is the same size at every step, which is a simplification worth checking against subject-matter knowledge. A <b>nominal</b> predictor with k categories is dummy-coded into k−1 binary columns against a reference category (the first category encountered in the data), so each non-reference level gets its own coefficient, estimated without assuming any order or equal spacing between categories.</p>
-        <p><b>Odds ratio / incidence rate ratio —</b> for each term, e<sup>β</sup> — the multiplicative change in odds (logistic) or rate (Poisson) per one-unit increase (continuous or ordinal) or per category vs. the reference (nominal) — with a 95% CI from e<sup>β ± 1.96·SE(β)</sup>.</p>
+        <p><b>Odds ratio / incidence rate ratio / relative risk —</b> for each term, e<sup>β</sup> — the multiplicative change in odds (logistic), rate (Poisson), or risk (Poisson for binary outcomes) per one-unit increase (continuous or ordinal) or per category vs. the reference (nominal) — with a 95% CI from e<sup>β ± 1.96·SE(β)</sup>.</p>
+        <p><b>Poisson regression for binary outcomes —</b> logistic regression's odds ratio overstates the relative risk whenever the outcome is common (roughly above 10%), which matters if what you actually want is "how many times more likely," not "how much greater the odds." This option gets around that by fitting the same Poisson log-link model to a 0/1 outcome instead — e<sup>β</sup> is then directly the relative risk. Because a 0/1 outcome doesn't really follow a Poisson distribution (its true variance is p(1−p), not equal to its mean), the model's own standard errors would be wrong if used as-is; this tool corrects for that with a robust "sandwich" (Huber–White) variance estimator instead of the model-based one, which is exactly the standard fix used in the epidemiological literature for this technique (sometimes called "modified Poisson regression," Zou 2004). One known quirk: because the Poisson link has no upper bound, the model can imply a fitted probability above 1 for some observations — this is flagged when it happens, and doesn't invalidate the coefficients, but is worth noting when predictors take extreme values.</p>
         <p><b>Likelihood ratio test —</b> 2×(log-likelihood of this model − log-likelihood of an intercept-only model), compared to a chi-squared distribution with degrees of freedom equal to the number of coefficients added (one per continuous/ordinal predictor, k−1 per nominal predictor with k categories). This tests whether the predictors jointly improve on a model with none of them — it's the recommended overall significance test, more reliable than the per-coefficient Wald z-test when effects are large or samples are small.</p>
         <p><b>McFadden's pseudo-R² —</b> 1 − (log-likelihood of this model ⁄ log-likelihood of the intercept-only model). It doesn't mean the same thing as R² in linear regression — values of 0.2–0.4 are often considered a good fit for this measure, not a low one.</p>
         <p><b>Convergence —</b> if Newton–Raphson doesn't settle within 100 iterations, or a coefficient grows extremely large, that usually means perfect or near-perfect separation (the predictors sort the outcome too cleanly for a finite estimate to exist) — the result is flagged rather than reported as if it were a stable estimate.</p>
-        <p><b>Overdispersion (Poisson only) —</b> checked with the Pearson dispersion statistic, Σ(yᵢ−μᵢ)²⁄μᵢ divided by the residual degrees of freedom (n − number of parameters). A value well above 1 means the data are more variable than a Poisson model allows; when that happens, this tool automatically widens all standard errors by √(dispersion) (a quasi-Poisson adjustment) rather than reporting overconfident p-values from the plain Poisson model.</p>
+        <p><b>Overdispersion (count Poisson only) —</b> checked with the Pearson dispersion statistic, Σ(yᵢ−μᵢ)²⁄μᵢ divided by the residual degrees of freedom (n − number of parameters). A value well above 1 means the data are more variable than a Poisson model allows; when that happens, this tool automatically widens all standard errors by √(dispersion) (a quasi-Poisson adjustment) rather than reporting overconfident p-values from the plain Poisson model. Poisson regression for binary outcomes doesn't use this adjustment — the robust standard error handles the (much larger, and different in kind) variance misspecification directly.</p>
         <p><b>Not implemented —</b> interaction terms and negative-binomial regression (a fuller alternative to quasi-Poisson for overdispersion) aren't available in this tool.</p>
       </div>
     </details>
@@ -4562,6 +4570,20 @@
     return inv;
   }
 
+  function matMultiply(A, B){
+    var n = A.length, m = B[0].length, k = B.length;
+    var C = [];
+    for (var i = 0; i < n; i++){
+      C.push(new Array(m).fill(0));
+      for (var j = 0; j < m; j++){
+        var s = 0;
+        for (var l = 0; l < k; l++) s += A[i][l] * B[l][j];
+        C[i][j] = s;
+      }
+    }
+    return C;
+  }
+
   function fitGLM(X, y, family){
     var n = X.length, p = X[0].length;
     var beta = new Array(p).fill(0);
@@ -4591,6 +4613,17 @@
     for (i = 0; i < n; i++) for (j = 0; j < p; j++) for (k = 0; k < p; k++) Hf[j][k] += wF[i] * X[i][j] * X[i][k];
     var invHf = invertMatrix(Hf);
     var se = invHf ? invHf.map(function(row, j){ return Math.sqrt(Math.max(0, row[j])); }) : new Array(p).fill(NaN);
+    var seRobust = new Array(p).fill(NaN);
+    if (invHf){
+      var meat = [];
+      for (j = 0; j < p; j++) meat.push(new Array(p).fill(0));
+      for (i = 0; i < n; i++){
+        var r2 = (y[i] - muF[i]) * (y[i] - muF[i]);
+        for (j = 0; j < p; j++) for (k = 0; k < p; k++) meat[j][k] += r2 * X[i][j] * X[i][k];
+      }
+      var sandwich = matMultiply(matMultiply(invHf, meat), invHf);
+      seRobust = sandwich.map(function(row, j){ return Math.sqrt(Math.max(0, row[j])); });
+    }
     var ll = 0;
     for (i = 0; i < n; i++){
       if (family === "logistic"){
@@ -4600,7 +4633,7 @@
         ll += y[i] * Math.log(muF[i]) - muF[i] - lgamma(y[i] + 1);
       }
     }
-    return { beta: beta, se: se, mu: muF, logLik: ll, converged: converged, iterations: iterUsed, n: n, p: p };
+    return { beta: beta, se: se, seRobust: seRobust, mu: muF, logLik: ll, converged: converged, iterations: iterUsed, n: n, p: p };
   }
 
   function glmNullLogLik(y, family){
@@ -4684,12 +4717,12 @@
     return { X: X, terms: terms };
   }
 
-  function renderGlmPlot(container, x, y, beta, family, xLabel, yLabel){
+  function renderGlmPlot(container, x, y, beta, family, xLabel, yLabel, probabilityBounded){
     var W = 480, H = 300, mL = 50, mR = 16, mT = 16, mB = 38;
     var xMin = Math.min.apply(null, x), xMax = Math.max.apply(null, x);
     var xPad = (xMax - xMin) * 0.06 || 1;
     xMin -= xPad; xMax += xPad;
-    var yMin = 0, yMax = family === "logistic" ? 1 : (Math.max.apply(null, y) * 1.15 || 1);
+    var yMin = 0, yMax = (family === "logistic" || probabilityBounded) ? 1 : (Math.max.apply(null, y) * 1.15 || 1);
 
     function sx(v){ return mL + (v - xMin) / (xMax - xMin) * (W - mL - mR); }
     function sy(v){ return H - mB - (Math.min(yMax, v) - yMin) / (yMax - yMin) * (H - mT - mB); }
@@ -4737,8 +4770,10 @@
   var glmEls = {
     logisticRadio: document.getElementById("glmLogistic"),
     poissonRadio: document.getElementById("glmPoisson"),
+    poissonRrRadio: document.getElementById("glmPoissonRr"),
     logisticCard: document.getElementById("glmLogisticCard"),
     poissonCard: document.getElementById("glmPoissonCard"),
+    poissonRrCard: document.getElementById("glmPoissonRrCard"),
     loadExampleBtn: document.getElementById("glmLoadExampleBtn"),
     addPredictorBtn: document.getElementById("glmAddPredictorBtn"),
     predictorsContainer: document.getElementById("glmPredictorsContainer"),
@@ -4770,7 +4805,12 @@
     accuracy: document.getElementById("glmAccuracy")
   };
 
-  function glmFamily(){ return glmEls.poissonRadio.checked ? "poisson" : "logistic"; }
+  function glmMode(){
+    if (glmEls.poissonRadio.checked) return "poisson";
+    if (glmEls.poissonRrRadio.checked) return "poisson-rr";
+    return "logistic";
+  }
+  function glmFitFamily(mode){ return mode === "logistic" ? "logistic" : "poisson"; }
 
   function glmExampleText(family){
     if (family === "poisson"){
@@ -4897,14 +4937,17 @@
   }
 
   function recalcGlm(){
-    var family = glmFamily();
-    glmEls.logisticCard.classList.toggle("active", family === "logistic");
-    glmEls.poissonCard.classList.toggle("active", family === "poisson");
-    glmEls.classificationCard.hidden = family !== "logistic";
-    glmEls.yHint.textContent = family === "logistic"
+    var mode = glmMode();
+    var family = glmFitFamily(mode);
+    var isBinaryOutcome = mode === "logistic" || mode === "poisson-rr";
+    glmEls.logisticCard.classList.toggle("active", mode === "logistic");
+    glmEls.poissonCard.classList.toggle("active", mode === "poisson");
+    glmEls.poissonRrCard.classList.toggle("active", mode === "poisson-rr");
+    glmEls.classificationCard.hidden = !isBinaryOutcome;
+    glmEls.yHint.textContent = isBinaryOutcome
       ? "0 = event did not occur, 1 = event occurred. Matched by position with each predictor below."
       : "A non-negative integer count (0, 1, 2, …). Matched by position with each predictor below.";
-    glmEls.ratioColHead.textContent = family === "logistic" ? "OR" : "IRR";
+    glmEls.ratioColHead.textContent = mode === "logistic" ? "OR" : (mode === "poisson-rr" ? "RR" : "IRR");
 
     var yRaw = parseNumbers(glmEls.yData.value);
     var yLabel = glmEls.yLabel.value || "Y";
@@ -4922,10 +4965,10 @@
       glmShowError('Need at least 8 observations to fit a stable model.');
       return;
     }
-    if (family === "logistic"){
+    if (isBinaryOutcome){
       var badY = yRaw.filter(function(v){ return v !== 0 && v !== 1; });
       if (badY.length > 0){
-        glmShowError('Outcome must be 0 or 1 for logistic regression — found ' + badY.length + ' other value(s) (e.g. "' + badY[0] + '").');
+        glmShowError('Outcome must be 0 or 1 for ' + (mode === "logistic" ? "logistic regression" : "this method") + ' — found ' + badY.length + ' other value(s) (e.g. "' + badY[0] + '").');
         return;
       }
     } else {
@@ -4973,13 +5016,13 @@
     if (singleContinuous){
       glmEls.plot.hidden = false;
       glmEls.plotNote.hidden = true;
-      renderGlmPlot(glmEls.plot, predictors[0].values, y, fit.beta, family, predictors[0].name, yLabel);
-      glmEls.plotTitle.textContent = family === "logistic" ? "Fitted probability curve" : "Fitted count curve";
+      renderGlmPlot(glmEls.plot, predictors[0].values, y, fit.beta, family, predictors[0].name, yLabel, isBinaryOutcome);
+      glmEls.plotTitle.textContent = isBinaryOutcome ? "Fitted probability curve" : "Fitted count curve";
     } else {
       glmEls.plot.hidden = true;
       glmEls.plot.innerHTML = "";
       glmEls.plotNote.hidden = false;
-      glmEls.plotTitle.textContent = family === "logistic" ? "Fitted probability curve" : "Fitted count curve";
+      glmEls.plotTitle.textContent = isBinaryOutcome ? "Fitted probability curve" : "Fitted count curve";
       glmEls.plotNote.textContent = "A single fitted curve isn't meaningful with more than one predictor (or a non-continuous predictor) — the coefficient table below shows each term's effect instead.";
     }
 
@@ -4991,19 +5034,24 @@
 
     var se = fit.se.slice();
     var dispersion = NaN;
-    if (family === "poisson"){
+    if (mode === "poisson"){
       dispersion = poissonDispersion(y, fit.mu, fit.p);
       if (isFinite(dispersion) && dispersion > 1.5){
         se = se.map(function(s){ return s * Math.sqrt(dispersion); });
       }
       renderGlmDiagnosticsPoisson(dispersion);
     } else {
+      se = mode === "poisson-rr" ? fit.seRobust.slice() : se;
       var nEvents = y.filter(function(v){ return v === 1; }).length;
       renderGlmDiagnosticsLogistic(nEvents, y.length - nEvents, terms.length);
+      if (mode === "poisson-rr" && fit.mu.some(function(m){ return m > 1; })){
+        glmEls.diagNote.innerHTML += ' <b style="color:var(--ink);">Note —</b> the fitted model implies a probability above 1 for at least one observation — a known quirk of fitting a Poisson (log) link to a bounded 0/1 outcome. It doesn\'t invalidate the coefficients or the robust standard errors, but treat fitted probabilities near the extremes of your predictors with caution.';
+      }
     }
 
-    var quasiAdjusted = family === "poisson" && isFinite(dispersion) && dispersion > 1.5;
-    glmEls.title.textContent = (family === "logistic" ? "Logistic regression" : "Poisson regression") + (quasiAdjusted ? " (quasi-Poisson SEs)" : "");
+    var quasiAdjusted = mode === "poisson" && isFinite(dispersion) && dispersion > 1.5;
+    glmEls.title.textContent = (mode === "logistic" ? "Logistic regression" : (mode === "poisson-rr" ? "Poisson regression for binary outcomes" : "Poisson regression")) +
+      (quasiAdjusted ? " (quasi-Poisson SEs)" : (mode === "poisson-rr" ? " (robust SEs)" : ""));
 
     var rows = ['<tr><td>Intercept</td><td>' + fmtNum(fit.beta[0], 4) + '</td><td>' + fmtNum(se[0], 4) + '</td><td>' +
       fmtNum(fit.beta[0] / se[0], 3) + '</td><td>' + fmtP(Math.min(1, Math.max(0, erfc(Math.abs(fit.beta[0] / se[0]) / Math.SQRT2)))) + '</td><td>—</td><td>—</td></tr>'];
@@ -5027,19 +5075,20 @@
     glmEls.lrP.textContent = fmtP(lrP);
     glmEls.verdict.innerHTML = ""; glmEls.verdict.appendChild(verdictPill(lrP));
 
-    var ratioWord = family === "logistic" ? "odds ratio" : "incidence rate ratio";
+    var ratioWord = mode === "logistic" ? "odds ratio" : (mode === "poisson-rr" ? "relative risk" : "incidence rate ratio");
     var predictorNames = predictors.map(function(p){ return p.name; }).join(", ");
     var termSentences = termEffects.map(function(te, idx){
       var change = te.kind === "nominal" ? te.variable + " = " + te.level + " (vs. " + te.reference + ")" : "each one-unit increase in " + te.name;
       if (idx === 0) change = change.charAt(0).toUpperCase() + change.slice(1);
       return change + " is associated with the " + ratioWord + " changing by a factor of " + fmtNum(te.ratio, 2) + " (95% CI " + fmtNum(te.ratioLo, 2) + "–" + fmtNum(te.ratioHi, 2) + ")";
     });
-    glmEls.interpretation.textContent = (family === "logistic" ? "A logistic" : "A Poisson") + " regression of " + yLabel + " on " + predictorNames + " found " +
+    var modelWord = mode === "logistic" ? "A logistic" : (mode === "poisson-rr" ? "A modified Poisson (relative risk)" : "A Poisson");
+    glmEls.interpretation.textContent = modelWord + " regression of " + yLabel + " on " + predictorNames + " found " +
       (lrP < 0.05 ? "evidence" : "no evidence") + " that these predictors jointly improve on a model with none of them (likelihood ratio χ² = " + fmtNum(lr, 2) + ", df = " + df + ", p = " + fmtP(lrP) + "). " +
       (termSentences.length > 0 ? termSentences.join("; ") + "." : "") +
       " This describes an association, not a causal effect, and doesn't account for any variable not included in the model.";
 
-    if (family === "logistic"){
+    if (isBinaryOutcome){
       var tp = 0, tn = 0, fp = 0, fn = 0;
       for (var i = 0; i < n; i++){
         var predicted = fit.mu[i] >= 0.5 ? 1 : 0;
@@ -5067,7 +5116,8 @@
   glmEls.yLabel.addEventListener("input", recalcGlm);
   glmEls.logisticRadio.addEventListener("change", function(){ loadGlmExample("logistic"); });
   glmEls.poissonRadio.addEventListener("change", function(){ loadGlmExample("poisson"); });
-  glmEls.loadExampleBtn.addEventListener("click", function(){ loadGlmExample(glmFamily()); });
+  glmEls.poissonRrRadio.addEventListener("change", function(){ loadGlmExample("logistic"); });
+  glmEls.loadExampleBtn.addEventListener("click", function(){ loadGlmExample(glmMode() === "poisson" ? "poisson" : "logistic"); });
   glmEls.addPredictorBtn.addEventListener("click", function(){
     addGlmPredictor("Predictor " + (glmEls.predictorsContainer.querySelectorAll(".glm-predictor-block").length + 1), "continuous", "");
     recalcGlm();
