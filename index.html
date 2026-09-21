@@ -601,28 +601,32 @@
     </p>
   </section>
 
-  <section class="results-grid">
-    <div class="card result-card">
-      <p class="eyebrow">Descriptives</p>
-      <h2>Summary</h2>
-      <div class="stat-row"><span class="stat-label" id="ttNameA">Group A</span><span class="stat-value" id="ttSummaryA">—</span></div>
-      <div class="stat-row"><span class="stat-label" id="ttNameB">Group B</span><span class="stat-value" id="ttSummaryB">—</span></div>
-      <div class="stat-row"><span class="stat-label">Mean difference</span><span class="stat-value" id="ttMeanDiff">—</span></div>
+  <section class="card">
+    <p class="eyebrow">Descriptives</p>
+    <h2>Summary</h2>
+    <div class="table-wrap">
+      <table class="life-table">
+        <thead>
+          <tr><th>Statistic</th><th id="ttDescColA">Group A</th><th id="ttDescColB">Group B</th></tr>
+        </thead>
+        <tbody id="ttDescBody"></tbody>
+      </table>
     </div>
+    <div class="stat-row" style="margin-top:6px;"><span class="stat-label">Mean difference</span><span class="stat-value" id="ttMeanDiff">—</span></div>
+  </section>
 
-    <div class="card result-card">
-      <p class="eyebrow" id="ttEyebrow">Test result</p>
-      <h2 id="ttTitle">Welch's t-test</h2>
-      <div class="stat-row"><span class="stat-label" id="ttStatLabel">t</span><span class="stat-value" id="ttStat">—</span></div>
-      <div class="stat-row"><span class="stat-label" id="ttDfLabel">df</span><span class="stat-value" id="ttDf">—</span></div>
-      <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="ttP">—</span></div>
-      <div id="ttVerdict"></div>
-      <div class="toggle-row" style="flex-direction:column;align-items:stretch;gap:8px;">
-        <span class="toggle-label" style="font-weight:600;">Method</span>
-        <select id="methodSelect" class="label-input" style="text-align:left;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--paper);">
-        </select>
-        <p class="norm-note" id="methodReason"></p>
-      </div>
+  <section class="card">
+    <p class="eyebrow" id="ttEyebrow">Test result</p>
+    <h2 id="ttTitle">Welch's t-test</h2>
+    <div class="stat-row"><span class="stat-label" id="ttStatLabel">t</span><span class="stat-value" id="ttStat">—</span></div>
+    <div class="stat-row"><span class="stat-label" id="ttDfLabel">df</span><span class="stat-value" id="ttDf">—</span></div>
+    <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="ttP">—</span></div>
+    <div id="ttVerdict"></div>
+    <div class="toggle-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <span class="toggle-label" style="font-weight:600;">Method</span>
+      <select id="methodSelect" class="label-input" style="text-align:left;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--paper);">
+      </select>
+      <p class="norm-note" id="methodReason"></p>
     </div>
   </section>
 
@@ -1514,10 +1518,9 @@
     dataA: document.getElementById("groupAData"),
     dataB: document.getElementById("groupBData"),
     warning: document.getElementById("ttWarning"),
-    nameA: document.getElementById("ttNameA"),
-    nameB: document.getElementById("ttNameB"),
-    summaryA: document.getElementById("ttSummaryA"),
-    summaryB: document.getElementById("ttSummaryB"),
+    descColA: document.getElementById("ttDescColA"),
+    descColB: document.getElementById("ttDescColB"),
+    descBody: document.getElementById("ttDescBody"),
     meanDiff: document.getElementById("ttMeanDiff"),
     eyebrow: document.getElementById("ttEyebrow"),
     title: document.getElementById("ttTitle"),
@@ -1560,10 +1563,56 @@
     ttEls.methodSelect.value = "auto";
   }
 
-  function ttSummaryText(arr){
-    if (arr.length === 0) return "—";
-    var m = mean(arr), sd = arr.length > 1 ? sampleSd(arr) : NaN;
-    return "n=" + arr.length + ", x̄=" + fmtNum(m, 2) + ", s=" + (isNaN(sd) ? "—" : fmtNum(sd, 2));
+  function computeMode(arr){
+    if (arr.length <= 1) return arr.slice();
+    var freq = {};
+    arr.forEach(function(v){ freq[v] = (freq[v] || 0) + 1; });
+    var maxFreq = 0;
+    Object.keys(freq).forEach(function(k){ if (freq[k] > maxFreq) maxFreq = freq[k]; });
+    if (maxFreq <= 1) return [];
+    return Object.keys(freq).filter(function(k){ return freq[k] === maxFreq; }).map(Number).sort(function(a, b){ return a - b; });
+  }
+
+  function fullDescriptives(arr){
+    var n = arr.length;
+    var ci = groupMeanCI(arr);
+    var out = { n: n, mean: ci.mean, sd: ci.sd, se: ci.se, ciLower: ci.ciLower, ciUpper: ci.ciUpper, median: NaN, q1: NaN, q3: NaN, iqr: NaN, modes: [] };
+    if (n === 0) return out;
+    out.median = median(arr);
+    var sorted = arr.slice().sort(function(a, b){ return a - b; });
+    out.q1 = quantile(sorted, 0.25);
+    out.q3 = quantile(sorted, 0.75);
+    out.iqr = out.q3 - out.q1;
+    out.modes = computeMode(arr);
+    return out;
+  }
+
+  function renderDescriptives(labelA, labelB, dA, dB){
+    ttEls.descColA.textContent = labelA;
+    ttEls.descColB.textContent = labelB;
+
+    function f(v, d){ return isFinite(v) ? fmtNum(v, d == null ? 3 : d) : "—"; }
+    function fCI(d){ return isFinite(d.ciLower) && isFinite(d.ciUpper) ? f(d.ciLower, 2) + "–" + f(d.ciUpper, 2) : "—"; }
+    function fModes(d){
+      if (d.n === 0) return "—";
+      if (d.modes.length === 0) return "None (all values unique)";
+      return d.modes.map(function(m){ return fmtNum(m, 2); }).join(", ");
+    }
+    function row(label, valA, valB){
+      return '<tr><td>' + escapeXml(label) + '</td><td>' + valA + '</td><td>' + valB + '</td></tr>';
+    }
+
+    ttEls.descBody.innerHTML =
+      row("N", dA.n || "—", dB.n || "—") +
+      row("Mean", f(dA.mean, 2), f(dB.mean, 2)) +
+      row("SD", f(dA.sd, 2), f(dB.sd, 2)) +
+      row("SEM", f(dA.se, 3), f(dB.se, 3)) +
+      row("95% CI (mean)", fCI(dA), fCI(dB)) +
+      row("Median", f(dA.median, 2), f(dB.median, 2)) +
+      row("Mode", fModes(dA), fModes(dB)) +
+      row("Q1 (25th pct.)", f(dA.q1, 2), f(dB.q1, 2)) +
+      row("Q3 (75th pct.)", f(dA.q3, 2), f(dB.q3, 2)) +
+      row("IQR", f(dA.iqr, 2), f(dB.iqr, 2));
   }
 
   var METHOD_INFO = {
@@ -1656,10 +1705,7 @@
 
     var labelA = ttEls.labelA.value || "Group A";
     var labelB = ttEls.labelB.value || "Group B";
-    ttEls.nameA.textContent = labelA;
-    ttEls.nameB.textContent = labelB;
-    ttEls.summaryA.textContent = ttSummaryText(arrA);
-    ttEls.summaryB.textContent = ttSummaryText(arrB);
+    renderDescriptives(labelA, labelB, fullDescriptives(arrA), fullDescriptives(arrB));
 
     var histColors = [getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
                        getComputedStyle(document.documentElement).getPropertyValue("--accent2").trim()];
