@@ -14,6 +14,8 @@
     --accent-ink:#0E4436;
     --accent2:#B5651D;
     --accent2-soft:#F5E6D8;
+    --accent3:#3B6FA0;
+    --accent4:#7A5199;
     --good:#1F7A4C;
     --good-soft:#E4F3E8;
     --warn:#9C6B12;
@@ -34,6 +36,8 @@
       --accent-ink:#9FE8D2;
       --accent2:#E0935A;
       --accent2-soft:#3A2A1A;
+      --accent3:#7FA8D9;
+      --accent4:#B98CD4;
       --good:#5FCB86;
       --good-soft:#1C3423;
       --warn:#E0AE4F;
@@ -54,6 +58,8 @@
     --accent-ink:#9FE8D2;
     --accent2:#E0935A;
     --accent2-soft:#3A2A1A;
+    --accent3:#7FA8D9;
+    --accent4:#B98CD4;
     --good:#5FCB86;
     --good-soft:#1C3423;
     --warn:#E0AE4F;
@@ -404,6 +410,19 @@
   .excl-list table{width:100%;border-collapse:collapse;font-size:12px;}
   .excl-list th, .excl-list td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;font-family:"IBM Plex Mono",monospace;}
   .excl-list th{background:var(--neutral-soft);position:sticky;top:0;}
+
+  .groups-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;}
+  .group-block-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+  .group-block-head .group-name-input{flex:1;margin-bottom:0;border-bottom:none;padding:0;}
+  .remove-group-btn{
+    flex:none;font-family:inherit;font-size:11px;font-weight:600;color:var(--ink-soft);
+    background:transparent;border:1px solid var(--line);border-radius:6px;padding:4px 8px;cursor:pointer;
+  }
+  .remove-group-btn:hover{color:var(--warn);border-color:var(--warn);}
+  .group-block textarea{
+    width:100%;min-height:90px;border:1px solid var(--line);border-radius:9px;background:var(--paper);
+    color:var(--ink);font:13px/1.5 "IBM Plex Mono",monospace;padding:9px 11px;resize:vertical;
+  }
 </style>
 
 <div class="page">
@@ -431,6 +450,7 @@
     <button class="tab-btn" id="tabBtnTtest" type="button" role="tab" aria-selected="false">T-test</button>
     <button class="tab-btn" id="tabBtnRegression" type="button" role="tab" aria-selected="false">Correlation</button>
     <button class="tab-btn" id="tabBtnSurvival" type="button" role="tab" aria-selected="false">Survival</button>
+    <button class="tab-btn" id="tabBtnAnova" type="button" role="tab" aria-selected="false">ANOVA</button>
   </nav>
 
   <div class="tab-panel" id="panel-contingency">
@@ -972,6 +992,112 @@
 
   </div>
 
+  <div class="tab-panel" id="panel-anova" hidden>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 1</p><h2>Groups</h2></div>
+      <div class="btn-row">
+        <button class="ghost-btn" id="anovaAddGroupBtn" type="button">+ Add group</button>
+        <button class="ghost-btn" id="anovaLoadExampleBtn" type="button">Load example</button>
+      </div>
+    </div>
+    <div class="groups-grid" id="anovaGroupsContainer"></div>
+    <p class="data-hint" style="margin-top:10px;">One value per line, or comma-separated — you can paste directly from a spreadsheet column. At least 2 groups, at least 2 values each (3+ recommended for the normality check).</p>
+    <div class="assumption warn" id="anovaError" hidden style="margin-top:14px;"></div>
+    <div class="assumption warn" id="anovaSmallSampleWarning" hidden style="margin-top:14px;"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Visual check</p><h2>Group means</h2></div>
+    </div>
+    <div id="anovaBarChart"></div>
+    <p class="norm-note" style="margin-top:8px;">Bars show each group's mean; error bars show the 95% CI of the mean (t-distribution, df = n−1).</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Visual check</p><h2>Distribution</h2></div>
+    </div>
+    <div class="groups-grid" id="anovaHistograms"></div>
+    <p class="norm-note" style="margin-top:8px;">Each histogram picks its own bin width via the Freedman–Diaconis rule — the panels aren't on a shared scale, so compare shape, not bar-to-bar height.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 2</p><h2>Normality check</h2></div>
+    </div>
+    <div id="anovaNormRows"></div>
+    <p class="norm-note" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
+      <b style="color:var(--ink);">Why Shapiro–Wilk —</b> standard ANOVA assumes each group is approximately normally distributed; Shapiro–Wilk is the most powerful common test for flagging when that assumption doesn't hold (Razali &amp; Wah, 2011). If any group departs from normality, this tool looks for a transformation before falling back to the fully non-parametric Kruskal–Wallis test.
+    </p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 3</p><h2>Equality of variance</h2></div>
+    </div>
+    <div id="anovaLevRows"></div>
+    <p class="norm-note" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
+      <b style="color:var(--ink);">Why Levene's test —</b> generalized to k groups as a one-way ANOVA on each group's deviations from its own median (the Brown–Forsythe form), which stays reliable even when a group isn't perfectly normal. A significant result (p &lt; 0.05) means the groups' spreads differ enough that standard ANOVA's equal-variance assumption doesn't hold — use Welch's ANOVA instead.
+    </p>
+  </section>
+
+  <section class="card" id="anovaTransformCard" hidden>
+    <div class="card-head">
+      <div><p class="eyebrow">Step 4</p><h2>Transformation</h2></div>
+    </div>
+    <div id="anovaTransformSummary"></div>
+    <div class="groups-grid" id="anovaTransformNormRows" style="margin-top:12px;"></div>
+    <p class="norm-note" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
+      <b style="color:var(--ink);">Why this step —</b> when a group departs from normality, a Box–Cox power transform (y = (x<sup>λ</sup>−1)⁄λ, or ln(x) at λ = 0) is searched over a grid of λ from −2 to 2, picking whichever value maximizes the transform's profile log-likelihood for this data. If the transformed groups are then consistent with normality, Welch's ANOVA runs on the transformed values — Welch's rather than standard ANOVA, since the transform isn't guaranteed to equalize variances too. If no transform fixes normality, this tool falls back to the fully non-parametric Kruskal–Wallis test instead of trusting a transform that didn't work. Box–Cox needs strictly positive data — if any value is zero or negative, a constant is added to every value first, shown below.
+    </p>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow" id="anovaEyebrow">Test result</p>
+    <h2 id="anovaTitle">One-way ANOVA</h2>
+    <div class="table-wrap">
+      <table class="life-table" id="anovaTable" style="min-width:460px;">
+        <thead><tr><th>Source</th><th>SS</th><th>df</th><th>MS</th><th id="anovaStatLabel">F</th><th>p</th></tr></thead>
+        <tbody id="anovaTableBody"></tbody>
+      </table>
+    </div>
+    <div id="anovaVerdict" style="margin-top:12px;"></div>
+    <div class="effect-grid" style="grid-template-columns:1fr;margin-top:14px;">
+      <div>
+        <div class="effect-name" id="anovaEffectName">Eta-squared (η²)</div>
+        <div class="effect-value" id="anovaEffectValue">—</div>
+        <div class="effect-ci" id="anovaEffectNote"></div>
+      </div>
+    </div>
+    <div class="toggle-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <span class="toggle-label" style="font-weight:600;">Method</span>
+      <select id="anovaMethodSelect" class="label-input" style="text-align:left;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--paper);">
+        <option value="auto">Auto (recommended)</option>
+        <option value="anova">One-way ANOVA</option>
+        <option value="welch">Welch's ANOVA</option>
+        <option value="transform">Transform + Welch's ANOVA</option>
+        <option value="kruskal">Kruskal–Wallis</option>
+      </select>
+      <p class="norm-note" id="anovaMethodReason"></p>
+    </div>
+    <p class="norm-note" id="anovaInterpretation" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);"></p>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">Not yet implemented</p>
+    <h2>Post-hoc pairwise comparisons</h2>
+    <p class="norm-note">A significant omnibus result here says at least one group differs — it doesn't say which pair. Proper follow-up (Tukey's HSD, Games–Howell for unequal variances, or Dunn's test after Kruskal–Wallis, each with a multiple-comparisons correction) isn't implemented in this tool yet, so no pairwise p-values are shown. Treat any pairwise comparison you make by eye on the chart above as exploratory, not confirmatory.</p>
+  </section>
+
+  <footer class="notes">
+    <b>How it's computed —</b> One-way ANOVA partitions total variance into between-group and within-group sums of squares; F = MS<sub>between</sub>⁄MS<sub>within</sub> with df = (k−1, N−k), assuming normal groups with equal variance. Welch's ANOVA (1951) reweights each group by n<sub>i</sub>⁄s<sub>i</sub>², with an adjusted denominator and a non-integer df₂ — it doesn't assume equal variances, only normality. Kruskal–Wallis ranks all observations across groups and compares mean ranks (H, tie-corrected), needing neither assumption. All p-values use the exact regularized incomplete beta (F-distribution) or incomplete gamma (chi-squared) relations, not approximations. <b>Auto</b> picks standard ANOVA when every group is normal and Levene's test finds equal variances; Welch's ANOVA when every group is normal but variances differ; a Box–Cox transform followed by Welch's ANOVA when a group is non-normal but a transform fixes it; and Kruskal–Wallis when nothing else applies. Eta-squared (η² = SS<sub>between</sub>⁄SS<sub>total</sub>) is shown for standard ANOVA and Welch's ANOVA; Kruskal–Wallis instead reports an analogous rank-based epsilon-squared.
+  </footer>
+
+  </div>
+
   <footer class="notes">
     Supervising Developer: Dr G Narenthiran FRCS(SN) · <a href="mailto:g_narenthiran@hotmail.com" style="color:inherit;">g_narenthiran@hotmail.com</a><br>
     © 2026 G Narenthiran. All rights reserved.
@@ -1216,7 +1342,8 @@
     contingency: { btn: document.getElementById("tabBtnContingency"), panel: document.getElementById("panel-contingency") },
     ttest:       { btn: document.getElementById("tabBtnTtest"),       panel: document.getElementById("panel-ttest") },
     regression:  { btn: document.getElementById("tabBtnRegression"),  panel: document.getElementById("panel-regression") },
-    survival:    { btn: document.getElementById("tabBtnSurvival"),    panel: document.getElementById("panel-survival") }
+    survival:    { btn: document.getElementById("tabBtnSurvival"),    panel: document.getElementById("panel-survival") },
+    anova:       { btn: document.getElementById("tabBtnAnova"),       panel: document.getElementById("panel-anova") }
   };
 
   function showTab(name){
@@ -1297,9 +1424,10 @@
       container.innerHTML = '<p class="norm-note">Each group needs at least 2 values to show means with a confidence interval.</p>';
       return;
     }
-    var colors = [getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
-                  getComputedStyle(document.documentElement).getPropertyValue("--accent2").trim()];
-    var W = 420, H = 280, mL = 54, mR = 20, mT = 16, mB = 34;
+    var colors = ["--accent", "--accent2", "--accent3", "--accent4"].map(function(v){
+      return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    });
+    var W = Math.max(420, groups.length * 110), H = 280, mL = 54, mR = 20, mT = 16, mB = 34;
     var allVals = [0];
     groups.forEach(function(g){
       if (isNaN(g.stats.mean)) return;
@@ -1348,7 +1476,7 @@
       bars += '<text x="' + cx.toFixed(1) + '" y="' + (Math.min(yBar, isFinite(g.stats.ciUpper) ? sy(g.stats.ciUpper) : yBar) - 8).toFixed(1) + '" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--ink)" font-family="IBM Plex Mono, monospace">' + fmtNum(g.stats.mean, 2) + '</text>';
     });
 
-    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;max-width:480px;height:auto;display:block;margin:0 auto;" role="img" aria-label="Bar chart of group means with 95% confidence intervals">' +
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;max-width:' + Math.max(480, W) + 'px;height:auto;display:block;margin:0 auto;" role="img" aria-label="Bar chart of group means with 95% confidence intervals">' +
       yTicks + axes + bars + labels + '</svg>';
   }
 
@@ -3272,6 +3400,454 @@
 
   survEls.pasteArea.value = survivalExampleText(false);
   recalcSurvival();
+
+  /* ===================== ANOVA / Welch's ANOVA / Kruskal-Wallis ===================== */
+
+  function gammaSeries(a, x){
+    if (x <= 0) return 0;
+    var ap = a, sum = 1 / a, del = sum;
+    for (var n = 1; n <= 200; n++){
+      ap += 1; del *= x / ap; sum += del;
+      if (Math.abs(del) < Math.abs(sum) * 3e-7) break;
+    }
+    return sum * Math.exp(-x + a * Math.log(x) - lgamma(a));
+  }
+
+  function gammaCF(a, x){
+    var FPMIN = 1e-30, EPS = 3e-7;
+    var b = x + 1 - a, c = 1 / FPMIN, d = 1 / b, h = d;
+    for (var i = 1; i <= 200; i++){
+      var an = -i * (i - a);
+      b += 2;
+      d = an * d + b; if (Math.abs(d) < FPMIN) d = FPMIN;
+      c = b + an / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+      d = 1 / d;
+      var del = d * c; h *= del;
+      if (Math.abs(del - 1) < EPS) break;
+    }
+    return Math.exp(-x + a * Math.log(x) - lgamma(a)) * h;
+  }
+
+  function upperIncompleteGammaQ(a, x){
+    if (x < 0 || a <= 0) return NaN;
+    if (x === 0) return 1;
+    if (x < a + 1) return 1 - gammaSeries(a, x);
+    return gammaCF(a, x);
+  }
+
+  function chiSquaredPGeneral(stat, df){
+    if (!isFinite(stat) || stat < 0 || !isFinite(df) || df <= 0) return NaN;
+    return upperIncompleteGammaQ(df / 2, stat / 2);
+  }
+
+  function fPValue(f, d1, d2){
+    if (!isFinite(d1) || !isFinite(d2) || d1 <= 0 || d2 <= 0) return NaN;
+    if (!isFinite(f) || f < 0) return NaN;
+    if (f === 0) return 1;
+    var x = d2 / (d2 + d1 * f);
+    return betai(d2 / 2, d1 / 2, x);
+  }
+
+  function oneWayAnova(groups){
+    var k = groups.length;
+    var N = 0, grandSum = 0;
+    groups.forEach(function(g){ N += g.length; grandSum += g.reduce(function(s, v){ return s + v; }, 0); });
+    var grandMean = grandSum / N;
+    var ssb = 0, ssw = 0;
+    groups.forEach(function(g){
+      var m = mean(g);
+      ssb += g.length * (m - grandMean) * (m - grandMean);
+      g.forEach(function(v){ ssw += (v - m) * (v - m); });
+    });
+    var df1 = k - 1, df2 = N - k;
+    var msb = df1 > 0 ? ssb / df1 : NaN, msw = df2 > 0 ? ssw / df2 : NaN;
+    var F = (msw > 0) ? msb / msw : NaN;
+    var p = fPValue(F, df1, df2);
+    var sst = ssb + ssw;
+    var eta2 = sst > 0 ? ssb / sst : NaN;
+    return { ssb: ssb, ssw: ssw, sst: sst, df1: df1, df2: df2, msb: msb, msw: msw, F: F, p: p, eta2: eta2, N: N, k: k };
+  }
+
+  function welchAnova(groups){
+    var k = groups.length;
+    var ni = groups.map(function(g){ return g.length; });
+    var mi = groups.map(mean);
+    var vi = groups.map(sampleVariance);
+    var wi = ni.map(function(n, i){ return n / vi[i]; });
+    var W = wi.reduce(function(s, v){ return s + v; }, 0);
+    var xbarw = wi.reduce(function(s, w, i){ return s + w * mi[i]; }, 0) / W;
+    var numerator = wi.reduce(function(s, w, i){ return s + w * (mi[i] - xbarw) * (mi[i] - xbarw); }, 0) / (k - 1);
+    var A = wi.reduce(function(s, w, i){ var term = (1 - w / W); return s + (term * term) / (ni[i] - 1); }, 0);
+    var denom = 1 + (2 * (k - 2) / (k * k - 1)) * A;
+    var F = numerator / denom;
+    var df1 = k - 1;
+    var df2 = (k * k - 1) / (3 * A);
+    var p = fPValue(F, df1, df2);
+    return { F: F, df1: df1, df2: df2, p: p };
+  }
+
+  function kruskalWallis(groups){
+    var N = 0;
+    groups.forEach(function(g){ N += g.length; });
+    var combined = [];
+    groups.forEach(function(g){ combined = combined.concat(g); });
+    var rk = rankWithTies(combined);
+    var idx = 0, H = 0;
+    groups.forEach(function(g){
+      var Ri = 0;
+      for (var i = 0; i < g.length; i++){ Ri += rk.ranks[idx]; idx++; }
+      H += (Ri * Ri) / g.length;
+    });
+    H = (12 / (N * (N + 1))) * H - 3 * (N + 1);
+    var tieSum = 0;
+    rk.tieGroups.forEach(function(t){ tieSum += t * t * t - t; });
+    var correction = 1 - tieSum / (N * N * N - N);
+    var Hc = correction > 0 ? H / correction : H;
+    var df = groups.length - 1;
+    var p = chiSquaredPGeneral(Hc, df);
+    var epsilon2 = N > 1 ? Hc / (N - 1) : NaN;
+    return { H: Hc, df: df, p: p, N: N, epsilon2: epsilon2 };
+  }
+
+  function leveneKGroup(groups){
+    var z = groups.map(function(g){
+      var med = median(g);
+      return g.map(function(v){ return Math.abs(v - med); });
+    });
+    return oneWayAnova(z);
+  }
+
+  function boxCoxTransform(arr, lambda){
+    if (Math.abs(lambda) < 1e-8) return arr.map(function(v){ return Math.log(v); });
+    return arr.map(function(v){ return (Math.pow(v, lambda) - 1) / lambda; });
+  }
+
+  function boxCoxLogLik(groups, lambda, sumLogX){
+    var transformed = groups.map(function(g){ return boxCoxTransform(g, lambda); });
+    var anovaRes = oneWayAnova(transformed);
+    var N = anovaRes.N, sse = anovaRes.ssw;
+    if (!(sse > 0)) return -Infinity;
+    return -(N / 2) * Math.log(sse / N) + (lambda - 1) * sumLogX;
+  }
+
+  function findBestLambda(groups){
+    var sumLogX = 0;
+    groups.forEach(function(g){ g.forEach(function(v){ sumLogX += Math.log(v); }); });
+    var candidates = [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2];
+    var best = 1, bestLL = -Infinity;
+    candidates.forEach(function(lambda){
+      var ll = boxCoxLogLik(groups, lambda, sumLogX);
+      if (ll > bestLL){ bestLL = ll; best = lambda; }
+    });
+    return { lambda: best, logLik: bestLL };
+  }
+
+  var anovaGroupsContainer = document.getElementById("anovaGroupsContainer");
+  var ANOVA_COLOR_VARS = ["--accent", "--accent2", "--accent3", "--accent4"];
+
+  function anovaGroupColors(){
+    return ANOVA_COLOR_VARS.map(function(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); });
+  }
+
+  function updateAnovaRemoveButtons(){
+    var blocks = anovaGroupsContainer.querySelectorAll(".group-block");
+    var show = blocks.length > 2;
+    blocks.forEach(function(b){
+      b.querySelector(".remove-group-btn").style.visibility = show ? "visible" : "hidden";
+    });
+  }
+
+  function createAnovaGroupBlock(label, data){
+    var block = document.createElement("div");
+    block.className = "data-field group-block";
+    block.innerHTML =
+      '<div class="group-block-head">' +
+        '<input class="group-name-input" value="' + escapeXml(label) + '" aria-label="Group name">' +
+        '<button class="remove-group-btn" type="button">Remove</button>' +
+      '</div>' +
+      '<textarea aria-label="Group values" rows="4"></textarea>' +
+      '<p class="data-hint">One value per line, or comma-separated.</p>';
+    block.querySelector("textarea").value = data || "";
+    block.querySelector(".remove-group-btn").addEventListener("click", function(){
+      if (anovaGroupsContainer.querySelectorAll(".group-block").length <= 2) return;
+      block.remove();
+      updateAnovaRemoveButtons();
+      recalcAnova();
+    });
+    block.querySelector(".group-name-input").addEventListener("input", recalcAnova);
+    block.querySelector("textarea").addEventListener("input", recalcAnova);
+    return block;
+  }
+
+  function addAnovaGroup(label, data){
+    anovaGroupsContainer.appendChild(createAnovaGroupBlock(label, data));
+    updateAnovaRemoveButtons();
+  }
+
+  function readAnovaGroups(){
+    var blocks = Array.prototype.slice.call(anovaGroupsContainer.querySelectorAll(".group-block"));
+    return blocks.map(function(b, i){
+      return {
+        name: b.querySelector(".group-name-input").value || ("Group " + (i + 1)),
+        arr: parseNumbers(b.querySelector("textarea").value)
+      };
+    });
+  }
+
+  function anovaExampleGroups(){
+    return [
+      { name: "Group A", data: "23, 25, 22, 27, 24, 26, 21, 28, 23, 25" },
+      { name: "Group B", data: "30, 32, 29, 34, 31, 33, 28, 35, 30, 32" },
+      { name: "Group C", data: "18, 20, 17, 22, 19, 21, 16, 23, 18, 20" }
+    ];
+  }
+
+  var anovaEls = {
+    container: anovaGroupsContainer,
+    addGroupBtn: document.getElementById("anovaAddGroupBtn"),
+    loadExampleBtn: document.getElementById("anovaLoadExampleBtn"),
+    error: document.getElementById("anovaError"),
+    smallSampleWarning: document.getElementById("anovaSmallSampleWarning"),
+    barChart: document.getElementById("anovaBarChart"),
+    histograms: document.getElementById("anovaHistograms"),
+    normRows: document.getElementById("anovaNormRows"),
+    levRows: document.getElementById("anovaLevRows"),
+    transformCard: document.getElementById("anovaTransformCard"),
+    transformSummary: document.getElementById("anovaTransformSummary"),
+    transformNormRows: document.getElementById("anovaTransformNormRows"),
+    eyebrow: document.getElementById("anovaEyebrow"),
+    title: document.getElementById("anovaTitle"),
+    statLabel: document.getElementById("anovaStatLabel"),
+    tableBody: document.getElementById("anovaTableBody"),
+    verdict: document.getElementById("anovaVerdict"),
+    effectName: document.getElementById("anovaEffectName"),
+    effectValue: document.getElementById("anovaEffectValue"),
+    effectNote: document.getElementById("anovaEffectNote"),
+    methodSelect: document.getElementById("anovaMethodSelect"),
+    methodReason: document.getElementById("anovaMethodReason"),
+    interpretation: document.getElementById("anovaInterpretation")
+  };
+
+  function renderLeveneKGroup(lev, groupNames, ns){
+    anovaEls.levRows.innerHTML = "";
+    var row = document.createElement("div");
+    row.className = "norm-row";
+    var head = document.createElement("div");
+    head.className = "norm-row-head";
+    head.innerHTML = '<span class="norm-name"></span><span class="norm-n"></span>';
+    head.querySelector(".norm-name").textContent = groupNames.join(", ");
+    head.querySelector(".norm-n").textContent = "n = " + ns.join(", ");
+    row.appendChild(head);
+
+    var stats = document.createElement("div");
+    stats.className = "norm-stats";
+    if (isNaN(lev.p)){
+      stats.innerHTML = '<span class="norm-stat">Each group needs at least 2 values.</span>';
+    } else {
+      stats.innerHTML =
+        '<span class="norm-stat">F = <b>' + fmtNum(lev.F, 3) + '</b></span>' +
+        '<span class="norm-stat">df = <b>' + lev.df1 + ', ' + lev.df2 + '</b></span>' +
+        '<span class="norm-stat">p = <b>' + fmtP(lev.p) + '</b></span>';
+      var pill = document.createElement("span");
+      if (lev.p < 0.05){ pill.className = "verdict border"; pill.textContent = "Unequal variances"; }
+      else { pill.className = "verdict sig"; pill.textContent = "Equal variances assumed"; }
+      stats.appendChild(pill);
+    }
+    row.appendChild(stats);
+    anovaEls.levRows.appendChild(row);
+  }
+
+  function renderAnovaTable(method, result){
+    var rows = "";
+    if (method === "kruskal"){
+      anovaEls.statLabel.textContent = "H";
+      rows += '<tr><td>Kruskal–Wallis</td><td>—</td><td>' + result.df + '</td><td>—</td><td>' + fmtNum(result.H, 3) + '</td><td>' + fmtP(result.p) + '</td></tr>';
+    } else if (method === "welch"){
+      anovaEls.statLabel.textContent = "F";
+      rows += '<tr><td>Between groups (Welch)</td><td>—</td><td>' + fmtNum(result.df1, 2) + ', ' + fmtNum(result.df2, 2) + '</td><td>—</td><td>' + fmtNum(result.F, 3) + '</td><td>' + fmtP(result.p) + '</td></tr>';
+    } else {
+      anovaEls.statLabel.textContent = "F";
+      rows += '<tr><td>Between groups</td><td>' + fmtNum(result.ssb, 2) + '</td><td>' + result.df1 + '</td><td>' + fmtNum(result.msb, 3) + '</td><td>' + fmtNum(result.F, 3) + '</td><td>' + fmtP(result.p) + '</td></tr>';
+      rows += '<tr><td>Within groups</td><td>' + fmtNum(result.ssw, 2) + '</td><td>' + result.df2 + '</td><td>' + fmtNum(result.msw, 3) + '</td><td>—</td><td>—</td></tr>';
+      rows += '<tr><td>Total</td><td>' + fmtNum(result.sst, 2) + '</td><td>' + (result.df1 + result.df2) + '</td><td>—</td><td>—</td><td>—</td></tr>';
+    }
+    anovaEls.tableBody.innerHTML = rows;
+  }
+
+  function renderTransformSummary(boxCox, shift, names, transformShapiroPs){
+    var html = '<div class="stat-row"><span class="stat-label">Best λ found</span><span class="stat-value">' + fmtNum(boxCox.lambda, 2) + '</span></div>';
+    if (shift > 0){
+      html += '<div class="stat-row"><span class="stat-label">Constant added (data had zero/negative values)</span><span class="stat-value">' + fmtNum(shift, 3) + '</span></div>';
+    }
+    anovaEls.transformSummary.innerHTML = html;
+
+    anovaEls.transformNormRows.innerHTML = names.map(function(name, i){
+      var p = transformShapiroPs[i];
+      var pillClass = isNaN(p) ? "ns" : (p < 0.05 ? "border" : "sig");
+      var pillText = isNaN(p) ? "Not enough data" : (p < 0.05 ? "Departs from normality" : "Consistent with normality");
+      return '<div><div class="norm-name" style="margin-bottom:6px;">' + escapeXml(name) + ' (transformed)</div>' +
+        '<div class="norm-stats"><span class="norm-stat">p = <b>' + fmtP(p) + '</b></span><span class="verdict ' + pillClass + '">' + pillText + '</span></div></div>';
+    }).join("");
+  }
+
+  function decideAnovaMethod(shapiroPs, levResult, boxCoxResult, transformShapiroPs, canTransform){
+    var haveNormality = shapiroPs.every(function(p){ return !isNaN(p); });
+    var allNormal = haveNormality && shapiroPs.every(function(p){ return p >= 0.05; });
+    var equalVar = !isNaN(levResult.p) && levResult.p >= 0.05;
+
+    if (!haveNormality){
+      return { method: "welch", reason: "Not enough data in one or more groups to test normality (need n ≥ 3 each) — defaulting to Welch's ANOVA, the safer general-purpose choice." };
+    }
+    if (allNormal && equalVar){
+      return { method: "anova", reason: "All groups are consistent with normality and Levene's test finds no evidence of unequal variances (p = " + fmtP(levResult.p) + ") — standard one-way ANOVA applies cleanly." };
+    }
+    if (allNormal && !equalVar){
+      return { method: "welch", reason: "All groups are consistent with normality, but Levene's test finds unequal variances (p = " + fmtP(levResult.p) + ") — Welch's ANOVA doesn't assume equal variances." };
+    }
+    if (canTransform && transformShapiroPs.every(function(p){ return !isNaN(p) && p >= 0.05; })){
+      return { method: "transform", reason: "At least one group departs from normality, but a Box–Cox transform (λ = " + fmtNum(boxCoxResult.lambda, 2) + ") brings every group into line with normality — Welch's ANOVA runs on the transformed values." };
+    }
+    return { method: "kruskal", reason: "At least one group departs from normality" + (canTransform ? ", and no Box–Cox transform (λ from −2 to 2) fixes it" : " and a transform couldn't be attempted") + " — the Kruskal–Wallis test replaces ANOVA since it doesn't need a normality assumption." };
+  }
+
+  function clearAnovaResults(){
+    anovaEls.normRows.innerHTML = "";
+    anovaEls.levRows.innerHTML = "";
+    anovaEls.barChart.innerHTML = "";
+    anovaEls.histograms.innerHTML = "";
+    anovaEls.transformCard.hidden = true;
+    anovaEls.tableBody.innerHTML = "";
+    anovaEls.verdict.innerHTML = "";
+    anovaEls.effectName.textContent = "Eta-squared (η²)";
+    anovaEls.effectValue.textContent = "—"; anovaEls.effectNote.textContent = "";
+    anovaEls.methodReason.textContent = "";
+    anovaEls.interpretation.textContent = "";
+    anovaEls.title.textContent = "One-way ANOVA";
+  }
+
+  function recalcAnova(){
+    var groups = readAnovaGroups();
+    var names = groups.map(function(g){ return g.name; });
+
+    anovaEls.error.hidden = true;
+    anovaEls.smallSampleWarning.hidden = true;
+
+    if (groups.length < 2){
+      anovaEls.error.hidden = false;
+      anovaEls.error.innerHTML = '<span class="dot"></span> Need at least 2 groups.';
+      clearAnovaResults();
+      return;
+    }
+    var invalidGroup = groups.filter(function(g){ return g.arr.length < 2; })[0];
+    if (invalidGroup){
+      anovaEls.error.hidden = false;
+      anovaEls.error.innerHTML = '<span class="dot"></span> Each group needs at least 2 values — "' + escapeXml(invalidGroup.name) + '" has ' + invalidGroup.arr.length + '.';
+      clearAnovaResults();
+      return;
+    }
+
+    var colors = anovaGroupColors();
+    var rawArrays = groups.map(function(g){ return g.arr; });
+
+    var shapiroPs = groups.map(function(g){ return g.arr.length >= 3 ? shapiroWilk(g.arr).p : NaN; });
+    renderNormality(groups.map(function(g){ return { name: g.name, arr: g.arr }; }), anovaEls.normRows);
+
+    var lev = leveneKGroup(rawArrays);
+    renderLeveneKGroup(lev, names, groups.map(function(g){ return g.arr.length; }));
+
+    renderBarChart(anovaEls.barChart, groups.map(function(g){ return { name: g.name, stats: groupMeanCI(g.arr) }; }));
+    renderHistograms(anovaEls.histograms, groups.map(function(g, i){ return { name: g.name, arr: g.arr, color: colors[i % colors.length] }; }));
+
+    var warnings = [];
+    groups.forEach(function(g){
+      if (g.arr.length < 10) warnings.push('"' + g.name + '" has only ' + g.arr.length + ' observation' + (g.arr.length === 1 ? "" : "s"));
+    });
+    if (warnings.length){
+      anovaEls.smallSampleWarning.hidden = false;
+      anovaEls.smallSampleWarning.innerHTML = '<span class="dot"></span> Small sample size (' + escapeXml(warnings.join("; ")) + ') — estimates and p-values may be unstable.';
+    }
+
+    var canTransform = rawArrays.every(function(g){ return g.length >= 2; });
+    var allPositive = rawArrays.every(function(g){ return g.every(function(v){ return v > 0; }); });
+    var shift = 0;
+    if (canTransform && !allPositive){
+      var minVal = Math.min.apply(null, rawArrays.reduce(function(acc, g){ return acc.concat(g); }, []));
+      shift = minVal <= 0 ? (1 - minVal) : 0;
+    }
+    var shiftedGroups = shift > 0 ? rawArrays.map(function(g){ return g.map(function(v){ return v + shift; }); }) : rawArrays;
+    var boxCox = null, transformedGroups = null, transformShapiroPs = null;
+    if (canTransform){
+      boxCox = findBestLambda(shiftedGroups);
+      transformedGroups = shiftedGroups.map(function(g){ return boxCoxTransform(g, boxCox.lambda); });
+      transformShapiroPs = transformedGroups.map(function(g){ return g.length >= 3 ? shapiroWilk(g).p : NaN; });
+    }
+
+    var selected = anovaEls.methodSelect.value;
+    var chosenMethod = selected, reason = "Manually selected.";
+    if (selected === "auto"){
+      var decision = decideAnovaMethod(shapiroPs, lev, boxCox, transformShapiroPs, canTransform);
+      chosenMethod = decision.method;
+      reason = decision.reason;
+    }
+    if (chosenMethod === "transform" && !canTransform) chosenMethod = "kruskal";
+    anovaEls.methodReason.textContent = reason;
+
+    var usingTransform = chosenMethod === "transform";
+    anovaEls.transformCard.hidden = !usingTransform;
+    if (usingTransform) renderTransformSummary(boxCox, shift, names, transformShapiroPs);
+
+    var result;
+    if (chosenMethod === "kruskal"){
+      result = kruskalWallis(rawArrays);
+      anovaEls.title.textContent = "Kruskal–Wallis test";
+      renderAnovaTable("kruskal", result);
+      anovaEls.effectName.textContent = "Epsilon-squared (ε²)";
+      anovaEls.effectValue.textContent = fmtNum(result.epsilon2, 3);
+      anovaEls.effectNote.textContent = "rank-based effect size, analogous to eta-squared";
+      anovaEls.verdict.innerHTML = ""; anovaEls.verdict.appendChild(verdictPill(result.p));
+      anovaEls.interpretation.textContent = "A Kruskal–Wallis test compared " + groups.length + " groups (" + names.join(", ") + "). There was " +
+        (result.p < 0.05 ? "evidence" : "no evidence") + " of a difference in distribution among the groups (H = " + fmtNum(result.H, 2) + ", df = " + result.df + ", p = " + fmtP(result.p) +
+        "). This tests whether the groups' distributions differ overall — it doesn't identify which specific groups differ, and a significant result shouldn't be read as showing every group differs from every other.";
+    } else if (chosenMethod === "welch" || chosenMethod === "transform"){
+      var dataForTest = chosenMethod === "transform" ? transformedGroups : rawArrays;
+      result = welchAnova(dataForTest);
+      anovaEls.title.textContent = chosenMethod === "transform" ? "Welch's ANOVA (transformed data)" : "Welch's ANOVA";
+      renderAnovaTable("welch", result);
+      anovaEls.effectName.textContent = "—";
+      anovaEls.effectValue.textContent = "—";
+      anovaEls.effectNote.textContent = "Eta-squared isn't reported for Welch's ANOVA — its adjusted denominator doesn't partition sums of squares the way standard ANOVA does.";
+      anovaEls.verdict.innerHTML = ""; anovaEls.verdict.appendChild(verdictPill(result.p));
+      anovaEls.interpretation.textContent = "A Welch's ANOVA compared " + groups.length + " groups (" + names.join(", ") + ")" + (chosenMethod === "transform" ? ", using Box–Cox-transformed values" : "") +
+        ". There was " + (result.p < 0.05 ? "evidence" : "no evidence") + " of a difference among the group means (F(" + fmtNum(result.df1, 2) + ", " + fmtNum(result.df2, 2) + ") = " + fmtNum(result.F, 2) +
+        ", p = " + fmtP(result.p) + "), without assuming equal variances. This doesn't identify which specific groups differ.";
+    } else {
+      result = oneWayAnova(rawArrays);
+      anovaEls.title.textContent = "One-way ANOVA";
+      renderAnovaTable("anova", result);
+      anovaEls.effectName.textContent = "Eta-squared (η²)";
+      anovaEls.effectValue.textContent = fmtNum(result.eta2, 3);
+      anovaEls.effectNote.textContent = "share of total variance explained by group membership";
+      anovaEls.verdict.innerHTML = ""; anovaEls.verdict.appendChild(verdictPill(result.p));
+      anovaEls.interpretation.textContent = "A one-way ANOVA compared " + groups.length + " groups (" + names.join(", ") + "). There was " +
+        (result.p < 0.05 ? "evidence" : "no evidence") + " of a difference among the group means (F(" + result.df1 + ", " + result.df2 + ") = " + fmtNum(result.F, 2) + ", p = " + fmtP(result.p) +
+        "). This doesn't identify which specific groups differ, and statistical significance alone doesn't establish that the difference is clinically important.";
+    }
+  }
+
+  anovaEls.methodSelect.addEventListener("change", recalcAnova);
+  anovaEls.addGroupBtn.addEventListener("click", function(){
+    addAnovaGroup("Group " + (anovaEls.container.querySelectorAll(".group-block").length + 1), "");
+    recalcAnova();
+  });
+  anovaEls.loadExampleBtn.addEventListener("click", function(){
+    anovaEls.container.innerHTML = "";
+    anovaExampleGroups().forEach(function(g){ addAnovaGroup(g.name, g.data); });
+    anovaEls.methodSelect.value = "auto";
+    recalcAnova();
+  });
+
+  anovaExampleGroups().forEach(function(g){ addAnovaGroup(g.name, g.data); });
+  recalcAnova();
 
   recalc();
   recalcTtest();
