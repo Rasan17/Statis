@@ -580,6 +580,14 @@
     </p>
   </section>
 
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Visual check</p><h2>Distribution</h2></div>
+    </div>
+    <div class="data-grid" id="ttHistograms"></div>
+    <p class="norm-note" style="margin-top:8px;">Each histogram is drawn with its own bins (Sturges' rule) — the two aren't on a shared scale, so compare shape, not bar-to-bar height. This is the visual complement to the Shapiro–Wilk check above.</p>
+  </section>
+
   <section class="card" id="variance-card">
     <div class="card-head">
       <div>
@@ -1333,6 +1341,65 @@
       yTicks + axes + bars + labels + '</svg>';
   }
 
+  function histogramBins(arr){
+    var n = arr.length;
+    var lo = Math.min.apply(null, arr), hi = Math.max.apply(null, arr);
+    if (lo === hi){
+      return { bins: [{ x0: lo - 0.5, x1: hi + 0.5, count: n }], min: lo - 0.5, max: hi + 0.5 };
+    }
+    var k = Math.min(12, Math.max(4, Math.ceil(Math.log2(n) + 1)));
+    var width = (hi - lo) / k;
+    var bins = [];
+    for (var i = 0; i < k; i++) bins.push({ x0: lo + i * width, x1: lo + (i + 1) * width, count: 0 });
+    arr.forEach(function(v){
+      var idx = Math.min(k - 1, Math.floor((v - lo) / width));
+      bins[idx].count++;
+    });
+    return { bins: bins, min: lo, max: hi };
+  }
+
+  function histogramSVG(arr, color, name){
+    var n = arr.length;
+    if (n < 2){
+      return '<div><div class="norm-name" style="margin-bottom:8px;">' + escapeXml(name) + '</div><p class="norm-note">Need at least 2 values to draw a histogram.</p></div>';
+    }
+    var binned = histogramBins(arr);
+    var bins = binned.bins;
+    var maxCount = Math.max.apply(null, bins.map(function(b){ return b.count; }));
+    var W = 280, H = 180, mL = 30, mR = 10, mT = 10, mB = 26;
+
+    function sx(v){ return mL + (v - binned.min) / (binned.max - binned.min) * (W - mL - mR); }
+    function sy(c){ return H - mB - (maxCount > 0 ? c / maxCount : 0) * (H - mT - mB); }
+
+    var axes = '<line x1="' + mL + '" y1="' + (H - mB) + '" x2="' + (W - mR) + '" y2="' + (H - mB) + '" stroke="var(--line)"/>' +
+               '<line x1="' + mL + '" y1="' + mT + '" x2="' + mL + '" y2="' + (H - mB) + '" stroke="var(--line)"/>';
+
+    var yTicks = "";
+    [0, maxCount].forEach(function(c){
+      var yPix = sy(c);
+      yTicks += '<line x1="' + (mL - 4) + '" y1="' + yPix.toFixed(1) + '" x2="' + mL + '" y2="' + yPix.toFixed(1) + '" stroke="var(--line)"/>';
+      yTicks += '<text x="' + (mL - 7) + '" y="' + (yPix + 3).toFixed(1) + '" text-anchor="end" font-size="9.5" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + c + '</text>';
+    });
+
+    var bars = bins.map(function(b){
+      var x0 = sx(b.x0), x1 = sx(b.x1);
+      var yTop = sy(b.count), yBase = sy(0);
+      return '<rect x="' + (x0 + 1).toFixed(1) + '" y="' + yTop.toFixed(1) + '" width="' + Math.max(0, x1 - x0 - 2).toFixed(1) + '" height="' + (yBase - yTop).toFixed(1) + '" fill="' + color + '" fill-opacity="0.65" stroke="' + color + '" stroke-width="1"><title>' +
+        fmtNum(b.x0, 2) + '–' + fmtNum(b.x1, 2) + ': ' + b.count + '</title></rect>';
+    }).join("");
+
+    var xLabels = '<text x="' + mL + '" y="' + (H - mB + 15) + '" text-anchor="start" font-size="9.5" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(binned.min, 1) + '</text>' +
+      '<text x="' + (W - mR) + '" y="' + (H - mB + 15) + '" text-anchor="end" font-size="9.5" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(binned.max, 1) + '</text>';
+
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Histogram of ' + escapeXml(name) + '">' +
+      yTicks + axes + bars + xLabels + '</svg>';
+    return '<div><div class="norm-name" style="margin-bottom:8px;">' + escapeXml(name) + ' (n=' + n + ')</div>' + svg + '</div>';
+  }
+
+  function renderHistograms(container, groups){
+    container.innerHTML = groups.map(function(g){ return histogramSVG(g.arr, g.color, g.name); }).join("");
+  }
+
   function parseNumbers(text){
     return text.split(/[\s,]+/)
       .map(function(s){ return s.trim(); })
@@ -1456,6 +1523,7 @@
     cohenDNote: document.getElementById("ttCohenDNote"),
     barChart: document.getElementById("ttBarChart"),
     barChartCaption: document.getElementById("ttBarChartCaption"),
+    histograms: document.getElementById("ttHistograms"),
     resetBtn: document.getElementById("ttestResetBtn")
   };
 
@@ -1579,6 +1647,13 @@
     ttEls.nameB.textContent = labelB;
     ttEls.summaryA.textContent = ttSummaryText(arrA);
     ttEls.summaryB.textContent = ttSummaryText(arrB);
+
+    var histColors = [getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
+                       getComputedStyle(document.documentElement).getPropertyValue("--accent2").trim()];
+    renderHistograms(ttEls.histograms, [
+      { name: labelA, arr: arrA, color: histColors[0] },
+      { name: labelB, arr: arrB, color: histColors[1] }
+    ]);
 
     ttEls.warning.hidden = true;
 
