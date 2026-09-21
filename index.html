@@ -433,6 +433,53 @@
     color:var(--ink);font:12.5px "IBM Plex Sans",sans-serif;padding:6px 8px;
   }
   .glm-order-field p{font-size:11px;color:var(--ink-soft);margin:4px 0 0;}
+
+  .tab-badge{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:16px;height:16px;padding:0 4px;margin-left:5px;border-radius:999px;
+    background:var(--accent);color:var(--surface);font-size:10px;font-weight:700;
+    font-family:"IBM Plex Mono",monospace;vertical-align:2px;
+  }
+  .toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(12px);
+    background:var(--ink);color:var(--paper);font-size:13px;font-weight:600;
+    padding:10px 16px;border-radius:9px;box-shadow:var(--shadow);
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:999;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .mini-form{
+    margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--paper);
+    display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;
+  }
+  .mini-form-field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px;}
+  .mini-form-field label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-soft);}
+  .mini-form-field input{
+    border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);
+    font:13.5px "IBM Plex Sans",sans-serif;padding:8px 10px;
+  }
+  .primary-btn{
+    font-family:inherit;font-size:13px;font-weight:600;color:var(--surface);
+    background:var(--accent);border:1px solid transparent;border-radius:8px;padding:8px 14px;cursor:pointer;
+  }
+  .primary-btn:hover{filter:brightness(1.06);}
+  .meta-table-wrap{overflow-x:auto;}
+  table.meta-table{border-collapse:collapse;width:100%;min-width:760px;font-size:12.5px;}
+  table.meta-table th, table.meta-table td{border:1px solid var(--line);padding:4px 6px;text-align:center;}
+  table.meta-table th{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;white-space:nowrap;}
+  table.meta-table td.study-cell input{text-align:left;min-width:140px;}
+  table.meta-table input{
+    width:100%;border:none;background:transparent;color:var(--ink);
+    font:13px "IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;text-align:center;padding:6px 4px;border-radius:6px;
+  }
+  table.meta-table input:focus{outline:none;background:var(--accent-soft);}
+  table.meta-table td.readonly{color:var(--ink-soft);font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;}
+  table.meta-table tr.invalid-row td{background:var(--warn-soft);}
+  table.meta-table .remove-group-btn{padding:4px 7px;}
+  .dropzone{
+    border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;
+    font-size:12.5px;color:var(--ink-soft);margin-top:14px;transition:border-color .15s,background .15s;
+  }
+  .dropzone.dragover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);}
 </style>
 
 <div class="page">
@@ -462,7 +509,10 @@
     <button class="tab-btn" id="tabBtnRegression" type="button" role="tab" aria-selected="false">Correlation</button>
     <button class="tab-btn" id="tabBtnSurvival" type="button" role="tab" aria-selected="false">Survival</button>
     <button class="tab-btn" id="tabBtnGlm" type="button" role="tab" aria-selected="false">GLM</button>
+    <button class="tab-btn" id="tabBtnMeta" type="button" role="tab" aria-selected="false">Meta-Analysis<span class="tab-badge" id="metaTabBadge" hidden>0</span></button>
   </nav>
+
+  <div class="toast" id="toast"></div>
 
   <div class="tab-panel" id="panel-contingency">
 
@@ -472,7 +522,22 @@
         <p class="eyebrow">Step 1</p>
         <h2>Contingency table</h2>
       </div>
-      <button class="ghost-btn" id="resetBtn" type="button">Load example</button>
+      <div class="btn-row">
+        <button class="ghost-btn" id="addToMetaBtn" type="button">Add to Meta-Analysis</button>
+        <button class="ghost-btn" id="resetBtn" type="button">Load example</button>
+      </div>
+    </div>
+    <div class="mini-form" id="addToMetaForm" hidden>
+      <div class="mini-form-field">
+        <label for="addToMetaName">Study name</label>
+        <input type="text" id="addToMetaName" placeholder="e.g. Smith 2019">
+      </div>
+      <div class="mini-form-field" style="flex:0 0 110px;min-width:90px;">
+        <label for="addToMetaYear">Year</label>
+        <input type="number" id="addToMetaYear" placeholder="2024" step="1">
+      </div>
+      <button class="primary-btn" id="addToMetaConfirmBtn" type="button">Add</button>
+      <button class="ghost-btn" id="addToMetaCancelBtn" type="button">Cancel</button>
     </div>
 
     <div class="table-wrap">
@@ -1232,6 +1297,145 @@
 
   </div>
 
+  <div class="tab-panel" id="panel-meta" hidden>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 1</p><h2>Studies</h2></div>
+      <div class="btn-row">
+        <button class="ghost-btn" id="metaAddRowBtn" type="button">+ Add row</button>
+        <span class="ghost-btn file-btn">Import CSV<input type="file" id="metaCsvInput" accept=".csv,.txt"></span>
+        <button class="ghost-btn" id="metaExportCsvBtn" type="button">Export CSV</button>
+        <button class="ghost-btn" id="metaLoadSampleBtn" type="button">Load sample data</button>
+        <button class="ghost-btn" id="metaClearAllBtn" type="button">Clear all</button>
+      </div>
+    </div>
+    <div class="meta-table-wrap">
+      <table class="meta-table">
+        <thead>
+          <tr>
+            <th>Study</th><th>Year</th>
+            <th>Intervention<br>events (a)</th><th>Intervention<br>non-events (b)</th>
+            <th>Control<br>events (c)</th><th>Control<br>non-events (d)</th>
+            <th>n₁</th><th>n₂</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="metaTableBody"></tbody>
+      </table>
+    </div>
+    <div class="dropzone" id="metaDropzone">Drag and drop a CSV file here to import studies — columns: Study, Year, a, b, c, d.</div>
+    <div class="assumption warn" id="metaError" hidden style="margin-top:14px;"></div>
+    <p class="data-hint" id="metaRowCount" style="margin-top:10px;"></p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 2</p><h2>Analysis options</h2></div>
+    </div>
+    <p class="data-hint" style="margin-bottom:8px;font-weight:600;color:var(--ink);">Effect measure</p>
+    <div class="radio-group" role="radiogroup" style="margin-bottom:16px;">
+      <label class="radio-card active" id="metaOrCard">
+        <input type="radio" name="metaMeasure" id="metaMeasureOR" value="OR" checked>
+        <div><div class="radio-card-title">Odds ratio</div><div class="radio-card-sub">Pooled on the log scale, Mantel–Haenszel fixed effect.</div></div>
+      </label>
+      <label class="radio-card" id="metaRrCard">
+        <input type="radio" name="metaMeasure" id="metaMeasureRR" value="RR">
+        <div><div class="radio-card-title">Risk ratio</div><div class="radio-card-sub">Pooled on the log scale, Mantel–Haenszel fixed effect.</div></div>
+      </label>
+      <label class="radio-card" id="metaRdCard">
+        <input type="radio" name="metaMeasure" id="metaMeasureRD" value="RD">
+        <div><div class="radio-card-title">Risk difference</div><div class="radio-card-sub">Pooled on the natural scale, inverse-variance fixed effect.</div></div>
+      </label>
+    </div>
+    <p class="data-hint" style="margin-bottom:8px;font-weight:600;color:var(--ink);">Model</p>
+    <div class="radio-group">
+      <label class="radio-card active" id="metaFixedCard">
+        <input type="radio" name="metaModel" id="metaModelFixed" value="fixed" checked>
+        <div><div class="radio-card-title">Fixed effect</div><div class="radio-card-sub">Assumes one true effect; studies differ only by chance.</div></div>
+      </label>
+      <label class="radio-card" id="metaRandomCard">
+        <input type="radio" name="metaModel" id="metaModelRandom" value="random">
+        <div><div class="radio-card-title">Random effects</div><div class="radio-card-sub">DerSimonian–Laird — assumes true effects vary across studies.</div></div>
+      </label>
+    </div>
+    <div class="toggle-row" id="metaHksjRow">
+      <label class="toggle"><input type="checkbox" id="metaHksjToggle"><span class="toggle-track"></span></label>
+      <span class="toggle-label">Hartung–Knapp–Sidik–Jonkman (HKSJ) adjustment — widens the CI and uses a t-distribution, recommended with few studies</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 3</p><h2>Heterogeneity</h2></div>
+    </div>
+    <div id="metaHetRows"></div>
+    <p class="norm-note" id="metaHetNote" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);"></p>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow" id="metaEyebrow">Pooled result</p>
+    <h2 id="metaTitle">Mantel–Haenszel fixed effect</h2>
+    <div class="effect-grid" style="grid-template-columns:1fr;">
+      <div>
+        <div class="effect-name" id="metaEffectName">Odds ratio</div>
+        <div class="effect-value" id="metaEffectValue">—</div>
+        <div class="effect-ci" id="metaEffectCi"></div>
+      </div>
+    </div>
+    <div class="stat-row" style="margin-top:16px;"><span class="stat-label" id="metaStatLabel">z</span><span class="stat-value" id="metaStat">—</span></div>
+    <div class="stat-row" id="metaDfRow" hidden><span class="stat-label">df</span><span class="stat-value" id="metaDf">—</span></div>
+    <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="metaP">—</span></div>
+    <div id="metaVerdict"></div>
+    <p class="norm-note" id="metaInterpretation" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);"></p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Publication-ready</p><h2>Forest plot</h2></div>
+      <div class="btn-row">
+        <button class="ghost-btn" id="metaForestSvgBtn" type="button">Download SVG</button>
+        <button class="ghost-btn" id="metaForestPngBtn" type="button">Download PNG</button>
+      </div>
+    </div>
+    <div id="metaForestPlot"></div>
+    <p class="norm-note" style="margin-top:8px;">Square area is proportional to each study's weight in the selected model; the diamond marks the pooled estimate and its 95% CI.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Small-study effects</p><h2>Funnel plot</h2></div>
+      <div class="btn-row">
+        <button class="ghost-btn" id="metaFunnelSvgBtn" type="button">Download SVG</button>
+        <button class="ghost-btn" id="metaFunnelPngBtn" type="button">Download PNG</button>
+      </div>
+    </div>
+    <div id="metaFunnelPlot"></div>
+    <div class="stat-row" style="margin-top:10px;"><span class="stat-label">Egger's test intercept</span><span class="stat-value" id="metaEggerIntercept">—</span></div>
+    <div class="stat-row"><span class="stat-label">t</span><span class="stat-value" id="metaEggerT">—</span></div>
+    <div class="stat-row"><span class="stat-label">df</span><span class="stat-value" id="metaEggerDf">—</span></div>
+    <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="metaEggerP">—</span></div>
+    <p class="norm-note" style="margin-top:10px;">A significant intercept (p &lt; 0.10 is the conventional threshold for this test, given its usually low power) suggests funnel-plot asymmetry — from publication bias, but also possibly from genuine differences between small and large studies. Egger's test needs at least 3 studies and is unreliable with fewer than about 10.</p>
+  </section>
+
+  <section class="card">
+    <details class="info-box">
+      <summary>How it's computed</summary>
+      <div class="info-body">
+        <p><b>Per-study effect —</b> for each 2×2 table (a, b = intervention events/non-events; c, d = control events/non-events; n₁ = a+b, n₂ = c+d): odds ratio OR = ad⁄bc; risk ratio RR = (a⁄n₁)⁄(c⁄n₂); risk difference RD = a⁄n₁ − c⁄n₂. OR and RR are pooled on the log scale, back-transformed for display.</p>
+        <p><b>Zero cells —</b> if any of a study's four cells is 0, that study has 0.5 added to all four cells before any calculation involving it (the standard empirical continuity correction) — otherwise its log OR/RR or variance would be undefined. This is applied consistently to that study's contribution to every statistic below, and is flagged in the studies table.</p>
+        <p><b>Fixed effect —</b> for OR and RR, the Mantel–Haenszel method (weights bd/n or specific to each measure) is used, with the Robins–Breslow–Greenland (OR) or Greenland–Robins (RR) variance — these remain stable even with sparse data, which is why they're preferred over inverse-variance weighting for fixed-effect OR/RR. Risk difference uses inverse-variance weighting instead (Mantel–Haenszel is not commonly extended to risk difference in the same way).</p>
+        <p><b>Random effects —</b> DerSimonian–Laird: between-study variance τ² is estimated from Cochran's Q by method of moments, then each study is re-weighted by 1⁄(vᵢ+τ²) and pooled by inverse variance. This is a closed-form, non-iterative estimator — it doesn't require the CI to be built from a fitted likelihood, unlike REML, which <b>isn't implemented in this tool</b>.</p>
+        <p><b>HKSJ adjustment —</b> when enabled, replaces the standard random-effects variance with one based on the residual variation around the pooled estimate, and uses a t-distribution with k−1 df instead of a normal z — this is generally more conservative (wider CIs) and recommended whenever there are few studies, since the plain DerSimonian–Laird CI is known to be too narrow in that situation.</p>
+        <p><b>Heterogeneity —</b> Cochran's Q = Σwᵢ(yᵢ−ȳ)² (fixed-effect inverse-variance weights), compared to a chi-squared distribution with k−1 df. I² = max(0, (Q−df)⁄Q) × 100% estimates the proportion of total variation due to real between-study differences rather than chance — conventionally, under 25% is considered low, 25–75% moderate, and over 75% substantial, though these bands are only a rough guide.</p>
+        <p><b>Forest plot —</b> each study's square is centered on its effect estimate, sized by its weight in the selected model, with a horizontal line for its 95% CI; the diamond at the bottom shows the pooled estimate, with its width spanning the pooled 95% CI. RR and OR use a log-transformed x-axis so that equal ratios are equal distances apart; RD uses a linear axis.</p>
+        <p><b>Funnel plot —</b> plots each study's effect estimate (x-axis) against its standard error (y-axis, inverted so precise studies sit near the top), with pseudo-95% confidence limits (pooled fixed-effect estimate ± 1.96×SE) drawn as a funnel. Asymmetry can indicate publication bias, but can also reflect genuine heterogeneity — it's a prompt to look closer, not a definitive test on its own. Egger's test formalizes this by regressing the standardized effect (effect⁄SE) on precision (1⁄SE) and testing whether the intercept differs from zero.</p>
+        <p><b>Not implemented —</b> REML and other iterative random-effects estimators (Paule–Mandel, empirical Bayes), subgroup analysis, meta-regression, and trim-and-fill aren't available in this tool.</p>
+      </div>
+    </details>
+  </section>
+
+  </div>
+
   <footer class="notes">
     Supervising Developer: Dr G Narenthiran FRCS(SN) · <a href="mailto:g_narenthiran@hotmail.com" style="color:inherit;">g_narenthiran@hotmail.com</a><br>
     © 2026 G Narenthiran. All rights reserved.
@@ -1478,7 +1682,8 @@
     anova:       { btn: document.getElementById("tabBtnAnova"),       panel: document.getElementById("panel-anova") },
     regression:  { btn: document.getElementById("tabBtnRegression"),  panel: document.getElementById("panel-regression") },
     survival:    { btn: document.getElementById("tabBtnSurvival"),    panel: document.getElementById("panel-survival") },
-    glm:         { btn: document.getElementById("tabBtnGlm"),         panel: document.getElementById("panel-glm") }
+    glm:         { btn: document.getElementById("tabBtnGlm"),         panel: document.getElementById("panel-glm") },
+    meta:        { btn: document.getElementById("tabBtnMeta"),        panel: document.getElementById("panel-meta") }
   };
 
   function showTab(name){
@@ -4512,6 +4717,688 @@
   });
 
   loadGlmExample("logistic");
+
+  /* ===================== Meta-Analysis ===================== */
+
+  var META_STORAGE_KEY = "statis-meta-studies-v1";
+
+  function metaLoad(){
+    try {
+      var raw = localStorage.getItem(META_STORAGE_KEY);
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e){ return []; }
+  }
+
+  function metaSave(){
+    try { localStorage.setItem(META_STORAGE_KEY, JSON.stringify(metaStudies)); } catch (e){}
+  }
+
+  var metaStudies = metaLoad();
+  var metaIdCounter = metaStudies.reduce(function(max, s){ return Math.max(max, s.id || 0); }, 0) + 1;
+  function metaNextId(){ return metaIdCounter++; }
+
+  function showToast(message){
+    var toast = document.getElementById("toast");
+    toast.textContent = message;
+    toast.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){ toast.classList.remove("show"); }, 2400);
+  }
+
+  function updateMetaBadge(){
+    var badge = document.getElementById("metaTabBadge");
+    var n = metaStudies.length;
+    badge.hidden = n === 0;
+    badge.textContent = n;
+  }
+
+  /* --- Contingency tab: "Add to Meta-Analysis" --- */
+
+  var addToMetaBtn = document.getElementById("addToMetaBtn");
+  var addToMetaForm = document.getElementById("addToMetaForm");
+  var addToMetaName = document.getElementById("addToMetaName");
+  var addToMetaYear = document.getElementById("addToMetaYear");
+
+  addToMetaBtn.addEventListener("click", function(){
+    addToMetaForm.hidden = !addToMetaForm.hidden;
+    if (!addToMetaForm.hidden){
+      if (!addToMetaYear.value) addToMetaYear.value = new Date().getFullYear();
+      addToMetaName.focus();
+    }
+  });
+  document.getElementById("addToMetaCancelBtn").addEventListener("click", function(){ addToMetaForm.hidden = true; });
+  document.getElementById("addToMetaConfirmBtn").addEventListener("click", function(){
+    var a = readInt(els.a), b = readInt(els.b), c = readInt(els.c), d = readInt(els.d);
+    var name = addToMetaName.value.trim() || ("Study " + (metaStudies.length + 1));
+    var year = addToMetaYear.value.trim();
+    metaStudies.push({ id: metaNextId(), studyName: name, year: year, a: a, b: b, c: c, d: d });
+    metaSave();
+    updateMetaBadge();
+    renderMetaTable();
+    recalcMeta();
+    addToMetaForm.hidden = true;
+    addToMetaName.value = ""; addToMetaYear.value = "";
+    showToast('Added "' + name + '" to Meta-Analysis');
+  });
+
+  /* --- Studies table --- */
+
+  function metaRowValid(s){
+    var a = Number(s.a), b = Number(s.b), c = Number(s.c), d = Number(s.d);
+    return isFinite(a) && isFinite(b) && isFinite(c) && isFinite(d) &&
+      a >= 0 && b >= 0 && c >= 0 && d >= 0 &&
+      Number.isInteger(a) && Number.isInteger(b) && Number.isInteger(c) && Number.isInteger(d) &&
+      (a + b) > 0 && (c + d) > 0;
+  }
+
+  function updateMetaRowCountNote(){
+    var invalidCount = metaStudies.filter(function(s){ return !metaRowValid(s); }).length;
+    document.getElementById("metaRowCount").textContent = metaStudies.length + " stud" + (metaStudies.length === 1 ? "y" : "ies") +
+      (invalidCount > 0 ? " — " + invalidCount + " row(s) highlighted are excluded from pooling (need whole numbers ≥ 0, and each arm's total > 0)." : "");
+  }
+
+  function updateMetaRowDerived(tr, s){
+    var n1 = (Number(s.a) || 0) + (Number(s.b) || 0);
+    var n2 = (Number(s.c) || 0) + (Number(s.d) || 0);
+    var readonlyCells = tr.querySelectorAll("td.readonly");
+    readonlyCells[0].textContent = n1;
+    readonlyCells[1].textContent = n2;
+    tr.classList.toggle("invalid-row", !metaRowValid(s));
+    updateMetaRowCountNote();
+  }
+
+  function renderMetaTable(){
+    var tbody = document.getElementById("metaTableBody");
+    tbody.innerHTML = "";
+    metaStudies.forEach(function(s){
+      var tr = document.createElement("tr");
+      var n1 = (Number(s.a) || 0) + (Number(s.b) || 0);
+      var n2 = (Number(s.c) || 0) + (Number(s.d) || 0);
+      tr.innerHTML =
+        '<td class="study-cell"><input type="text" value="' + escapeXml(s.studyName || "") + '" aria-label="Study name"></td>' +
+        '<td><input type="number" step="1" value="' + (s.year != null ? escapeXml(String(s.year)) : "") + '" aria-label="Year"></td>' +
+        '<td><input type="number" min="0" step="1" value="' + (s.a != null ? s.a : "") + '" aria-label="Intervention events"></td>' +
+        '<td><input type="number" min="0" step="1" value="' + (s.b != null ? s.b : "") + '" aria-label="Intervention non-events"></td>' +
+        '<td><input type="number" min="0" step="1" value="' + (s.c != null ? s.c : "") + '" aria-label="Control events"></td>' +
+        '<td><input type="number" min="0" step="1" value="' + (s.d != null ? s.d : "") + '" aria-label="Control non-events"></td>' +
+        '<td class="readonly">' + n1 + '</td><td class="readonly">' + n2 + '</td>' +
+        '<td><button class="remove-group-btn" type="button">Remove</button></td>';
+      if (!metaRowValid(s)) tr.className = "invalid-row";
+      var inputs = tr.querySelectorAll("input");
+      inputs[0].addEventListener("input", function(){ s.studyName = inputs[0].value; metaSave(); recalcMeta(); });
+      inputs[1].addEventListener("input", function(){ s.year = inputs[1].value; metaSave(); recalcMeta(); });
+      ["a", "b", "c", "d"].forEach(function(key, idx){
+        inputs[idx + 2].addEventListener("input", function(){
+          s[key] = inputs[idx + 2].value === "" ? "" : Number(inputs[idx + 2].value);
+          metaSave();
+          updateMetaRowDerived(tr, s);
+          recalcMeta();
+        });
+      });
+      tr.querySelector(".remove-group-btn").addEventListener("click", function(){
+        metaStudies = metaStudies.filter(function(st){ return st.id !== s.id; });
+        metaSave(); updateMetaBadge(); renderMetaTable(); recalcMeta();
+      });
+      tbody.appendChild(tr);
+    });
+    updateMetaRowCountNote();
+  }
+
+  document.getElementById("metaAddRowBtn").addEventListener("click", function(){
+    metaStudies.push({ id: metaNextId(), studyName: "", year: "", a: "", b: "", c: "", d: "" });
+    metaSave(); updateMetaBadge(); renderMetaTable(); recalcMeta();
+  });
+
+  document.getElementById("metaClearAllBtn").addEventListener("click", function(){
+    if (metaStudies.length === 0) return;
+    if (!confirm("Remove all " + metaStudies.length + " studies from the Meta-Analysis tab? This can't be undone.")) return;
+    metaStudies = [];
+    metaSave(); updateMetaBadge(); renderMetaTable(); recalcMeta();
+  });
+
+  function metaSampleData(){
+    return [
+      { studyName: "Example trial 1", year: 2012, a: 12, b: 88,  c: 24, d: 76 },
+      { studyName: "Example trial 2", year: 2014, a: 9,  b: 51,  c: 15, d: 45 },
+      { studyName: "Example trial 3", year: 2015, a: 30, b: 120, c: 40, d: 110 },
+      { studyName: "Example trial 4", year: 2017, a: 5,  b: 65,  c: 13, d: 57 },
+      { studyName: "Example trial 5", year: 2018, a: 18, b: 82,  c: 22, d: 78 },
+      { studyName: "Example trial 6", year: 2020, a: 2,  b: 48,  c: 8,  d: 42 },
+      { studyName: "Example trial 7", year: 2021, a: 25, b: 175, c: 35, d: 165 }
+    ];
+  }
+  document.getElementById("metaLoadSampleBtn").addEventListener("click", function(){
+    metaStudies = metaSampleData().map(function(s){
+      return { id: metaNextId(), studyName: s.studyName, year: s.year, a: s.a, b: s.b, c: s.c, d: s.d };
+    });
+    metaSave(); updateMetaBadge(); renderMetaTable(); recalcMeta();
+    showToast("Loaded 7 illustrative example studies");
+  });
+
+  /* --- CSV import / export --- */
+
+  function parseMetaCsvLine(line){
+    return line.split(",").map(function(s){ return s.trim().replace(/^"|"$/g, ""); });
+  }
+
+  function parseMetaCsv(text){
+    var lines = text.split(/\r\n|\n|\r/).map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+    if (lines.length === 0) return { rows: [], errors: ["The file is empty."] };
+    var firstCols = parseMetaCsvLine(lines[0]);
+    var looksLikeHeader = firstCols.length < 3 || isNaN(Number(firstCols[2]));
+    var startIdx = looksLikeHeader ? 1 : 0;
+    var rows = [], errors = [];
+    for (var i = startIdx; i < lines.length; i++){
+      var cols = parseMetaCsvLine(lines[i]);
+      if (cols.length < 6){ errors.push("Row " + (i + 1) + ": expected 6 columns (Study, Year, a, b, c, d), found " + cols.length + "."); continue; }
+      var a = Number(cols[2]), b = Number(cols[3]), c = Number(cols[4]), d = Number(cols[5]);
+      var ok = [a, b, c, d].every(function(v){ return isFinite(v) && v >= 0 && Number.isInteger(v); });
+      if (!ok){ errors.push("Row " + (i + 1) + ": a, b, c, d must be non-negative whole numbers."); continue; }
+      rows.push({ id: metaNextId(), studyName: cols[0] || ("Study " + (rows.length + 1)), year: cols[1] || "", a: a, b: b, c: c, d: d });
+    }
+    return { rows: rows, errors: errors };
+  }
+
+  function handleMetaCsvFile(file){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var result = parseMetaCsv(String(reader.result));
+      var errEl = document.getElementById("metaError");
+      if (result.rows.length > 0){
+        metaStudies = metaStudies.concat(result.rows);
+        metaSave(); updateMetaBadge(); renderMetaTable(); recalcMeta();
+        showToast("Imported " + result.rows.length + " stud" + (result.rows.length === 1 ? "y" : "ies"));
+      }
+      if (result.errors.length > 0){
+        errEl.hidden = false;
+        errEl.innerHTML = '<span class="dot"></span> ' + result.errors.length + " row(s) couldn't be imported: " +
+          escapeXml(result.errors.slice(0, 3).join(" ")) + (result.errors.length > 3 ? " …" : "");
+      } else if (result.rows.length > 0){
+        errEl.hidden = true;
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  document.getElementById("metaCsvInput").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if (file) handleMetaCsvFile(file);
+    e.target.value = "";
+  });
+
+  var metaDropzone = document.getElementById("metaDropzone");
+  ["dragenter", "dragover"].forEach(function(evt){
+    metaDropzone.addEventListener(evt, function(e){ e.preventDefault(); metaDropzone.classList.add("dragover"); });
+  });
+  ["dragleave", "drop"].forEach(function(evt){
+    metaDropzone.addEventListener(evt, function(e){ e.preventDefault(); metaDropzone.classList.remove("dragover"); });
+  });
+  metaDropzone.addEventListener("drop", function(e){
+    var file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) handleMetaCsvFile(file);
+  });
+
+  function metaStudiesToCsv(){
+    var lines = ["Study,Year,a,b,c,d"];
+    metaStudies.forEach(function(s){
+      lines.push([s.studyName, s.year, s.a, s.b, s.c, s.d].map(function(v){
+        var str = String(v == null ? "" : v);
+        return str.indexOf(",") >= 0 ? '"' + str.replace(/"/g, '""') + '"' : str;
+      }).join(","));
+    });
+    return lines.join("\n");
+  }
+  document.getElementById("metaExportCsvBtn").addEventListener("click", function(){
+    if (metaStudies.length === 0) return;
+    saveFile("meta-analysis-studies.csv", new Blob([metaStudiesToCsv()], { type: "text/csv;charset=utf-8;" }), document.getElementById("metaExportCsvBtn"));
+  });
+
+  /* --- Pooling engine --- */
+
+  function metaCorrectCells(s){
+    var a = Number(s.a), b = Number(s.b), c = Number(s.c), d = Number(s.d);
+    var hasZero = a === 0 || b === 0 || c === 0 || d === 0;
+    if (hasZero){ a += 0.5; b += 0.5; c += 0.5; d += 0.5; }
+    return { a: a, b: b, c: c, d: d, n1: a + b, n2: c + d, corrected: hasZero };
+  }
+
+  function metaStudyEffect(s, measure){
+    var cc = metaCorrectCells(s);
+    var a = cc.a, b = cc.b, c = cc.c, d = cc.d, n1 = cc.n1, n2 = cc.n2;
+    if (measure === "OR") return { yi: Math.log((a * d) / (b * c)), vi: 1 / a + 1 / b + 1 / c + 1 / d, corrected: cc.corrected };
+    if (measure === "RR") return { yi: Math.log((a / n1) / (c / n2)), vi: 1 / a - 1 / n1 + 1 / c - 1 / n2, corrected: cc.corrected };
+    return { yi: a / n1 - c / n2, vi: (a * b) / (n1 * n1 * n1) + (c * d) / (n2 * n2 * n2), corrected: cc.corrected };
+  }
+
+  function metaMhWeight(s, measure){
+    var cc = metaCorrectCells(s);
+    var n = cc.n1 + cc.n2;
+    return measure === "OR" ? (cc.b * cc.c / n) : (cc.c * cc.n1 / n);
+  }
+
+  function metaMhOR(studies){
+    var sumR = 0, sumS = 0, sumPR = 0, sumPS_QR = 0, sumQS = 0;
+    studies.forEach(function(s){
+      var cc = metaCorrectCells(s);
+      var n = cc.n1 + cc.n2;
+      var R = cc.a * cc.d / n, S = cc.b * cc.c / n;
+      var P = (cc.a + cc.d) / n, Q = (cc.b + cc.c) / n;
+      sumR += R; sumS += S;
+      sumPR += P * R; sumQS += Q * S; sumPS_QR += (P * S + Q * R);
+    });
+    var estimate = sumR / sumS;
+    var varLn = sumPR / (2 * sumR * sumR) + sumPS_QR / (2 * sumR * sumS) + sumQS / (2 * sumS * sumS);
+    return { lnEstimate: Math.log(estimate), varLn: varLn };
+  }
+
+  function metaMhRR(studies){
+    var sumR = 0, sumS = 0, sumVarNum = 0;
+    studies.forEach(function(s){
+      var cc = metaCorrectCells(s);
+      var n1 = cc.n1, n2 = cc.n2, n = n1 + n2;
+      var R = cc.a * n2 / n, S = cc.c * n1 / n;
+      sumR += R; sumS += S;
+      sumVarNum += (n1 * n2 * (cc.a + cc.c) - cc.a * cc.c * n) / (n * n);
+    });
+    var estimate = sumR / sumS;
+    return { lnEstimate: Math.log(estimate), varLn: sumVarNum / (sumR * sumS) };
+  }
+
+  function metaIvFixed(effects){
+    var sw = 0, swy = 0;
+    effects.forEach(function(e){ var w = 1 / e.vi; sw += w; swy += w * e.yi; });
+    return { estimate: swy / sw, variance: 1 / sw };
+  }
+
+  function metaCochranQ(effects, pooledY){
+    var Q = 0;
+    effects.forEach(function(e){ var w = 1 / e.vi; Q += w * (e.yi - pooledY) * (e.yi - pooledY); });
+    return Q;
+  }
+
+  function metaDlTau2(effects, Q){
+    var k = effects.length;
+    var sw = 0, sw2 = 0;
+    effects.forEach(function(e){ var w = 1 / e.vi; sw += w; sw2 += w * w; });
+    var C = sw - sw2 / sw;
+    return C > 0 ? Math.max(0, (Q - (k - 1)) / C) : 0;
+  }
+
+  function metaRandomEffects(effects, tau2){
+    var sw = 0, swy = 0;
+    effects.forEach(function(e){ var w = 1 / (e.vi + tau2); sw += w; swy += w * e.yi; });
+    return { estimate: swy / sw, variance: 1 / sw };
+  }
+
+  function metaHksjVariance(effects, tau2, pooledRE){
+    var k = effects.length;
+    var sw = 0, sumWresid2 = 0;
+    effects.forEach(function(e){ var w = 1 / (e.vi + tau2); sw += w; sumWresid2 += w * (e.yi - pooledRE) * (e.yi - pooledRE); });
+    return (sumWresid2 / (k - 1)) / sw;
+  }
+
+  function metaEggersTest(effects){
+    var k = effects.length;
+    var x = effects.map(function(e){ return 1 / Math.sqrt(e.vi); });
+    var y = effects.map(function(e){ return e.yi / Math.sqrt(e.vi); });
+    var mx = mean(x), my = mean(y), sxx = 0, sxy = 0, i;
+    for (i = 0; i < k; i++){ sxx += (x[i] - mx) * (x[i] - mx); sxy += (x[i] - mx) * (y[i] - my); }
+    var slope = sxy / sxx;
+    var intercept = my - slope * mx;
+    var sse = 0;
+    for (i = 0; i < k; i++){ var resid = y[i] - (intercept + slope * x[i]); sse += resid * resid; }
+    var df = k - 2;
+    var mse = sse / df;
+    var seIntercept = Math.sqrt(mse * (1 / k + (mx * mx) / sxx));
+    var t = intercept / seIntercept;
+    return { intercept: intercept, se: seIntercept, t: t, df: df, p: tTestPValue(t, df) };
+  }
+
+  /* --- Forest & funnel plots --- */
+
+  function renderMetaForestPlot(container, rows, pooled, isRatio){
+    var rowH = 22, headerH = 28, gapH = 10, diamondRowH = 30, axisH = 32, padTop = 10, padBottom = 10;
+    var W = 780, plotL = 350, plotR = 580;
+    var H = padTop + headerH + rows.length * rowH + gapH + diamondRowH + axisH + padBottom;
+
+    var domainVals = [pooled.ciLoScale, pooled.ciHiScale, 0];
+    rows.forEach(function(r){ domainVals.push(r.ciLoScale, r.ciHiScale); });
+    var domainMin = Math.min.apply(null, domainVals), domainMax = Math.max.apply(null, domainVals);
+    var pad = (domainMax - domainMin) * 0.08 || 1;
+    domainMin -= pad; domainMax += pad;
+
+    function sx(v){ return plotL + (v - domainMin) / (domainMax - domainMin) * (plotR - plotL); }
+
+    var svg = [];
+    svg.push('<text x="8" y="' + (padTop + 14) + '" font-size="11" font-weight="700" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">Study</text>');
+    svg.push('<text x="228" y="' + (padTop + 14) + '" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">Int. a/n₁</text>');
+    svg.push('<text x="290" y="' + (padTop + 14) + '" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">Ctrl c/n₂</text>');
+    svg.push('<text x="608" y="' + (padTop + 14) + '" font-size="11" font-weight="700" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">Weight</text>');
+    svg.push('<text x="656" y="' + (padTop + 14) + '" font-size="11" font-weight="700" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">Effect [95% CI]</text>');
+
+    var refX = sx(0);
+    var topY = padTop + headerH, bottomY = padTop + headerH + rows.length * rowH + gapH + diamondRowH;
+    svg.push('<line x1="' + refX.toFixed(1) + '" y1="' + topY + '" x2="' + refX.toFixed(1) + '" y2="' + bottomY + '" stroke="var(--line)" stroke-dasharray="3,3"/>');
+
+    var maxWeight = Math.max.apply(null, rows.map(function(r){ return r.weightPct; }));
+    rows.forEach(function(r, idx){
+      var y = padTop + headerH + idx * rowH + rowH / 2;
+      svg.push('<text x="8" y="' + (y + 4).toFixed(1) + '" font-size="11.5" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(r.name) + (r.year ? " (" + escapeXml(String(r.year)) + ")" : "") + '</text>');
+      svg.push('<text x="228" y="' + (y + 4).toFixed(1) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + r.a + "/" + r.n1 + '</text>');
+      svg.push('<text x="290" y="' + (y + 4).toFixed(1) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + r.c + "/" + r.n2 + '</text>');
+      var loPix = sx(r.ciLoScale), hiPix = sx(r.ciHiScale), midPix = sx(r.pointScale);
+      svg.push('<line x1="' + loPix.toFixed(1) + '" y1="' + y.toFixed(1) + '" x2="' + hiPix.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="var(--ink-soft)" stroke-width="1.4"/>');
+      var half = Math.max(2.5, Math.min(9, 2.5 + 7 * Math.sqrt(r.weightPct / (maxWeight || 1))));
+      svg.push('<rect x="' + (midPix - half).toFixed(1) + '" y="' + (y - half).toFixed(1) + '" width="' + (half * 2).toFixed(1) + '" height="' + (half * 2).toFixed(1) + '" fill="var(--accent)" stroke="var(--accent-ink)" stroke-width="0.5"/>');
+      svg.push('<text x="608" y="' + (y + 4).toFixed(1) + '" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(r.weightPct, 1) + '%</text>');
+      svg.push('<text x="656" y="' + (y + 4).toFixed(1) + '" font-size="11" fill="var(--ink)" font-family="IBM Plex Mono, monospace">' + fmtNum(r.pointDisplay, isRatio ? 2 : 3) + " [" + fmtNum(r.ciLoDisplay, isRatio ? 2 : 3) + "–" + fmtNum(r.ciHiDisplay, isRatio ? 2 : 3) + "]" + '</text>');
+    });
+
+    var diamondY = padTop + headerH + rows.length * rowH + gapH + diamondRowH / 2;
+    var dLo = sx(pooled.ciLoScale), dHi = sx(pooled.ciHiScale), dMid = sx(pooled.pointScale);
+    var dHalfH = diamondRowH / 2 - 4;
+    svg.push('<polygon points="' + dLo.toFixed(1) + ',' + diamondY.toFixed(1) + ' ' + dMid.toFixed(1) + ',' + (diamondY - dHalfH).toFixed(1) + ' ' + dHi.toFixed(1) + ',' + diamondY.toFixed(1) + ' ' + dMid.toFixed(1) + ',' + (diamondY + dHalfH).toFixed(1) + '" fill="var(--accent2)" stroke="var(--accent2)" opacity="0.9"/>');
+    svg.push('<text x="8" y="' + (diamondY + 4).toFixed(1) + '" font-size="11.5" font-weight="700" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">Pooled</text>');
+    svg.push('<text x="656" y="' + (diamondY + 4).toFixed(1) + '" font-size="11" font-weight="700" fill="var(--ink)" font-family="IBM Plex Mono, monospace">' + fmtNum(pooled.pointDisplay, isRatio ? 2 : 3) + " [" + fmtNum(pooled.ciLoDisplay, isRatio ? 2 : 3) + "–" + fmtNum(pooled.ciHiDisplay, isRatio ? 2 : 3) + "]" + '</text>');
+
+    var axisY = bottomY + 20;
+    svg.push('<line x1="' + plotL + '" y1="' + bottomY + '" x2="' + plotR + '" y2="' + bottomY + '" stroke="var(--line)"/>');
+    for (var t = 0; t <= 4; t++){
+      var v = domainMin + (domainMax - domainMin) * t / 4;
+      var xPix = sx(v);
+      svg.push('<line x1="' + xPix.toFixed(1) + '" y1="' + bottomY + '" x2="' + xPix.toFixed(1) + '" y2="' + (bottomY + 4) + '" stroke="var(--line)"/>');
+      var label = isRatio ? fmtNum(Math.exp(v), 2) : fmtNum(v, 2);
+      svg.push('<text x="' + xPix.toFixed(1) + '" y="' + (axisY).toFixed(1) + '" text-anchor="middle" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + label + '</text>');
+    }
+
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Forest plot">' + svg.join("") + '</svg>';
+  }
+
+  function renderMetaFunnelPlot(container, effects, feEstimateScale, isRatio){
+    var W = 480, H = 340, mL = 54, mR = 20, mT = 16, mB = 40;
+    var xs = effects.map(function(e){ return e.yi; });
+    var ses = effects.map(function(e){ return Math.sqrt(e.vi); });
+    var maxSe = Math.max.apply(null, ses) * 1.15 || 1;
+    var domainVals = xs.concat([feEstimateScale - 1.96 * maxSe, feEstimateScale + 1.96 * maxSe]);
+    var xMin = Math.min.apply(null, domainVals), xMax = Math.max.apply(null, domainVals);
+    var xPad = (xMax - xMin) * 0.08 || 1;
+    xMin -= xPad; xMax += xPad;
+
+    function sx(v){ return mL + (v - xMin) / (xMax - xMin) * (W - mL - mR); }
+    function sy(v){ return mT + (v / maxSe) * (H - mT - mB); }
+
+    var svg = [];
+    svg.push('<line x1="' + mL + '" y1="' + (H - mB) + '" x2="' + (W - mR) + '" y2="' + (H - mB) + '" stroke="var(--line)"/>');
+    svg.push('<line x1="' + mL + '" y1="' + mT + '" x2="' + mL + '" y2="' + (H - mB) + '" stroke="var(--line)"/>');
+
+    var funnelTopX1 = sx(feEstimateScale - 1.96 * maxSe), funnelTopX2 = sx(feEstimateScale + 1.96 * maxSe);
+    var centerX = sx(feEstimateScale), centerTopY = sy(0), centerBottomY = sy(maxSe);
+    svg.push('<line x1="' + centerX.toFixed(1) + '" y1="' + centerTopY.toFixed(1) + '" x2="' + centerX.toFixed(1) + '" y2="' + centerBottomY.toFixed(1) + '" stroke="var(--ink-soft)" stroke-dasharray="3,3"/>');
+    svg.push('<line x1="' + centerX.toFixed(1) + '" y1="' + centerTopY.toFixed(1) + '" x2="' + funnelTopX1.toFixed(1) + '" y2="' + centerBottomY.toFixed(1) + '" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4,3"/>');
+    svg.push('<line x1="' + centerX.toFixed(1) + '" y1="' + centerTopY.toFixed(1) + '" x2="' + funnelTopX2.toFixed(1) + '" y2="' + centerBottomY.toFixed(1) + '" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="4,3"/>');
+
+    var xTickCount = 5;
+    for (var ti = 0; ti <= xTickCount; ti++){
+      var xv = xMin + (xMax - xMin) * ti / xTickCount;
+      var xPix = sx(xv);
+      svg.push('<line x1="' + xPix.toFixed(1) + '" y1="' + (H - mB) + '" x2="' + xPix.toFixed(1) + '" y2="' + (H - mB + 4) + '" stroke="var(--line)"/>');
+      svg.push('<text x="' + xPix.toFixed(1) + '" y="' + (H - mB + 16) + '" text-anchor="middle" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(isRatio ? Math.exp(xv) : xv, isRatio ? 2 : 2) + '</text>');
+    }
+    for (var yt = 0; yt <= 4; yt++){
+      var yv = maxSe * yt / 4;
+      var yPix = sy(yv);
+      svg.push('<line x1="' + (mL - 4) + '" y1="' + yPix.toFixed(1) + '" x2="' + mL + '" y2="' + yPix.toFixed(1) + '" stroke="var(--line)"/>');
+      svg.push('<text x="' + (mL - 8) + '" y="' + (yPix + 3.5).toFixed(1) + '" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(yv, 3) + '</text>');
+    }
+
+    effects.forEach(function(e, i){
+      var cx = sx(e.yi), cy = sy(Math.sqrt(e.vi));
+      svg.push('<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="4.5" fill="var(--accent3)" fill-opacity="0.55" stroke="var(--accent3)" stroke-width="1"/>');
+    });
+
+    svg.push('<text x="' + ((mL + W - mR) / 2) + '" y="' + (H - mB + 32) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + (isRatio ? "Effect (log scale, back-transformed labels)" : "Risk difference") + '</text>');
+    svg.push('<text x="14" y="' + ((mT + H - mB) / 2) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" transform="rotate(-90 14 ' + ((mT + H - mB) / 2) + ')">Standard error</text>');
+
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Funnel plot">' + svg.join("") + '</svg>';
+  }
+
+  /* --- Orchestration --- */
+
+  var metaEls = {
+    measureOR: document.getElementById("metaMeasureOR"),
+    measureRR: document.getElementById("metaMeasureRR"),
+    measureRD: document.getElementById("metaMeasureRD"),
+    orCard: document.getElementById("metaOrCard"),
+    rrCard: document.getElementById("metaRrCard"),
+    rdCard: document.getElementById("metaRdCard"),
+    modelFixed: document.getElementById("metaModelFixed"),
+    modelRandom: document.getElementById("metaModelRandom"),
+    fixedCard: document.getElementById("metaFixedCard"),
+    randomCard: document.getElementById("metaRandomCard"),
+    hksjRow: document.getElementById("metaHksjRow"),
+    hksjToggle: document.getElementById("metaHksjToggle"),
+    hetRows: document.getElementById("metaHetRows"),
+    hetNote: document.getElementById("metaHetNote"),
+    title: document.getElementById("metaTitle"),
+    effectName: document.getElementById("metaEffectName"),
+    effectValue: document.getElementById("metaEffectValue"),
+    effectCi: document.getElementById("metaEffectCi"),
+    statLabel: document.getElementById("metaStatLabel"),
+    stat: document.getElementById("metaStat"),
+    dfRow: document.getElementById("metaDfRow"),
+    df: document.getElementById("metaDf"),
+    p: document.getElementById("metaP"),
+    verdict: document.getElementById("metaVerdict"),
+    interpretation: document.getElementById("metaInterpretation"),
+    forestPlot: document.getElementById("metaForestPlot"),
+    funnelPlot: document.getElementById("metaFunnelPlot"),
+    eggerIntercept: document.getElementById("metaEggerIntercept"),
+    eggerT: document.getElementById("metaEggerT"),
+    eggerDf: document.getElementById("metaEggerDf"),
+    eggerP: document.getElementById("metaEggerP"),
+    error: document.getElementById("metaError")
+  };
+
+  function metaMeasure(){ return metaEls.measureRR.checked ? "RR" : (metaEls.measureRD.checked ? "RD" : "OR"); }
+  function metaModel(){ return metaEls.modelRandom.checked ? "random" : "fixed"; }
+
+  function metaClearResults(){
+    metaEls.hetRows.innerHTML = ""; metaEls.hetNote.textContent = "";
+    metaEls.effectValue.textContent = "—"; metaEls.effectCi.textContent = "";
+    metaEls.stat.textContent = "—"; metaEls.p.textContent = "—";
+    metaEls.verdict.innerHTML = ""; metaEls.interpretation.textContent = "";
+    metaEls.forestPlot.innerHTML = ""; metaEls.funnelPlot.innerHTML = "";
+    metaEls.eggerIntercept.textContent = "—"; metaEls.eggerT.textContent = "—";
+    metaEls.eggerDf.textContent = "—"; metaEls.eggerP.textContent = "—";
+  }
+
+  function recalcMeta(){
+    metaEls.orCard.classList.toggle("active", metaEls.measureOR.checked);
+    metaEls.rrCard.classList.toggle("active", metaEls.measureRR.checked);
+    metaEls.rdCard.classList.toggle("active", metaEls.measureRD.checked);
+    metaEls.fixedCard.classList.toggle("active", metaEls.modelFixed.checked);
+    metaEls.randomCard.classList.toggle("active", metaEls.modelRandom.checked);
+    metaEls.hksjToggle.disabled = !metaEls.modelRandom.checked;
+    metaEls.hksjRow.style.opacity = metaEls.modelRandom.checked ? "1" : "0.45";
+
+    var measure = metaMeasure(), model = metaModel();
+    var isRatio = measure !== "RD";
+    var validStudies = metaStudies.filter(metaRowValid);
+
+    metaEls.effectName.textContent = measure === "OR" ? "Odds ratio" : (measure === "RR" ? "Risk ratio" : "Risk difference");
+
+    if (validStudies.length < 2){
+      metaEls.error.hidden = false;
+      metaEls.error.innerHTML = '<span class="dot"></span> Need at least 2 valid studies to pool a meta-analysis — currently ' + validStudies.length + '.';
+      metaClearResults();
+      return;
+    }
+    metaEls.error.hidden = true;
+
+    var effects = validStudies.map(function(s){ return metaStudyEffect(s, measure); });
+
+    var fe;
+    if (measure === "RD"){
+      fe = metaIvFixed(effects);
+    } else {
+      var mh = measure === "OR" ? metaMhOR(validStudies) : metaMhRR(validStudies);
+      fe = { estimate: mh.lnEstimate, variance: mh.varLn };
+    }
+    var feForHet = metaIvFixed(effects);
+    var Q = metaCochranQ(effects, feForHet.estimate);
+    var dfQ = effects.length - 1;
+    var pQ = chiSquaredPGeneral(Q, dfQ);
+    var I2 = Q > 0 ? Math.max(0, (Q - dfQ) / Q) * 100 : 0;
+    var tau2 = metaDlTau2(effects, Q);
+
+    var i2Band = I2 < 25 ? "Low" : (I2 < 75 ? "Moderate" : "Substantial");
+    metaEls.hetRows.innerHTML =
+      '<div class="norm-row"><div class="norm-row-head"><span class="norm-name">Cochran\'s Q</span><span class="norm-n">k = ' + effects.length + ' studies</span></div>' +
+      '<div class="norm-stats"><span class="norm-stat">Q = <b>' + fmtNum(Q, 3) + '</b></span><span class="norm-stat">df = <b>' + dfQ + '</b></span><span class="norm-stat">p = <b>' + fmtP(pQ) + '</b></span>' +
+      '<span class="norm-stat">I² = <b>' + fmtNum(I2, 1) + '%</b></span><span class="verdict ' + (I2 < 25 ? "sig" : (I2 < 75 ? "border" : "ns")) + '">' + i2Band + ' heterogeneity</span>' +
+      '</div></div>';
+    metaEls.hetNote.innerHTML = '<b style="color:var(--ink);">Why this matters —</b> I² estimates the share of variability across studies due to real differences rather than chance; higher values are a reason to prefer the random-effects model over fixed effect, and to interpret the pooled estimate as an average over a range of true effects rather than a single shared one. τ² (used by the random-effects model here) is ' + fmtNum(tau2, 5) + '.';
+
+    var pooled, seScale, statValue, pValue, dfShown = null, statLabelText;
+    if (model === "fixed"){
+      pooled = fe; seScale = Math.sqrt(pooled.variance);
+      statValue = pooled.estimate / seScale;
+      pValue = erfc(Math.abs(statValue) / Math.SQRT2);
+      statLabelText = "z";
+      metaEls.title.textContent = (measure === "RD" ? "Inverse-variance" : "Mantel–Haenszel") + " fixed effect";
+    } else {
+      var re = metaRandomEffects(effects, tau2);
+      if (metaEls.hksjToggle.checked){
+        var hksjVar = metaHksjVariance(effects, tau2, re.estimate);
+        pooled = { estimate: re.estimate, variance: hksjVar };
+        seScale = Math.sqrt(hksjVar);
+        dfShown = effects.length - 1;
+        statValue = pooled.estimate / seScale;
+        pValue = tTestPValue(statValue, dfShown);
+        statLabelText = "t";
+        metaEls.title.textContent = "DerSimonian–Laird random effects (HKSJ)";
+      } else {
+        pooled = re; seScale = Math.sqrt(pooled.variance);
+        statValue = pooled.estimate / seScale;
+        pValue = erfc(Math.abs(statValue) / Math.SQRT2);
+        statLabelText = "z";
+        metaEls.title.textContent = "DerSimonian–Laird random effects";
+      }
+    }
+
+    var critMult = dfShown ? tCriticalValue(dfShown, 0.05) : 1.96;
+    var pooledCiLoScale = pooled.estimate - critMult * seScale;
+    var pooledCiHiScale = pooled.estimate + critMult * seScale;
+    var pooledPointDisplay = isRatio ? Math.exp(pooled.estimate) : pooled.estimate;
+    var pooledCiLoDisplay = isRatio ? Math.exp(pooledCiLoScale) : pooledCiLoScale;
+    var pooledCiHiDisplay = isRatio ? Math.exp(pooledCiHiScale) : pooledCiHiScale;
+
+    metaEls.effectValue.textContent = fmtNum(pooledPointDisplay, isRatio ? 3 : 4);
+    metaEls.effectCi.textContent = "95% CI " + fmtNum(pooledCiLoDisplay, isRatio ? 3 : 4) + "–" + fmtNum(pooledCiHiDisplay, isRatio ? 3 : 4);
+    metaEls.statLabel.textContent = statLabelText;
+    metaEls.stat.textContent = fmtNum(statValue, 3);
+    metaEls.dfRow.hidden = dfShown == null;
+    if (dfShown != null) metaEls.df.textContent = dfShown;
+    metaEls.p.textContent = fmtP(pValue);
+    metaEls.verdict.innerHTML = ""; metaEls.verdict.appendChild(verdictPill(pValue));
+
+    var measureWord = measure === "OR" ? "odds ratio" : (measure === "RR" ? "risk ratio" : "risk difference");
+    var correctedCount = effects.filter(function(e){ return e.corrected; }).length;
+    metaEls.interpretation.textContent = "Pooling " + effects.length + " studies (" + (model === "fixed" ? ((measure === "RD" ? "inverse-variance" : "Mantel–Haenszel") + " fixed effect") : ("DerSimonian–Laird random effects" + (metaEls.hksjToggle.checked ? " with HKSJ adjustment" : ""))) + "), the pooled " + measureWord + " is " + fmtNum(pooledPointDisplay, isRatio ? 2 : 3) + " (95% CI " + fmtNum(pooledCiLoDisplay, isRatio ? 2 : 3) + "–" + fmtNum(pooledCiHiDisplay, isRatio ? 2 : 3) + "), " +
+      (pValue < 0.05 ? "a statistically significant" : "not a statistically significant") + " difference between arms (p = " + fmtP(pValue) + "). " +
+      (correctedCount > 0 ? correctedCount + " stud" + (correctedCount === 1 ? "y" : "ies") + " had a zero cell and used a 0.5 continuity correction. " : "") +
+      "This pools an association across studies whose design and quality may still differ — it does not itself establish causality.";
+
+    var weightRaw = validStudies.map(function(s){
+      if (model === "fixed" && measure !== "RD") return metaMhWeight(s, measure);
+      var eff = metaStudyEffect(s, measure);
+      return 1 / (eff.vi + (model === "random" ? tau2 : 0));
+    });
+    var weightSum = weightRaw.reduce(function(a, b){ return a + b; }, 0);
+
+    var forestRows = validStudies.map(function(s, i){
+      var e = effects[i];
+      var sei = Math.sqrt(e.vi);
+      var ciLoScale = e.yi - 1.96 * sei, ciHiScale = e.yi + 1.96 * sei;
+      return {
+        name: s.studyName || ("Study " + (i + 1)), year: s.year,
+        a: Number(s.a), n1: Number(s.a) + Number(s.b), c: Number(s.c), n2: Number(s.c) + Number(s.d),
+        pointScale: e.yi, ciLoScale: ciLoScale, ciHiScale: ciHiScale,
+        pointDisplay: isRatio ? Math.exp(e.yi) : e.yi,
+        ciLoDisplay: isRatio ? Math.exp(ciLoScale) : ciLoScale,
+        ciHiDisplay: isRatio ? Math.exp(ciHiScale) : ciHiScale,
+        weightPct: weightSum > 0 ? weightRaw[i] / weightSum * 100 : 0
+      };
+    });
+    var pooledForPlot = {
+      pointScale: pooled.estimate, ciLoScale: pooledCiLoScale, ciHiScale: pooledCiHiScale,
+      pointDisplay: pooledPointDisplay, ciLoDisplay: pooledCiLoDisplay, ciHiDisplay: pooledCiHiDisplay
+    };
+    renderMetaForestPlot(metaEls.forestPlot, forestRows, pooledForPlot, isRatio);
+    renderMetaFunnelPlot(metaEls.funnelPlot, effects, fe.estimate, isRatio);
+
+    if (effects.length >= 3){
+      var egger = metaEggersTest(effects);
+      metaEls.eggerIntercept.textContent = fmtNum(egger.intercept, 4);
+      metaEls.eggerT.textContent = fmtNum(egger.t, 3);
+      metaEls.eggerDf.textContent = egger.df;
+      metaEls.eggerP.textContent = fmtP(egger.p);
+    } else {
+      metaEls.eggerIntercept.textContent = "—"; metaEls.eggerT.textContent = "—";
+      metaEls.eggerDf.textContent = "—"; metaEls.eggerP.textContent = "Need ≥ 3 studies";
+    }
+  }
+
+  [metaEls.measureOR, metaEls.measureRR, metaEls.measureRD, metaEls.modelFixed, metaEls.modelRandom, metaEls.hksjToggle].forEach(function(el){
+    el.addEventListener("change", recalcMeta);
+  });
+
+  document.getElementById("metaForestSvgBtn").addEventListener("click", function(){
+    var svg = metaEls.forestPlot.querySelector("svg");
+    if (!svg) return;
+    var xml = new XMLSerializer().serializeToString(svg);
+    saveFile("meta-analysis-forest-plot.svg", new Blob([xml], { type: "image/svg+xml;charset=utf-8;" }), document.getElementById("metaForestSvgBtn"));
+  });
+  document.getElementById("metaForestPngBtn").addEventListener("click", function(){
+    metaSvgToPng(metaEls.forestPlot, "meta-analysis-forest-plot.png", document.getElementById("metaForestPngBtn"));
+  });
+  document.getElementById("metaFunnelSvgBtn").addEventListener("click", function(){
+    var svg = metaEls.funnelPlot.querySelector("svg");
+    if (!svg) return;
+    var xml = new XMLSerializer().serializeToString(svg);
+    saveFile("meta-analysis-funnel-plot.svg", new Blob([xml], { type: "image/svg+xml;charset=utf-8;" }), document.getElementById("metaFunnelSvgBtn"));
+  });
+  document.getElementById("metaFunnelPngBtn").addEventListener("click", function(){
+    metaSvgToPng(metaEls.funnelPlot, "meta-analysis-funnel-plot.png", document.getElementById("metaFunnelPngBtn"));
+  });
+
+  function metaSvgToPng(container, filename, btn){
+    var svg = container.querySelector("svg");
+    if (!svg) return;
+    var xml = new XMLSerializer().serializeToString(svg);
+    var svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8;" });
+    var url = URL.createObjectURL(svgBlob);
+    var img = new Image();
+    img.onload = function(){
+      var vb = svg.viewBox.baseVal;
+      var scaleFactor = 2;
+      var canvas = document.createElement("canvas");
+      canvas.width = vb.width * scaleFactor; canvas.height = vb.height * scaleFactor;
+      var ctx = canvas.getContext("2d");
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function(blob){ saveFile(filename, blob, btn); });
+    };
+    img.src = url;
+  }
+
+  renderMetaTable();
+  updateMetaBadge();
+  recalcMeta();
 
   recalc();
   recalcTtest();
