@@ -6249,6 +6249,17 @@
     mlUpdateTaskBadge();
   }
 
+  function previewScrollCaption(wrap, totalRows, previewLimit){
+    var parts = [];
+    if (totalRows > previewLimit) parts.push("Showing " + previewLimit + " of " + totalRows + " rows");
+    var needsH = wrap.scrollWidth > wrap.clientWidth + 1;
+    var needsV = wrap.scrollHeight > wrap.clientHeight + 1;
+    if (needsH && needsV) parts.push("scroll down for more rows and right for all columns");
+    else if (needsH) parts.push("scroll right to see all columns");
+    else if (needsV) parts.push("scroll down to see more rows");
+    return parts.length ? parts.join(" — ") + "." : "";
+  }
+
   function mlRenderPreview(columns, rows){
     var previewLimit = 50;
     var preview = rows.slice(0, previewLimit);
@@ -6258,9 +6269,7 @@
     }).join("") + "</tbody>";
     mlEls.previewTable.innerHTML = thead + tbody;
     mlEls.previewWrap.hidden = false;
-    document.getElementById("mlPreviewCaption").textContent = rows.length > previewLimit
-      ? "Showing " + previewLimit + " of " + rows.length + " rows — scroll to see more, and scroll right for all columns."
-      : "Scroll right to see all columns.";
+    document.getElementById("mlPreviewCaption").textContent = previewScrollCaption(mlEls.previewWrap, rows.length, previewLimit);
   }
 
   function mlRenderSchemaTable(){
@@ -7366,9 +7375,7 @@
     }).join("") + "</tbody>";
     pivotEls.previewTable.innerHTML = thead + tbody;
     pivotEls.previewWrap.hidden = false;
-    pivotEls.previewCaption.textContent = rows.length > previewLimit
-      ? "Showing " + previewLimit + " of " + rows.length + " rows — scroll to see more, and scroll right for all columns."
-      : "Scroll right to see all columns.";
+    pivotEls.previewCaption.textContent = previewScrollCaption(pivotEls.previewWrap, rows.length, previewLimit);
   }
 
   function pivotCategoricalColumns(){
@@ -8071,9 +8078,7 @@
     }).join("") + "</tbody>";
     unsEls.previewTable.innerHTML = thead + tbody;
     unsEls.previewWrap.hidden = false;
-    unsEls.previewCaption.textContent = rows.length > previewLimit
-      ? "Showing " + previewLimit + " of " + rows.length + " rows — scroll to see more, and scroll right for all columns."
-      : "Scroll right to see all columns.";
+    unsEls.previewCaption.textContent = previewScrollCaption(unsEls.previewWrap, rows.length, previewLimit);
   }
 
   function unsLoadDataset(columns, rows){
