@@ -1028,7 +1028,7 @@
   </section>
 
   <footer class="notes">
-    <b>How it's computed —</b> Welch's t-test doesn't assume equal variances: t = (x̄₁−x̄₂)⁄√(s₁²⁄n₁+s₂²⁄n₂), with the Welch–Satterthwaite approximation for degrees of freedom. Student's t-test pools the two variances and uses df = n₁+n₂−2. The paired t-test runs on the within-subject differences: t = d̄⁄(s_d⁄√n), df = n−1. All t p-values use the exact regularized incomplete beta relation to the t-distribution. When Shapiro–Wilk flags non-normal data, Mann–Whitney U (independent) or the Wilcoxon signed-rank test (paired) replace the t-test — both are rank-based, so they don't need a normality assumption, and both use the standard continuity- and tie-corrected normal approximation for their p-values. <b>Auto</b> chooses between these using the normality and variance checks above; the reasoning for each pick is shown next to the result. Cohen's d and the rank-biserial correlation r both express the effect as a standardized, sample-size-independent magnitude. The bar chart's error bars use each group's own t-distribution critical value (not a fixed 1.96), since with small samples the normal approximation understates the interval.
+    <b>How it's computed —</b> Welch's t-test doesn't assume equal variances: t = (x̄₁−x̄₂)⁄√(s₁²⁄n₁+s₂²⁄n₂), with the Welch–Satterthwaite approximation for degrees of freedom. Student's t-test pools the two variances and uses df = n₁+n₂−2. The paired t-test runs on the within-subject differences: t = d̄⁄(s_d⁄√n), df = n−1. All t p-values use the exact regularized incomplete beta relation to the t-distribution. When Shapiro–Wilk flags non-normal data, Mann–Whitney U (independent) or the Wilcoxon signed-rank test (paired) replace the t-test — both are rank-based, so they don't need a normality assumption, and both use the standard continuity- and tie-corrected normal approximation for their p-values. <b>Auto</b> chooses between these using the normality and variance checks above; the reasoning for each pick is shown next to the result. Cohen's d, the Mann–Whitney rank-biserial correlation r, and the Wilcoxon effect size r (z⁄√n — a different, non-interchangeable statistic from rank-biserial correlation) each express their respective test's effect as a standardized, sample-size-independent magnitude. The bar chart's error bars use each group's own t-distribution critical value (not a fixed 1.96), since with small samples the normal approximation understates the interval.
   </footer>
 
   </div>
@@ -1884,10 +1884,11 @@
     <div id="mlEvalClassification" hidden>
       <div class="qc-grid" style="grid-template-columns:repeat(4,1fr);">
         <div class="qc-tile"><div class="qc-num" id="mlAccuracy">—</div><div class="qc-label">Accuracy</div></div>
-        <div class="qc-tile"><div class="qc-num" id="mlPrecision">—</div><div class="qc-label">Precision</div></div>
-        <div class="qc-tile"><div class="qc-num" id="mlRecall">—</div><div class="qc-label">Recall</div></div>
-        <div class="qc-tile"><div class="qc-num" id="mlF1">—</div><div class="qc-label">F1-score</div></div>
+        <div class="qc-tile"><div class="qc-num" id="mlPrecision">—</div><div class="qc-label">Precision (macro)</div></div>
+        <div class="qc-tile"><div class="qc-num" id="mlRecall">—</div><div class="qc-label">Recall (macro)</div></div>
+        <div class="qc-tile"><div class="qc-num" id="mlF1">—</div><div class="qc-label">F1 (macro)</div></div>
       </div>
+      <p class="data-hint" style="margin-top:8px;">Precision, recall, and F1 are macro-averaged — computed per class, then averaged with each class weighted equally, regardless of how common it is in the test set.</p>
       <div class="table-wrap" style="margin-top:18px;">
         <p class="data-hint" style="margin-bottom:8px;font-weight:600;color:var(--ink);">Confusion matrix</p>
         <div class="heatmap-wrap" id="mlConfusionMatrix"></div>
@@ -2741,7 +2742,7 @@
     student:     { title: "Student's t-test",         stat: "t", df: "df", effectTitle: "Cohen's d",        effectName: "Standardized mean difference" },
     pairedt:     { title: "Paired t-test",            stat: "t", df: "df", effectTitle: "Cohen's d",        effectName: "Standardized mean difference" },
     mannwhitney: { title: "Mann–Whitney U test",      stat: "U", df: "z",  effectTitle: "Rank-biserial r",  effectName: "Standardized rank effect" },
-    wilcoxon:    { title: "Wilcoxon signed-rank test", stat: "W", df: "z",  effectTitle: "Rank-biserial r",  effectName: "Standardized rank effect" }
+    wilcoxon:    { title: "Wilcoxon signed-rank test", stat: "W", df: "z",  effectTitle: "Effect size r",    effectName: "z-based rank effect" }
   };
 
   function applyMethodLabels(method){
@@ -2776,6 +2777,8 @@
 
     if (kind === "d"){
       ttEls.effectGuide.innerHTML = '<b style="color:var(--ink);">Interpreting Cohen’s d —</b> conventional benchmarks (Cohen, 1988): |d| &lt; 0.2 negligible, 0.2–0.5 small, 0.5–0.8 medium, ≥ 0.8 large. These describe the mean difference in pooled SD units — they’re rough guides, not fixed rules. A "small" effect can still matter clinically, and a "large" one can be trivial, depending on what’s being measured and the stakes involved.';
+    } else if (kind === "rz"){
+      ttEls.effectGuide.innerHTML = '<b style="color:var(--ink);">Interpreting effect size r —</b> conventional benchmarks (Cohen, 1988, applied to correlation-scale effect sizes): |r| &lt; 0.1 negligible, 0.1–0.3 small, 0.3–0.5 medium, ≥ 0.5 large. This r (z divided by the square root of n) is a different quantity from the rank-biserial correlation reported for Mann–Whitney U — both are common, valid "r-family" effect sizes for rank-based tests, but they are not numerically the same statistic. As with Cohen’s d, these bands are rough guides, not fixed rules.';
     } else {
       ttEls.effectGuide.innerHTML = '<b style="color:var(--ink);">Interpreting rank-biserial r —</b> conventional benchmarks (Cohen, 1988, applied to correlation-scale effect sizes): |r| &lt; 0.1 negligible, 0.1–0.3 small, 0.3–0.5 medium, ≥ 0.5 large. As with Cohen’s d, these are rough guides, not fixed rules — the size that matters depends on context, not the label.';
     }
@@ -2783,7 +2786,7 @@
 
   function decideIndependentMethod(shA, shB, lev){
     if (isNaN(shA) || isNaN(shB)){
-      return { method: "welch", reason: "Not enough data in one or both groups to test normality (need n ≥ 3 each) — defaulting to Welch's t-test, the safer general-purpose choice." };
+      return { method: "welch", reason: "The normality check couldn't be run reliably on one or both groups (either fewer than 3 values, or more than Shapiro–Wilk's approximation supports) — defaulting to Welch's t-test, the safer general-purpose choice." };
     }
     if (shA < 0.05 || shB < 0.05){
       return { method: "mannwhitney", reason: "At least one group departs from normality (Shapiro–Wilk p < 0.05), so a rank-based test replaces the t-test." };
@@ -2799,7 +2802,7 @@
 
   function decidePairedMethod(shDiff){
     if (isNaN(shDiff)){
-      return { method: "pairedt", reason: "Not enough differences to test normality (need n ≥ 3) — defaulting to the paired t-test." };
+      return { method: "pairedt", reason: "The normality check couldn't be run reliably on the differences (either fewer than 3, or more than Shapiro–Wilk's approximation supports) — defaulting to the paired t-test." };
     }
     if (shDiff < 0.05){
       return { method: "wilcoxon", reason: "The differences depart from normality (Shapiro–Wilk p < 0.05), so the Wilcoxon signed-rank test replaces the paired t-test." };
@@ -2929,9 +2932,9 @@
         ttEls.p.textContent = fmtP(wres.p);
         ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(wres.p));
         ttEls.cohenD.textContent = fmtNum(wres.r, 2);
-        ttEls.cohenDNote.textContent = "matched-pairs rank-biserial correlation" +
-          (wres.n < diffs.length ? " (" + (diffs.length - wres.n) + " zero difference(s) dropped)" : "");
-        renderEffectMagnitude(wres.r, "r");
+        ttEls.cohenDNote.textContent = "effect size r (z / √n) — not the same statistic as rank-biserial correlation" +
+          (wres.n < diffs.length ? "; " + (diffs.length - wres.n) + " zero difference(s) dropped" : "");
+        renderEffectMagnitude(wres.r, "rz");
       } else {
         var dSd = sampleSd(diffs);
         if (dSd === 0){
@@ -3036,7 +3039,11 @@
   function shapiroWilk(values){
     var x = values.slice().sort(function(a, b){ return a - b; });
     var n = x.length;
-    if (n < 3) return { W: NaN, p: NaN };
+    if (n < 3) return { W: NaN, p: NaN, tooSmall: true };
+    // Royston's (1995) approximation (the polynomial coefficients used below) is documented and validated
+    // for 3-5000 observations; past that, the p-value approximation is no longer reliable, so this returns
+    // NaN rather than silently presenting a number outside the range it was derived for.
+    if (n > 5000) return { W: NaN, p: NaN, tooLarge: true };
 
     var m = new Array(n), i;
     for (i = 1; i <= n; i++) m[i-1] = qnorm((i - 0.375) / (n + 0.25));
@@ -3137,6 +3144,8 @@
       stats.className = "norm-stats";
       if (g.arr.length < 3){
         stats.innerHTML = '<span class="norm-stat">Need at least 3 values for a normality check.</span>';
+      } else if (g.arr.length > 5000){
+        stats.innerHTML = '<span class="norm-stat">Shapiro–Wilk\'s p-value approximation is only validated for up to 5,000 observations (n = ' + g.arr.length + ') — not shown here to avoid presenting an unreliable number. With a sample this large, even trivial departures from normality tend to be statistically significant anyway.</span>';
       } else {
         var r = shapiroWilk(g.arr);
         stats.innerHTML =
@@ -3430,7 +3439,9 @@
 
       var stats = document.createElement("div");
       stats.className = "norm-stats";
-      if (isNaN(pVal)){
+      if (isNaN(pVal) && n > 5000){
+        stats.innerHTML = '<span class="norm-stat">Shapiro–Wilk\'s p-value approximation is only validated for up to 5,000 observations (n = ' + n + ') — not shown here to avoid presenting an unreliable number.</span>';
+      } else if (isNaN(pVal)){
         stats.innerHTML = '<span class="norm-stat">Not enough data.</span>';
       } else {
         stats.innerHTML =
@@ -4453,6 +4464,12 @@
     var ni = groups.map(function(g){ return g.length; });
     var mi = groups.map(mean);
     var vi = groups.map(sampleVariance);
+    // Welch's ANOVA weights each group by ni/vi — a group with zero variance (every value identical,
+    // realistic with small clinical samples) gives an infinite weight, which cascades to NaN throughout.
+    // Detect this explicitly rather than silently returning NaN/Infinity to the caller.
+    if (vi.some(function(v){ return v === 0; })){
+      return { F: NaN, df1: k - 1, df2: NaN, p: NaN, zeroVariance: true };
+    }
     var wi = ni.map(function(n, i){ return n / vi[i]; });
     var W = wi.reduce(function(s, v){ return s + v; }, 0);
     var xbarw = wi.reduce(function(s, w, i){ return s + w * mi[i]; }, 0) / W;
@@ -4463,7 +4480,7 @@
     var df1 = k - 1;
     var df2 = (k * k - 1) / (3 * A);
     var p = fPValue(F, df1, df2);
-    return { F: F, df1: df1, df2: df2, p: p };
+    return { F: F, df1: df1, df2: df2, p: p, zeroVariance: false };
   }
 
   function kruskalWallis(groups){
@@ -4670,13 +4687,19 @@
     }).join("");
   }
 
-  function decideAnovaMethod(shapiroPs, levResult, boxCoxResult, transformShapiroPs, canTransform){
+  function decideAnovaMethod(shapiroPs, levResult, boxCoxResult, transformShapiroPs, canTransform, hasZeroVariance){
     var haveNormality = shapiroPs.every(function(p){ return !isNaN(p); });
     var allNormal = haveNormality && shapiroPs.every(function(p){ return p >= 0.05; });
     var equalVar = !isNaN(levResult.p) && levResult.p >= 0.05;
 
+    // Welch's ANOVA weights each group by 1/variance — a group with zero variance (every value identical)
+    // makes that weight infinite, so Welch's ANOVA (and the Box–Cox transform, which preserves a group
+    // being constant) can't be used here regardless of what the normality/variance checks otherwise say.
+    if (hasZeroVariance){
+      return { method: "kruskal", reason: "At least one group has zero variance (every value identical), which Welch's ANOVA can't handle (it weights each group by 1/variance) — the Kruskal–Wallis test doesn't have this problem." };
+    }
     if (!haveNormality){
-      return { method: "welch", reason: "Not enough data in one or more groups to test normality (need n ≥ 3 each) — defaulting to Welch's ANOVA, the safer general-purpose choice." };
+      return { method: "welch", reason: "The normality check couldn't be run reliably on one or more groups (either fewer than 3 values, or more than Shapiro–Wilk's approximation supports) — defaulting to Welch's ANOVA, the safer general-purpose choice." };
     }
     if (allNormal && equalVar){
       return { method: "anova", reason: "All groups are consistent with normality and Levene's test finds no evidence of unequal variances (p = " + fmtP(levResult.p) + ") — standard one-way ANOVA applies cleanly." };
@@ -4762,14 +4785,22 @@
       transformShapiroPs = transformedGroups.map(function(g){ return g.length >= 3 ? shapiroWilk(g).p : NaN; });
     }
 
+    var hasZeroVariance = rawArrays.some(function(g){ return sampleVariance(g) === 0; });
+
     var selected = anovaEls.methodSelect.value;
     var chosenMethod = selected, reason = "Manually selected.";
     if (selected === "auto"){
-      var decision = decideAnovaMethod(shapiroPs, lev, boxCox, transformShapiroPs, canTransform);
+      var decision = decideAnovaMethod(shapiroPs, lev, boxCox, transformShapiroPs, canTransform, hasZeroVariance);
       chosenMethod = decision.method;
       reason = decision.reason;
     }
     if (chosenMethod === "transform" && !canTransform) chosenMethod = "kruskal";
+    if ((chosenMethod === "welch" || chosenMethod === "transform") && hasZeroVariance){
+      anovaEls.error.hidden = false;
+      anovaEls.error.innerHTML = '<span class="dot"></span> Welch\'s ANOVA can\'t be calculated because at least one group has zero variance (every value identical) — try Kruskal–Wallis or standard ANOVA instead.';
+      clearAnovaResults();
+      return;
+    }
     anovaEls.methodReason.innerHTML = '<b style="color:var(--ink);">Why this method —</b> ' + escapeXml(reason);
 
     var usingTransform = chosenMethod === "transform";
@@ -6466,14 +6497,38 @@
     return mlState.targetMeta.categories.indexOf(rawValue);
   }
 
-  function mlSplitTrainTest(rows, trainFraction){
-    var shuffled = rows.slice();
+  function mlShuffle(arr){
+    var shuffled = arr.slice();
     for (var i = shuffled.length - 1; i > 0; i--){
       var j = Math.floor(Math.random() * (i + 1));
       var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
     }
-    var splitIdx = Math.round(shuffled.length * trainFraction);
-    return { train: shuffled.slice(0, splitIdx), test: shuffled.slice(splitIdx) };
+    return shuffled;
+  }
+  function mlSplitTrainTest(rows, trainFraction, stratifyCol){
+    if (!stratifyCol){
+      var shuffled = mlShuffle(rows);
+      var splitIdx = Math.round(shuffled.length * trainFraction);
+      return { train: shuffled.slice(0, splitIdx), test: shuffled.slice(splitIdx) };
+    }
+    // Stratified split: split within each class separately, then combine — so the train/test class
+    // proportions both track the overall class balance, rather than a single random shuffle risking
+    // a rare class landing (by chance) almost entirely in one side or the other.
+    var groups = {};
+    rows.forEach(function(r){
+      var key = r[stratifyCol];
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    });
+    var train = [], test = [];
+    Object.keys(groups).forEach(function(key){
+      var g = mlShuffle(groups[key]);
+      var idx = Math.round(g.length * trainFraction);
+      if (g.length >= 2) idx = Math.min(g.length - 1, Math.max(1, idx));
+      train = train.concat(g.slice(0, idx));
+      test = test.concat(g.slice(idx));
+    });
+    return { train: mlShuffle(train), test: mlShuffle(test) };
   }
 
   /* --- Classical models --- */
@@ -6744,10 +6799,27 @@
       nnModel.compile({ optimizer: tf.train.adam(lr), loss: built.loss });
 
       var n = X.length;
-      var idx = []; for (var ii = 0; ii < n; ii++) idx.push(ii);
-      for (var i = n - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)); var t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
-      var valCount = Math.max(1, Math.round(n * 0.2));
-      var valIdx = idx.slice(0, valCount), subIdx = idx.slice(valCount);
+      var valIdx, subIdx;
+      if (task === "regression"){
+        var idx = []; for (var ii = 0; ii < n; ii++) idx.push(ii);
+        for (var i = n - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)); var t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
+        var valCount = Math.max(1, Math.round(n * 0.2));
+        valIdx = idx.slice(0, valCount); subIdx = idx.slice(valCount);
+      } else {
+        // Stratified by class, same rationale as the outer train/test split: a plain shuffle risks a rare
+        // class landing almost entirely in the validation slice (or missing from training altogether).
+        var byClass = {};
+        for (ii = 0; ii < n; ii++){ (byClass[y[ii]] = byClass[y[ii]] || []).push(ii); }
+        valIdx = []; subIdx = [];
+        Object.keys(byClass).forEach(function(key){
+          var g = byClass[key].slice();
+          for (var s = g.length - 1; s > 0; s--){ var r = Math.floor(Math.random() * (s + 1)); var tmp = g[s]; g[s] = g[r]; g[r] = tmp; }
+          var vCount = Math.max(1, Math.round(g.length * 0.2));
+          if (g.length >= 2) vCount = Math.min(g.length - 1, vCount);
+          valIdx = valIdx.concat(g.slice(0, vCount));
+          subIdx = subIdx.concat(g.slice(vCount));
+        });
+      }
       var subX = subIdx.map(function(k){ return X[k]; }), subY = subIdx.map(function(k){ return y[k]; });
       var valX = valIdx.map(function(k){ return X[k]; }), valY = valIdx.map(function(k){ return y[k]; });
 
@@ -7034,7 +7106,9 @@
     mlHideResultCards();
 
     var trainFraction = Number(mlEls.splitSlider.value) / 100;
-    var split = mlSplitTrainTest(mlState.rows, trainFraction);
+    var targetColForSplit = mlState.columns.filter(function(c){ return mlState.schema[c].role === "target"; })[0];
+    var isClassificationTask = mlState.schema[targetColForSplit].type !== "numeric";
+    var split = mlSplitTrainTest(mlState.rows, trainFraction, isClassificationTask ? targetColForSplit : null);
     mlBuildPreprocessing(split.train, mlState.rows);
 
     var numClasses = mlState.targetMeta.categories ? mlState.targetMeta.categories.length : null;
