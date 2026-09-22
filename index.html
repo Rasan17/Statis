@@ -601,6 +601,7 @@
     color:var(--ink);font:12px "IBM Plex Sans",sans-serif;padding:5px 7px;
   }
   table.pivot-schema td.col-meta{font-size:11px;color:var(--ink-soft);font-family:"IBM Plex Mono",monospace;}
+  table.pivot-schema tr.pivot-row-meta{opacity:0.55;}
 
   .pivot-cat-filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
   .pivot-cat-pill{
@@ -815,7 +816,7 @@
     <div class="card-head">
       <div><p class="eyebrow">Step 2</p><h2>Variable types</h2></div>
     </div>
-    <p class="data-hint" style="margin-bottom:12px;">Columns that parse cleanly as numbers default to <b style="color:var(--ink);">Continuous</b>; everything else defaults to <b style="color:var(--ink);">Nominal</b>. Override any of these — for example, a numeric-coded stage or grade is usually <b style="color:var(--ink);">Ordinal</b>, not Continuous.</p>
+    <p class="data-hint" style="margin-bottom:12px;">Columns that parse cleanly as numbers default to <b style="color:var(--ink);">Continuous</b>; everything else defaults to <b style="color:var(--ink);">Nominal</b>. Override any of these — for example, a numeric-coded stage or grade is usually <b style="color:var(--ink);">Ordinal</b>, not Continuous. Mark identifiers, chart numbers, or free-text notes as <b style="color:var(--ink);">Meta / ID</b> to keep them out of the summary and pivot builder below.</p>
     <div class="table-wrap">
       <table class="pivot-schema">
         <thead><tr><th>Column</th><th>Type</th><th>Summary</th></tr></thead>
@@ -7297,10 +7298,11 @@
 
   function pivotPopulateSingleVarSelect(){
     var currentVal = pivotEls.singleVarSelect.value;
-    pivotEls.singleVarSelect.innerHTML = pivotState.columns.map(function(c){
+    var options = pivotState.columns.filter(function(c){ return pivotState.types[c] !== "meta"; });
+    pivotEls.singleVarSelect.innerHTML = options.map(function(c){
       return '<option value="' + escapeXml(c) + '">' + escapeXml(c) + '</option>';
     }).join("");
-    if (pivotState.columns.indexOf(currentVal) >= 0) pivotEls.singleVarSelect.value = currentVal;
+    if (options.indexOf(currentVal) >= 0) pivotEls.singleVarSelect.value = currentVal;
   }
 
   function pivotRenderSchemaTable(){
@@ -7310,16 +7312,19 @@
       var type = pivotState.types[c];
       var values = pivotState.rows.map(function(r){ return r[c]; });
       var tr = document.createElement("tr");
+      tr.className = type === "meta" ? "pivot-row-meta" : "";
       tr.innerHTML =
         '<td class="col-name">' + escapeXml(c) + '</td>' +
         '<td><select class="pivot-type-select">' +
           '<option value="continuous"' + (type === "continuous" ? " selected" : "") + '>Continuous</option>' +
           '<option value="ordinal"' + (type === "ordinal" ? " selected" : "") + '>Ordinal</option>' +
           '<option value="nominal"' + (type === "nominal" ? " selected" : "") + '>Nominal</option>' +
+          '<option value="meta"' + (type === "meta" ? " selected" : "") + '>Meta / ID</option>' +
         '</select></td>' +
         '<td class="col-meta">' + escapeXml(pivotColumnSummary(c, values, type)) + '</td>';
       tr.querySelector(".pivot-type-select").addEventListener("change", function(e){
         pivotState.types[c] = e.target.value;
+        tr.className = e.target.value === "meta" ? "pivot-row-meta" : "";
         tr.querySelector(".col-meta").textContent = pivotColumnSummary(c, values, e.target.value);
         pivotPopulateSingleVarSelect();
         pivotPopulateRowColSelects();
