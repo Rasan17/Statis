@@ -1947,6 +1947,111 @@
     </details>
   </section>
 
+  <section class="card">
+    <p class="eyebrow">New module</p>
+    <h2>Unsupervised learning (clustering)</h2>
+    <p class="data-hint" style="margin-top:8px;">Upload a separate dataset (no target/outcome needed) and group similar rows together automatically. This runs independently of the supervised workflow above — it has its own data, its own feature choices, and its own results.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 1</p><h2>Data</h2></div>
+      <div class="btn-row">
+        <span class="ghost-btn file-btn">Upload CSV<input type="file" id="unsFileInput" accept=".csv,.txt,.tsv"></span>
+        <button class="ghost-btn" id="unsPasteToggleBtn" type="button">Paste CSV</button>
+      </div>
+    </div>
+    <div id="unsPasteWrap" hidden style="margin-bottom:14px;">
+      <textarea id="unsPasteArea" rows="6" style="width:100%;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font:13px/1.5 'IBM Plex Mono',monospace;padding:10px 12px;resize:vertical;" placeholder="Paste CSV text here, first row as header…"></textarea>
+      <button class="primary-btn" id="unsPasteLoadBtn" type="button" style="margin-top:8px;">Load pasted data</button>
+    </div>
+    <div class="dropzone" id="unsDropzone">Drag and drop a CSV file here — first row is treated as the header.</div>
+    <div class="assumption warn" id="unsDataError" hidden style="margin-top:14px;"></div>
+    <div id="unsDataSummary" style="margin-top:14px;"></div>
+    <div class="ml-preview-wrap" id="unsPreviewWrap" style="margin-top:10px;" hidden>
+      <table class="ml-preview" id="unsPreviewTable"></table>
+    </div>
+    <p class="data-hint" id="unsPreviewCaption" style="margin-top:6px;"></p>
+  </section>
+
+  <section class="card" id="unsSchemaCard" hidden>
+    <div class="card-head">
+      <div><p class="eyebrow">Step 2</p><h2>Features to cluster on</h2></div>
+    </div>
+    <p class="data-hint" style="margin-bottom:12px;">Choose at least 2 <b style="color:var(--ink);">Feature</b> columns to cluster on. Numeric features are standardized (z-score); categorical features are one-hot encoded. Mark identifiers or notes as <b style="color:var(--ink);">Ignore</b>.</p>
+    <div class="table-wrap">
+      <table class="ml-schema">
+        <thead><tr><th>Column</th><th>Role</th><th>Data type</th><th>Summary</th></tr></thead>
+        <tbody id="unsSchemaBody"></tbody>
+      </table>
+    </div>
+    <div class="assumption warn" id="unsSchemaError" hidden style="margin-top:14px;"></div>
+  </section>
+
+  <section class="card" id="unsClusterCard" hidden>
+    <div class="card-head">
+      <div><p class="eyebrow">Step 3</p><h2>Number of groups</h2></div>
+    </div>
+    <div class="ml-task-badge" id="unsSuggestedBadge"></div>
+    <div id="unsSilhouetteChart"></div>
+    <div class="ml-hp-grid" style="margin-top:14px;">
+      <div class="ml-hp-field" style="grid-column:1/-1;">
+        <label for="unsKSlider">Number of groups (k)</label>
+        <input type="range" class="ml-slider" id="unsKSlider" min="2" max="10" step="1" value="2">
+        <div class="ml-hp-value" id="unsKValue">2</div>
+      </div>
+    </div>
+    <button class="primary-btn" id="unsRunBtn" type="button" style="margin-top:16px;">Create groups</button>
+    <div class="assumption warn" id="unsRunError" hidden style="margin-top:14px;"></div>
+  </section>
+
+  <section class="card" id="unsResultsCard" hidden>
+    <p class="eyebrow">Results</p>
+    <h2 id="unsResultsTitle">Groups</h2>
+    <div id="unsClusterSizes"></div>
+    <div style="margin-top:18px;">
+      <p class="data-hint" style="margin-bottom:8px;font-weight:600;color:var(--ink);">Group profile (mean feature values)</p>
+      <div class="table-wrap"><table class="life-table" id="unsProfileTable"></table></div>
+    </div>
+    <div id="unsScatterSection" style="margin-top:18px;" hidden>
+      <p class="data-hint" style="margin-bottom:8px;font-weight:600;color:var(--ink);">Scatter plot</p>
+      <div id="unsScatterPlot"></div>
+    </div>
+    <div class="stat-row" style="margin-top:16px;"><span class="stat-label">Silhouette score</span><span class="stat-value" id="unsSilhouetteAchieved">—</span></div>
+  </section>
+
+  <section class="card" id="unsPlaygroundCard" hidden>
+    <p class="eyebrow">Live assignment</p>
+    <h2>Which group does this belong to?</h2>
+    <div class="ml-playground-grid" id="unsPlaygroundInputs"></div>
+    <button class="primary-btn" id="unsAssignBtn" type="button" style="margin-top:16px;">Assign to a group</button>
+    <div id="unsAssignmentResult" style="margin-top:16px;"></div>
+  </section>
+
+  <section class="card" id="unsBatchCard" hidden>
+    <div class="card-head">
+      <div><p class="eyebrow">Batch assignment</p><h2>Group a CSV file</h2></div>
+      <span class="ghost-btn file-btn">Upload CSV<input type="file" id="unsBatchCsvInput" accept=".csv,.txt"></span>
+    </div>
+    <p class="data-hint">Upload a CSV with the same feature columns. A Group column is appended to every row and offered as a download.</p>
+    <div class="assumption warn" id="unsBatchError" hidden style="margin-top:14px;"></div>
+    <div id="unsBatchResult" style="margin-top:10px;"></div>
+  </section>
+
+  <section class="card">
+    <details class="info-box">
+      <summary>How it's computed</summary>
+      <div class="info-body">
+        <p><b>Algorithm —</b> k-means clustering: starting from k initial centroids chosen by the k-means++ scheme (spread out rather than picked purely at random, which reliably gives a better starting point), each row is repeatedly assigned to its nearest centroid (Euclidean distance, on standardized/encoded features) and each centroid recomputed as the mean of its assigned rows, until assignments stop changing. To avoid a poor result from an unlucky starting point, this runs 10 times from different random starts and keeps the run with the lowest within-cluster sum of squares (inertia) — validated by confirming this substantially reduces the worst-case outcome compared to a single run on deliberately awkward (uneven, overlapping) synthetic data.</p>
+        <p><b>Suggested number of groups —</b> k-means is run for every k from 2 up to min(10, n−1), and each is scored with the average silhouette coefficient — for every row, how much closer it is to its own group than to the next-nearest one, averaged across all rows and ranging from −1 (likely misclassified) to +1 (clearly the right group). The k with the highest average silhouette is suggested, but you can override it with the slider — there's no single "correct" number of groups in unsupervised learning, only a statistical suggestion.</p>
+        <p><b>Preprocessing —</b> the same as the supervised module: numeric features are z-score standardized, categorical features are one-hot encoded, both using statistics from the uploaded dataset. A category seen only in the playground or a batch file that wasn't in the original data is encoded as all-zero.</p>
+        <p><b>Group profile —</b> the mean of each feature within each group, on its original scale (un-standardized) — a quick way to see what distinguishes one group from another.</p>
+        <p><b>Assigning new data —</b> a new row (from the playground or a batch file) is assigned to whichever centroid it's closest to, using the same standardization learned from the original data. There's no "confidence" in the way a classifier has one — the relative distances to each centroid are shown instead, as a sense of how clear-cut the assignment is.</p>
+        <p><b>Limitations —</b> k-means assumes groups are roughly round and similarly sized in the standardized feature space, and can be misled by features that aren't actually meaningful for grouping — the choice of which features to include matters as much as the algorithm itself. There's no ground truth to check a clustering against, unlike the supervised module's held-out test set: these groups describe structure in the data, not a validated prediction.</p>
+      </div>
+    </details>
+  </section>
+
   </div>
 
   <footer class="notes">
@@ -7836,6 +7941,596 @@
     pivotRenderPivotAndTest();
   });
   pivotEls.displayMode.addEventListener("change", pivotRenderPivotAndTest);
+
+  /* ===================== Unsupervised learning (clustering) ===================== */
+
+  var unsState = {
+    columns: [], rows: [], schema: {},
+    featureCols: [], featureMeta: {},
+    X: [], model: null
+  };
+
+  var unsEls = {
+    fileInput: document.getElementById("unsFileInput"),
+    pasteToggleBtn: document.getElementById("unsPasteToggleBtn"),
+    pasteWrap: document.getElementById("unsPasteWrap"),
+    pasteArea: document.getElementById("unsPasteArea"),
+    pasteLoadBtn: document.getElementById("unsPasteLoadBtn"),
+    dropzone: document.getElementById("unsDropzone"),
+    dataError: document.getElementById("unsDataError"),
+    dataSummary: document.getElementById("unsDataSummary"),
+    previewWrap: document.getElementById("unsPreviewWrap"),
+    previewTable: document.getElementById("unsPreviewTable"),
+    previewCaption: document.getElementById("unsPreviewCaption"),
+    schemaCard: document.getElementById("unsSchemaCard"),
+    schemaBody: document.getElementById("unsSchemaBody"),
+    schemaError: document.getElementById("unsSchemaError"),
+    clusterCard: document.getElementById("unsClusterCard"),
+    suggestedBadge: document.getElementById("unsSuggestedBadge"),
+    silhouetteChart: document.getElementById("unsSilhouetteChart"),
+    kSlider: document.getElementById("unsKSlider"),
+    kValue: document.getElementById("unsKValue"),
+    runBtn: document.getElementById("unsRunBtn"),
+    runError: document.getElementById("unsRunError"),
+    resultsCard: document.getElementById("unsResultsCard"),
+    resultsTitle: document.getElementById("unsResultsTitle"),
+    clusterSizes: document.getElementById("unsClusterSizes"),
+    profileTable: document.getElementById("unsProfileTable"),
+    scatterSection: document.getElementById("unsScatterSection"),
+    scatterPlot: document.getElementById("unsScatterPlot"),
+    silhouetteAchieved: document.getElementById("unsSilhouetteAchieved"),
+    playgroundCard: document.getElementById("unsPlaygroundCard"),
+    playgroundInputs: document.getElementById("unsPlaygroundInputs"),
+    assignBtn: document.getElementById("unsAssignBtn"),
+    assignmentResult: document.getElementById("unsAssignmentResult"),
+    batchCard: document.getElementById("unsBatchCard"),
+    batchCsvInput: document.getElementById("unsBatchCsvInput"),
+    batchError: document.getElementById("unsBatchError"),
+    batchResult: document.getElementById("unsBatchResult")
+  };
+
+  function unsDefaultSchema(columns, rows){
+    var schema = {};
+    columns.forEach(function(c){
+      var values = rows.map(function(r){ return r[c]; });
+      var type = mlInferColumnType(values);
+      var isLikelyId = /(^id$|_id$|id$)/i.test(c) && mlUnique(values).length === rows.length;
+      schema[c] = { role: isLikelyId ? "ignore" : "feature", type: type };
+    });
+    return schema;
+  }
+
+  function unsColumnSummary(values, type){
+    var nonEmpty = values.filter(function(v){ return v !== ""; });
+    if (type === "numeric"){
+      var nums = nonEmpty.map(Number).filter(isFinite);
+      if (nums.length === 0) return "no numeric values";
+      return nums.length + " values, mean " + fmtNum(mean(nums), 2) + ", range " + fmtNum(Math.min.apply(null, nums), 1) + "–" + fmtNum(Math.max.apply(null, nums), 1);
+    }
+    var distinct = mlUnique(nonEmpty);
+    if (type === "binary") return distinct.length + " value(s): " + distinct.slice(0, 2).join(" / ");
+    return distinct.length + " categories: " + distinct.slice(0, 4).join(", ") + (distinct.length > 4 ? ", …" : "");
+  }
+
+  function unsHideDownstream(){
+    unsEls.clusterCard.hidden = true;
+    unsEls.resultsCard.hidden = true;
+    unsEls.playgroundCard.hidden = true;
+    unsEls.batchCard.hidden = true;
+    unsState.model = null;
+  }
+
+  function unsRenderSchemaTable(){
+    var tbody = unsEls.schemaBody;
+    tbody.innerHTML = "";
+    unsState.columns.forEach(function(c){
+      var s = unsState.schema[c];
+      var values = unsState.rows.map(function(r){ return r[c]; });
+      var tr = document.createElement("tr");
+      tr.className = "role-" + s.role;
+      tr.innerHTML =
+        '<td class="col-name">' + escapeXml(c) + '</td>' +
+        '<td><select class="uns-role-select">' +
+          '<option value="feature"' + (s.role === "feature" ? " selected" : "") + '>Feature</option>' +
+          '<option value="ignore"' + (s.role === "ignore" ? " selected" : "") + '>Ignore</option>' +
+        '</select></td>' +
+        '<td><select class="uns-type-select">' +
+          '<option value="numeric"' + (s.type === "numeric" ? " selected" : "") + '>Numeric</option>' +
+          '<option value="categorical"' + (s.type === "categorical" ? " selected" : "") + '>Categorical</option>' +
+          '<option value="binary"' + (s.type === "binary" ? " selected" : "") + '>Binary</option>' +
+        '</select></td>' +
+        '<td class="col-meta">' + escapeXml(unsColumnSummary(values, s.type)) + '</td>';
+      tr.querySelector(".uns-role-select").addEventListener("change", function(e){
+        unsState.schema[c].role = e.target.value;
+        tr.className = "role-" + e.target.value;
+        unsHideDownstream();
+        unsUpdateSuggestedK();
+      });
+      tr.querySelector(".uns-type-select").addEventListener("change", function(e){
+        unsState.schema[c].type = e.target.value;
+        tr.querySelector(".col-meta").textContent = unsColumnSummary(values, e.target.value);
+        unsHideDownstream();
+        unsUpdateSuggestedK();
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function unsValidateSchema(){
+    var features = unsState.columns.filter(function(c){ return unsState.schema[c].role === "feature"; });
+    if (features.length < 2) return { ok: false, message: "Choose at least 2 Feature columns to cluster on." };
+    return { ok: true, message: "" };
+  }
+
+  function unsRenderPreview(columns, rows){
+    var previewLimit = 50;
+    var preview = rows.slice(0, previewLimit);
+    var thead = "<thead><tr>" + columns.map(function(c){ return "<th>" + escapeXml(c) + "</th>"; }).join("") + "</tr></thead>";
+    var tbody = "<tbody>" + preview.map(function(r){
+      return "<tr>" + columns.map(function(c){ return "<td>" + escapeXml(r[c]) + "</td>"; }).join("") + "</tr>";
+    }).join("") + "</tbody>";
+    unsEls.previewTable.innerHTML = thead + tbody;
+    unsEls.previewWrap.hidden = false;
+    unsEls.previewCaption.textContent = rows.length > previewLimit
+      ? "Showing " + previewLimit + " of " + rows.length + " rows — scroll to see more, and scroll right for all columns."
+      : "Scroll right to see all columns.";
+  }
+
+  function unsLoadDataset(columns, rows){
+    unsState.columns = columns;
+    unsState.rows = rows;
+    unsState.schema = unsDefaultSchema(columns, rows);
+    unsEls.dataError.hidden = true;
+    unsEls.dataSummary.innerHTML = '<span class="ml-task-badge">' + rows.length + ' rows × ' + columns.length + ' columns</span>';
+    unsRenderPreview(columns, rows);
+    unsEls.schemaCard.hidden = false;
+    unsRenderSchemaTable();
+    unsHideDownstream();
+    unsUpdateSuggestedK();
+  }
+
+  function unsHandleCsvText(text){
+    var result = mlCsvToObjects(text);
+    if (result.error || result.columns.length === 0){
+      unsEls.dataError.hidden = false;
+      unsEls.dataError.innerHTML = '<span class="dot"></span> ' + (result.error || "Could not parse this file as CSV.");
+      return;
+    }
+    unsLoadDataset(result.columns, result.rows);
+  }
+
+  unsEls.fileInput.addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){ unsHandleCsvText(String(reader.result)); };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+  unsEls.pasteToggleBtn.addEventListener("click", function(){ unsEls.pasteWrap.hidden = !unsEls.pasteWrap.hidden; });
+  unsEls.pasteLoadBtn.addEventListener("click", function(){
+    if (!unsEls.pasteArea.value.trim()) return;
+    unsHandleCsvText(unsEls.pasteArea.value);
+    unsEls.pasteWrap.hidden = true;
+  });
+  ["dragenter", "dragover"].forEach(function(evt){
+    unsEls.dropzone.addEventListener(evt, function(e){ e.preventDefault(); unsEls.dropzone.classList.add("dragover"); });
+  });
+  ["dragleave", "drop"].forEach(function(evt){
+    unsEls.dropzone.addEventListener(evt, function(e){ e.preventDefault(); unsEls.dropzone.classList.remove("dragover"); });
+  });
+  unsEls.dropzone.addEventListener("drop", function(e){
+    var file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){ unsHandleCsvText(String(reader.result)); };
+    reader.readAsText(file);
+  });
+
+  /* --- Preprocessing (mirrors the supervised module) --- */
+
+  function unsBuildPreprocessing(){
+    var featureCols = unsState.columns.filter(function(c){ return unsState.schema[c].role === "feature"; });
+    var featureMeta = {};
+    featureCols.forEach(function(c){
+      var type = unsState.schema[c].type;
+      var vals = unsState.rows.map(function(r){ return r[c]; });
+      if (type === "numeric"){
+        var nums = vals.map(Number).filter(isFinite);
+        var m = nums.length ? mean(nums) : 0;
+        var sd = nums.length ? Math.sqrt(nums.reduce(function(s, v){ return s + (v - m) * (v - m); }, 0) / nums.length) : 1;
+        featureMeta[c] = { type: "numeric", mean: m, sd: sd || 1, sampleMin: nums.length ? Math.min.apply(null, nums) : 0, sampleMax: nums.length ? Math.max.apply(null, nums) : 1 };
+      } else if (type === "binary"){
+        featureMeta[c] = { type: "binary", categories: mlUnique(vals.filter(function(v){ return v !== ""; })).slice(0, 2) };
+      } else {
+        featureMeta[c] = { type: "categorical", categories: mlUnique(vals.filter(function(v){ return v !== ""; })) };
+      }
+    });
+    unsState.featureCols = featureCols;
+    unsState.featureMeta = featureMeta;
+  }
+
+  function unsEncodeRow(rawRow){
+    var vec = [];
+    unsState.featureCols.forEach(function(c){
+      var meta = unsState.featureMeta[c];
+      var raw = rawRow[c];
+      if (meta.type === "numeric"){
+        var v = Number(raw);
+        if (!isFinite(v)) v = meta.mean;
+        vec.push((v - meta.mean) / meta.sd);
+      } else if (meta.type === "binary"){
+        vec.push(raw === meta.categories[1] ? 1 : 0);
+      } else {
+        meta.categories.forEach(function(cat){ vec.push(raw === cat ? 1 : 0); });
+      }
+    });
+    return vec;
+  }
+
+  /* --- k-means engine (validated) --- */
+
+  function unsSquaredDist(a, b){
+    var s = 0;
+    for (var i = 0; i < a.length; i++){ var d = a[i] - b[i]; s += d * d; }
+    return s;
+  }
+
+  function unsKmeansPlusPlusInit(X, k){
+    var n = X.length;
+    var centroids = [X[Math.floor(Math.random() * n)].slice()];
+    while (centroids.length < k){
+      var distances = X.map(function(x){
+        var minDist = Infinity;
+        centroids.forEach(function(c){ var d = unsSquaredDist(x, c); if (d < minDist) minDist = d; });
+        return minDist;
+      });
+      var sum = distances.reduce(function(a, b){ return a + b; }, 0);
+      if (sum === 0){ centroids.push(X[Math.floor(Math.random() * n)].slice()); continue; }
+      var r = Math.random() * sum, cum = 0, idx = n - 1;
+      for (var i = 0; i < n; i++){ cum += distances[i]; if (cum >= r){ idx = i; break; } }
+      centroids.push(X[idx].slice());
+    }
+    return centroids;
+  }
+
+  function unsKmeansOnce(X, k, maxIter){
+    var p = X[0].length, n = X.length;
+    var centroids = unsKmeansPlusPlusInit(X, k);
+    var assignments = new Array(n).fill(-1);
+    for (var iter = 0; iter < maxIter; iter++){
+      var changed = false, i, c, j;
+      for (i = 0; i < n; i++){
+        var best = 0, bestDist = Infinity;
+        for (c = 0; c < k; c++){
+          var d = unsSquaredDist(X[i], centroids[c]);
+          if (d < bestDist){ bestDist = d; best = c; }
+        }
+        if (assignments[i] !== best){ assignments[i] = best; changed = true; }
+      }
+      var sums = [], counts = new Array(k).fill(0);
+      for (c = 0; c < k; c++) sums.push(new Array(p).fill(0));
+      for (i = 0; i < n; i++){
+        counts[assignments[i]]++;
+        for (j = 0; j < p; j++) sums[assignments[i]][j] += X[i][j];
+      }
+      var newCentroids = [];
+      for (c = 0; c < k; c++){
+        if (counts[c] === 0){ newCentroids.push(centroids[c]); continue; }
+        newCentroids.push(sums[c].map(function(s){ return s / counts[c]; }));
+      }
+      centroids = newCentroids;
+      if (!changed) break;
+    }
+    var inertia = 0;
+    for (i = 0; i < n; i++) inertia += unsSquaredDist(X[i], centroids[assignments[i]]);
+    return { centroids: centroids, assignments: assignments, inertia: inertia };
+  }
+
+  function unsKmeans(X, k, restarts){
+    var best = null;
+    for (var r = 0; r < restarts; r++){
+      var result = unsKmeansOnce(X, k, 100);
+      if (!best || result.inertia < best.inertia) best = result;
+    }
+    return best;
+  }
+
+  function unsSilhouetteScore(X, assignments, k){
+    var n = X.length;
+    if (k < 2 || k >= n) return NaN;
+    var total = 0;
+    for (var i = 0; i < n; i++){
+      var ci = assignments[i];
+      var sameSum = 0, sameCount = 0;
+      var otherSums = {}, otherCounts = {};
+      for (var j = 0; j < n; j++){
+        if (i === j) continue;
+        var d = Math.sqrt(unsSquaredDist(X[i], X[j]));
+        if (assignments[j] === ci){ sameSum += d; sameCount++; }
+        else {
+          otherSums[assignments[j]] = (otherSums[assignments[j]] || 0) + d;
+          otherCounts[assignments[j]] = (otherCounts[assignments[j]] || 0) + 1;
+        }
+      }
+      var a = sameCount > 0 ? sameSum / sameCount : 0;
+      var bValues = Object.keys(otherSums).map(function(key){ return otherSums[key] / otherCounts[key]; });
+      var b = bValues.length > 0 ? Math.min.apply(null, bValues) : 0;
+      var s = sameCount === 0 ? 0 : (b - a) / Math.max(a, b);
+      total += isFinite(s) ? s : 0;
+    }
+    return total / n;
+  }
+
+  /* --- k suggestion & rendering --- */
+
+  var UNS_SILHOUETTE_N_CAP = 1000;
+
+  function unsUpdateSuggestedK(){
+    var v = unsValidateSchema();
+    unsEls.schemaError.hidden = v.ok;
+    if (!v.ok){ unsEls.schemaError.innerHTML = '<span class="dot"></span> ' + v.message; unsEls.clusterCard.hidden = true; return; }
+    unsEls.schemaError.hidden = true;
+    unsBuildPreprocessing();
+    unsState.X = unsState.rows.map(unsEncodeRow);
+    var n = unsState.X.length;
+    unsEls.clusterCard.hidden = false;
+
+    var maxK = Math.min(10, n - 1);
+    if (maxK < 2){
+      unsEls.suggestedBadge.textContent = "Not enough rows to cluster.";
+      unsEls.silhouetteChart.innerHTML = "";
+      unsEls.kSlider.disabled = true;
+      return;
+    }
+    unsEls.kSlider.disabled = false;
+    unsEls.kSlider.max = maxK;
+
+    if (n > UNS_SILHOUETTE_N_CAP){
+      unsEls.suggestedBadge.textContent = n + " rows — automatic suggestion skipped above " + UNS_SILHOUETTE_N_CAP + " rows for performance. Choose k manually.";
+      unsEls.silhouetteChart.innerHTML = "";
+      unsEls.kSlider.value = Math.min(3, maxK);
+      unsEls.kValue.textContent = unsEls.kSlider.value;
+      return;
+    }
+
+    var scores = [];
+    for (var k = 2; k <= maxK; k++){
+      var result = unsKmeans(unsState.X, k, 5);
+      scores.push({ k: k, silhouette: unsSilhouetteScore(unsState.X, result.assignments, k) });
+    }
+    var best = scores.reduce(function(a, b){ return b.silhouette > a.silhouette ? b : a; }, scores[0]);
+    unsEls.suggestedBadge.textContent = "Suggested number of groups: " + best.k + " (highest average silhouette score, " + fmtNum(best.silhouette, 3) + ")";
+    unsEls.kSlider.value = best.k;
+    unsEls.kValue.textContent = best.k;
+    unsRenderSilhouetteChart(scores, best.k);
+  }
+
+  function unsRenderSilhouetteChart(scores, bestK){
+    var maxScore = Math.max.apply(null, scores.map(function(s){ return Math.max(0, s.silhouette); })) || 1;
+    var html = '<p class="data-hint" style="margin:14px 0 6px;">Silhouette score by number of groups</p>';
+    scores.forEach(function(s){
+      var pct = Math.max(0, s.silhouette) / maxScore * 100;
+      html += '<div class="pivot-bar-row"><span class="pivot-bar-label">k = ' + s.k + (s.k === bestK ? " ★" : "") + '</span>' +
+        '<span class="pivot-bar-track"><span class="pivot-bar-fill" style="width:' + pct + '%;' + (s.k === bestK ? 'background:var(--accent2);' : '') + '"></span></span>' +
+        '<span class="pivot-bar-value">' + fmtNum(s.silhouette, 3) + '</span></div>';
+    });
+    unsEls.silhouetteChart.innerHTML = html;
+  }
+
+  unsEls.kSlider.addEventListener("input", function(){ unsEls.kValue.textContent = unsEls.kSlider.value; });
+
+  /* --- Run clustering & render results --- */
+
+  function unsRunClustering(){
+    var v = unsValidateSchema();
+    if (!v.ok){ unsEls.runError.hidden = false; unsEls.runError.innerHTML = '<span class="dot"></span> ' + v.message; return; }
+    unsEls.runError.hidden = true;
+    unsBuildPreprocessing();
+    unsState.X = unsState.rows.map(unsEncodeRow);
+    var k = Number(unsEls.kSlider.value);
+    var n = unsState.X.length;
+    if (k >= n){ unsEls.runError.hidden = false; unsEls.runError.innerHTML = '<span class="dot"></span> Number of groups must be less than the number of rows.'; return; }
+
+    var result = unsKmeans(unsState.X, k, 15);
+    var silhouette = n <= UNS_SILHOUETTE_N_CAP ? unsSilhouetteScore(unsState.X, result.assignments, k) : NaN;
+    unsState.model = { k: k, centroids: result.centroids, assignments: result.assignments, silhouette: silhouette };
+
+    unsRenderClusterResults();
+    unsBuildPlayground();
+    unsEls.resultsCard.hidden = false;
+    unsEls.playgroundCard.hidden = false;
+    unsEls.batchCard.hidden = false;
+  }
+  unsEls.runBtn.addEventListener("click", unsRunClustering);
+
+  function unsClusterColor(idx){
+    var vars = ["--accent", "--accent2", "--accent3", "--accent4"];
+    return getComputedStyle(document.documentElement).getPropertyValue(vars[idx % vars.length]).trim();
+  }
+
+  function unsRenderClusterResults(){
+    var model = unsState.model, k = model.k, n = unsState.X.length;
+    unsEls.resultsTitle.textContent = k + " groups";
+    var counts = new Array(k).fill(0);
+    model.assignments.forEach(function(a){ counts[a]++; });
+    var sizesHtml = '<div class="qc-grid" style="grid-template-columns:repeat(' + Math.min(k, 5) + ',1fr);">';
+    for (var c = 0; c < k; c++){
+      sizesHtml += '<div class="qc-tile"><div class="qc-num" style="color:' + unsClusterColor(c) + ';">' + counts[c] + '</div><div class="qc-label">Group ' + (c + 1) + ' (' + fmtNum(counts[c] / n * 100, 1) + '%)</div></div>';
+    }
+    sizesHtml += '</div>';
+    unsEls.clusterSizes.innerHTML = sizesHtml;
+
+    var thead = '<thead><tr><th>Feature</th>';
+    for (c = 0; c < k; c++) thead += '<th>Group ' + (c + 1) + '</th>';
+    thead += '</tr></thead>';
+    var tbody = '<tbody>';
+    unsState.featureCols.forEach(function(colName){
+      var meta = unsState.featureMeta[colName];
+      tbody += '<tr><td>' + escapeXml(colName) + '</td>';
+      for (c = 0; c < k; c++){
+        var memberRows = unsState.rows.filter(function(r, i){ return model.assignments[i] === c; });
+        var cellText;
+        if (meta.type === "numeric"){
+          var nums = memberRows.map(function(r){ return Number(r[colName]); }).filter(isFinite);
+          cellText = nums.length ? fmtNum(mean(nums), 2) : "—";
+        } else {
+          var vals = memberRows.map(function(r){ return r[colName]; }).filter(function(v){ return v !== ""; });
+          if (vals.length === 0) cellText = "—";
+          else {
+            var counts2 = {};
+            vals.forEach(function(v){ counts2[v] = (counts2[v] || 0) + 1; });
+            var modeVal = Object.keys(counts2).reduce(function(a, b){ return counts2[b] > counts2[a] ? b : a; });
+            cellText = modeVal + " (" + fmtNum(counts2[modeVal] / vals.length * 100, 0) + "%)";
+          }
+        }
+        tbody += '<td>' + escapeXml(cellText) + '</td>';
+      }
+      tbody += '</tr>';
+    });
+    tbody += '</tbody>';
+    unsEls.profileTable.innerHTML = thead + tbody;
+
+    var numericFeatures = unsState.featureCols.filter(function(c2){ return unsState.featureMeta[c2].type === "numeric"; });
+    if (numericFeatures.length === 2){
+      unsEls.scatterSection.hidden = false;
+      unsRenderClusterScatter(numericFeatures);
+    } else {
+      unsEls.scatterSection.hidden = true;
+    }
+
+    unsEls.silhouetteAchieved.textContent = isFinite(model.silhouette) ? fmtNum(model.silhouette, 3) : "— (skipped, dataset too large)";
+  }
+
+  function unsRenderClusterScatter(numericFeatures){
+    var xCol = numericFeatures[0], yCol = numericFeatures[1];
+    var W = 480, H = 340, mL = 54, mR = 20, mT = 16, mB = 40;
+    var xs = unsState.rows.map(function(r){ return Number(r[xCol]); });
+    var ys = unsState.rows.map(function(r){ return Number(r[yCol]); });
+    var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
+    var yMin = Math.min.apply(null, ys), yMax = Math.max.apply(null, ys);
+    var xPad = (xMax - xMin) * 0.08 || 1, yPad = (yMax - yMin) * 0.08 || 1;
+    xMin -= xPad; xMax += xPad; yMin -= yPad; yMax += yPad;
+    function sx(v){ return mL + (v - xMin) / (xMax - xMin) * (W - mL - mR); }
+    function sy(v){ return H - mB - (v - yMin) / (yMax - yMin) * (H - mT - mB); }
+    var svg = [];
+    svg.push('<line x1="' + mL + '" y1="' + (H - mB) + '" x2="' + (W - mR) + '" y2="' + (H - mB) + '" stroke="var(--line)"/>');
+    svg.push('<line x1="' + mL + '" y1="' + mT + '" x2="' + mL + '" y2="' + (H - mB) + '" stroke="var(--line)"/>');
+    for (var t = 0; t <= 4; t++){
+      var xv = xMin + (xMax - xMin) * t / 4, yv = yMin + (yMax - yMin) * t / 4;
+      svg.push('<text x="' + sx(xv).toFixed(1) + '" y="' + (H - mB + 16) + '" text-anchor="middle" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(xv, 1) + '</text>');
+      svg.push('<text x="' + (mL - 8) + '" y="' + (sy(yv) + 3.5).toFixed(1) + '" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(yv, 1) + '</text>');
+    }
+    xs.forEach(function(xv, i){
+      var color = unsClusterColor(unsState.model.assignments[i]);
+      svg.push('<circle cx="' + sx(xv).toFixed(1) + '" cy="' + sy(ys[i]).toFixed(1) + '" r="4" fill="' + color + '" fill-opacity="0.6" stroke="' + color + '" stroke-width="1"/>');
+    });
+    unsState.model.centroids.forEach(function(centroid, c){
+      var meta = unsState.featureMeta[xCol], meta2 = unsState.featureMeta[yCol];
+      var xIdx = unsState.featureCols.indexOf(xCol), yIdx = unsState.featureCols.indexOf(yCol);
+      var cx = centroid[xIdx] * meta.sd + meta.mean, cy = centroid[yIdx] * meta2.sd + meta2.mean;
+      svg.push('<path d="M' + (sx(cx) - 7).toFixed(1) + ',' + sy(cy).toFixed(1) + 'L' + sx(cx).toFixed(1) + ',' + (sy(cy) - 7).toFixed(1) + 'L' + (sx(cx) + 7).toFixed(1) + ',' + sy(cy).toFixed(1) + 'L' + sx(cx).toFixed(1) + ',' + (sy(cy) + 7).toFixed(1) + 'Z" fill="' + unsClusterColor(c) + '" stroke="var(--ink)" stroke-width="1.5"/>');
+    });
+    svg.push('<text x="' + ((mL + W - mR) / 2) + '" y="' + (H - mB + 32) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(xCol) + '</text>');
+    svg.push('<text x="14" y="' + ((mT + H - mB) / 2) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" transform="rotate(-90 14 ' + ((mT + H - mB) / 2) + ')">' + escapeXml(yCol) + '</text>');
+    unsEls.scatterPlot.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Cluster scatter plot">' + svg.join("") + '</svg>';
+  }
+
+  /* --- Playground: assign a new point --- */
+
+  function unsBuildPlayground(){
+    var container = unsEls.playgroundInputs;
+    container.innerHTML = "";
+    unsState.featureCols.forEach(function(c){
+      var meta = unsState.featureMeta[c];
+      var field = document.createElement("div");
+      field.className = "ml-play-field";
+      if (meta.type === "numeric"){
+        var span = meta.sampleMax - meta.sampleMin || 1;
+        field.innerHTML = '<label>' + escapeXml(c) + '</label>' +
+          '<input type="range" class="ml-slider" min="' + (meta.sampleMin - span * 0.1) + '" max="' + (meta.sampleMax + span * 0.1) + '" step="' + (span / 100 || 0.1) + '" value="' + meta.mean + '" data-col="' + escapeXml(c) + '">' +
+          '<div class="ml-play-value">' + fmtNum(meta.mean, 2) + '</div>';
+        container.appendChild(field);
+        var slider = field.querySelector("input"), valueDiv = field.querySelector(".ml-play-value");
+        slider.addEventListener("input", function(){ valueDiv.textContent = fmtNum(Number(slider.value), 2); });
+      } else {
+        var cats = meta.categories.length ? meta.categories : ["(no data)"];
+        field.innerHTML = '<label>' + escapeXml(c) + '</label>' +
+          '<select data-col="' + escapeXml(c) + '">' + cats.map(function(cat){ return '<option value="' + escapeXml(cat) + '">' + escapeXml(cat) + '</option>'; }).join("") + '</select>';
+        container.appendChild(field);
+      }
+    });
+  }
+
+  function unsRunAssignment(){
+    var rawRow = {};
+    unsEls.playgroundInputs.querySelectorAll("[data-col]").forEach(function(el){ rawRow[el.getAttribute("data-col")] = el.value; });
+    var vec = unsEncodeRow(rawRow);
+    var model = unsState.model;
+    var distances = model.centroids.map(function(centroid){ return Math.sqrt(unsSquaredDist(vec, centroid)); });
+    var assigned = distances.indexOf(Math.min.apply(null, distances));
+    var ranked = distances.map(function(d, i){ return { group: i + 1, dist: d }; }).sort(function(a, b){ return a.dist - b.dist; });
+    var breakdown = ranked.map(function(r){
+      return '<div class="stat-row"><span class="stat-label">Group ' + r.group + (r.group - 1 === assigned ? " (assigned)" : "") + '</span><span class="stat-value">' + fmtNum(r.dist, 3) + '</span></div>';
+    }).join("");
+    unsEls.assignmentResult.innerHTML =
+      '<div class="effect-name">Assigned group</div><div class="effect-value" style="color:' + unsClusterColor(assigned) + ';">Group ' + (assigned + 1) + '</div>' +
+      '<p class="norm-note" style="margin:10px 0 6px;">Distance to each group\'s center (smaller = closer fit)</p>' + breakdown;
+  }
+  unsEls.assignBtn.addEventListener("click", unsRunAssignment);
+
+  /* --- Batch group assignment --- */
+
+  function unsHandleBatchCsv(file){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var result = mlCsvToObjects(String(reader.result));
+      unsEls.batchError.hidden = true;
+      if (result.error || result.columns.length === 0){
+        unsEls.batchError.hidden = false;
+        unsEls.batchError.innerHTML = '<span class="dot"></span> ' + (result.error || "Could not parse this file as CSV.");
+        return;
+      }
+      var missing = unsState.featureCols.filter(function(c){ return result.columns.indexOf(c) < 0; });
+      if (missing.length > 0){
+        unsEls.batchError.hidden = false;
+        unsEls.batchError.innerHTML = '<span class="dot"></span> Missing feature column(s): ' + missing.map(escapeXml).join(", ") + '.';
+        return;
+      }
+      var groupCol = "Group";
+      var outColumns = result.columns.concat([groupCol]);
+      var model = unsState.model;
+      var outRows = result.rows.map(function(row){
+        var vec = unsEncodeRow(row);
+        var distances = model.centroids.map(function(centroid){ return unsSquaredDist(vec, centroid); });
+        var assigned = distances.indexOf(Math.min.apply(null, distances));
+        var newRow = {};
+        result.columns.forEach(function(c){ newRow[c] = row[c]; });
+        newRow[groupCol] = "Group " + (assigned + 1);
+        return newRow;
+      });
+      var csvLines = [outColumns.join(",")];
+      outRows.forEach(function(row){
+        csvLines.push(outColumns.map(function(c){
+          var v = row[c] == null ? "" : String(row[c]);
+          return v.indexOf(",") >= 0 ? '"' + v.replace(/"/g, '""') + '"' : v;
+        }).join(","));
+      });
+      unsEls.batchResult.innerHTML = '<p class="data-hint">' + outRows.length + ' rows grouped.</p>';
+      var dlBtn = document.createElement("button");
+      dlBtn.className = "primary-btn"; dlBtn.type = "button"; dlBtn.textContent = "Download grouped CSV";
+      dlBtn.addEventListener("click", function(){
+        saveFile("clustered-groups.csv", new Blob([csvLines.join("\n")], { type: "text/csv;charset=utf-8;" }), dlBtn);
+      });
+      unsEls.batchResult.appendChild(dlBtn);
+    };
+    reader.readAsText(file);
+  }
+  unsEls.batchCsvInput.addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if (file) unsHandleBatchCsv(file);
+    e.target.value = "";
+  });
 
   recalc();
   recalcTtest();
