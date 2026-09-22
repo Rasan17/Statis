@@ -2246,14 +2246,14 @@
       els.assumption.className = "assumption warn";
       els.assumption.innerHTML = '<span class="dot"></span> Smallest expected count is ' + fmtNum(minExpected, 2) +
         ' — below 5. Trust <b>Fisher\'s exact</b> test here, not chi-squared.';
-      els.chiReason.textContent = "The smallest expected count (" + fmtNum(minExpected, 2) + ") is below 5, so this test's large-sample approximation may be unreliable — see Fisher's exact test instead.";
-      els.fisherReason.textContent = "This test makes no large-sample assumption, so it stays reliable even with an expected count this small.";
+      els.chiReason.innerHTML = '<b style="color:var(--ink);">Why —</b> the smallest expected count (' + fmtNum(minExpected, 2) + ") is below 5, so this test's large-sample approximation may be unreliable — see Fisher's exact test instead.";
+      els.fisherReason.innerHTML = '<b style="color:var(--ink);">Why —</b> this test makes no large-sample assumption, so it stays reliable even with an expected count this small.';
     } else {
       els.assumption.className = "assumption good";
       els.assumption.innerHTML = '<span class="dot"></span> Smallest expected count is ' + fmtNum(minExpected, 2) +
         ' — chi-squared\'s large-sample assumption holds.';
-      els.chiReason.textContent = "Every expected count is at least 5, so this test's large-sample approximation should hold.";
-      els.fisherReason.textContent = "Still exact and always valid here — chi-squared's approximation is reliable too at these counts, so either is fine to report.";
+      els.chiReason.innerHTML = '<b style="color:var(--ink);">Why —</b> every expected count is at least 5, so this test\'s large-sample approximation should hold.';
+      els.fisherReason.innerHTML = '<b style="color:var(--ink);">Why —</b> still exact and always valid here — chi-squared\'s approximation is reliable too at these counts, so either is fine to report.';
     }
     els.chiRecommend.innerHTML = ""; els.chiRecommend.appendChild(chiRecommendBadge(chiOk));
     els.fisherRecommend.innerHTML = ""; els.fisherRecommend.appendChild(fisherRecommendBadge(!chiOk));
@@ -2890,7 +2890,7 @@
       }
     }
 
-    ttEls.methodReason.textContent = reason;
+    ttEls.methodReason.innerHTML = '<b style="color:var(--ink);">Why this method —</b> ' + escapeXml(reason);
     applyMethodLabels(chosenMethod);
 
     if (paired){
@@ -3542,7 +3542,7 @@
       chosenMethod = decision.method;
       reason = decision.reason;
     }
-    regEls.corrMethodReason.textContent = reason;
+    regEls.corrMethodReason.innerHTML = '<b style="color:var(--ink);">Why this method —</b> ' + escapeXml(reason);
 
     var corrResult;
     if (chosenMethod === "kendall"){
@@ -4770,7 +4770,7 @@
       reason = decision.reason;
     }
     if (chosenMethod === "transform" && !canTransform) chosenMethod = "kruskal";
-    anovaEls.methodReason.textContent = reason;
+    anovaEls.methodReason.innerHTML = '<b style="color:var(--ink);">Why this method —</b> ' + escapeXml(reason);
 
     var usingTransform = chosenMethod === "transform";
     anovaEls.transformCard.hidden = !usingTransform;
@@ -7821,7 +7821,7 @@
     }
 
     pivotEls.testTitle.textContent = testName;
-    pivotEls.testRationale.textContent = rationale;
+    pivotEls.testRationale.innerHTML = '<b style="color:var(--ink);">Why this test —</b> ' + escapeXml(rationale);
     pivotEls.chi2Row.hidden = !chi2Shown;
     pivotEls.dfRow.hidden = !dfShown;
     if (chi2Shown) pivotEls.chi2Value.textContent = fmtNum(chi.chi2, 3);
