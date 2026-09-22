@@ -579,6 +579,55 @@
     font-size:12px;line-height:1.6;color:var(--ink-soft);
     padding-top:14px;margin-top:14px;border-top:1px solid var(--line);
   }
+
+  .pivot-preview-wrap{
+    overflow-x:scroll;overflow-y:scroll;max-height:280px;border:1px solid var(--line);border-radius:9px;
+    scrollbar-width:auto;scrollbar-color:var(--ink-soft) var(--neutral-soft);
+  }
+  .pivot-preview-wrap::-webkit-scrollbar{width:12px;height:12px;}
+  .pivot-preview-wrap::-webkit-scrollbar-track{background:var(--neutral-soft);}
+  .pivot-preview-wrap::-webkit-scrollbar-thumb{background:var(--ink-soft);border-radius:8px;border:2px solid var(--neutral-soft);}
+  .pivot-preview-wrap::-webkit-scrollbar-thumb:hover{background:var(--accent);}
+  table.pivot-preview{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px;white-space:nowrap;}
+  table.pivot-preview th, table.pivot-preview td{border:1px solid var(--line);padding:5px 8px;text-align:left;font-family:"IBM Plex Mono",monospace;}
+  table.pivot-preview th{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;position:sticky;top:0;z-index:1;}
+
+  table.pivot-schema{border-collapse:collapse;width:100%;font-size:12.5px;}
+  table.pivot-schema th, table.pivot-schema td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:middle;}
+  table.pivot-schema th{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;}
+  table.pivot-schema td.col-name{font-family:"IBM Plex Mono",monospace;font-weight:600;}
+  table.pivot-schema select{
+    width:100%;border:1px solid var(--line);border-radius:7px;background:var(--paper);
+    color:var(--ink);font:12px "IBM Plex Sans",sans-serif;padding:5px 7px;
+  }
+  table.pivot-schema td.col-meta{font-size:11px;color:var(--ink-soft);font-family:"IBM Plex Mono",monospace;}
+
+  .pivot-cat-filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .pivot-cat-pill{
+    display:inline-flex;align-items:center;gap:6px;font-size:12px;
+    border:1px solid var(--line);border-radius:999px;padding:5px 10px 5px 8px;
+    background:var(--paper);cursor:pointer;user-select:none;transition:opacity .12s;
+  }
+  .pivot-cat-pill input{accent-color:var(--accent);cursor:pointer;margin:0;}
+  .pivot-cat-pill.excluded{opacity:0.45;text-decoration:line-through;}
+
+  .pivot-crosstab-wrap{overflow-x:auto;}
+  table.pivot-crosstab{border-collapse:collapse;font-size:12.5px;}
+  table.pivot-crosstab th, table.pivot-crosstab td{
+    border:1px solid var(--line);padding:8px 12px;text-align:center;
+    font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap;
+  }
+  table.pivot-crosstab th{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;font-size:12px;}
+  table.pivot-crosstab td.pivot-total, table.pivot-crosstab th.pivot-total{background:var(--neutral-soft);font-weight:700;}
+  table.pivot-crosstab td.pivot-grand{background:var(--accent-soft);font-weight:700;color:var(--accent-ink);}
+  table.pivot-crosstab th.pivot-corner{background:transparent;border:none;}
+
+  .pivot-mini-chart{margin-top:10px;}
+  .pivot-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11.5px;}
+  .pivot-bar-label{width:110px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-soft);}
+  .pivot-bar-track{flex:1;height:14px;background:var(--neutral-soft);border-radius:4px;overflow:hidden;}
+  .pivot-bar-fill{height:100%;background:var(--accent);border-radius:4px;}
+  .pivot-bar-value{width:60px;flex:none;text-align:right;font-family:"IBM Plex Mono",monospace;color:var(--ink-soft);}
 </style>
 
 <div class="modal-overlay" id="disclaimerModal" role="dialog" aria-modal="true" aria-labelledby="disclaimerTitle" hidden>
@@ -613,6 +662,7 @@
 
   <nav class="tabs" role="tablist">
     <button class="tab-btn active" id="tabBtnContingency" type="button" role="tab" aria-selected="true">Contingency table</button>
+    <button class="tab-btn" id="tabBtnPivot" type="button" role="tab" aria-selected="false">Pivot</button>
     <button class="tab-btn" id="tabBtnTtest" type="button" role="tab" aria-selected="false">T-test</button>
     <button class="tab-btn" id="tabBtnAnova" type="button" role="tab" aria-selected="false">ANOVA</button>
     <button class="tab-btn" id="tabBtnRegression" type="button" role="tab" aria-selected="false">Correlation</button>
@@ -735,6 +785,124 @@
   <footer class="notes">
     <b>How it's computed —</b> χ² uses the standard 2×2 formula n(ad−bc)²⁄[(a+b)(c+d)(a+c)(b+d)], optionally with Yates' correction; its p-value comes from the exact df = 1 relation to the normal distribution. Fisher's exact p-value sums hypergeometric probabilities of every table at least as extreme as the observed one, given the fixed margins — no large-sample assumption needed. Odds ratio and relative risk use 95% Wald confidence intervals on the log scale. <b>Rule of thumb:</b> prefer Fisher's exact test whenever any expected cell count falls below 5.
   </footer>
+
+  </div>
+
+  <div class="tab-panel" id="panel-pivot" hidden>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 1</p><h2>Data</h2></div>
+      <div class="btn-row">
+        <span class="ghost-btn file-btn">Upload CSV/TSV<input type="file" id="pivotFileInput" accept=".csv,.tsv,.txt"></span>
+        <button class="ghost-btn" id="pivotPasteToggleBtn" type="button">Paste data</button>
+      </div>
+    </div>
+    <div id="pivotPasteWrap" hidden style="margin-bottom:14px;">
+      <textarea id="pivotPasteArea" rows="6" style="width:100%;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font:13px/1.5 'IBM Plex Mono',monospace;padding:10px 12px;resize:vertical;" placeholder="Paste CSV or TSV text here, first row as header…"></textarea>
+      <button class="primary-btn" id="pivotPasteLoadBtn" type="button" style="margin-top:8px;">Load pasted data</button>
+    </div>
+    <div class="dropzone" id="pivotDropzone">Drag and drop a CSV or TSV file here — first row is treated as the header.</div>
+    <div class="assumption warn" id="pivotDataError" hidden style="margin-top:14px;"></div>
+    <div id="pivotDataSummary" style="margin-top:14px;"></div>
+    <div class="pivot-preview-wrap" id="pivotPreviewWrap" style="margin-top:10px;" hidden>
+      <table class="pivot-preview" id="pivotPreviewTable"></table>
+    </div>
+    <p class="data-hint" id="pivotPreviewCaption" style="margin-top:6px;"></p>
+  </section>
+
+  <section class="card" id="pivotSchemaCard" hidden>
+    <div class="card-head">
+      <div><p class="eyebrow">Step 2</p><h2>Variable types</h2></div>
+    </div>
+    <p class="data-hint" style="margin-bottom:12px;">Columns that parse cleanly as numbers default to <b style="color:var(--ink);">Continuous</b>; everything else defaults to <b style="color:var(--ink);">Nominal</b>. Override any of these — for example, a numeric-coded stage or grade is usually <b style="color:var(--ink);">Ordinal</b>, not Continuous.</p>
+    <div class="table-wrap">
+      <table class="pivot-schema">
+        <thead><tr><th>Column</th><th>Type</th><th>Summary</th></tr></thead>
+        <tbody id="pivotSchemaBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card" id="pivotSingleVarCard" hidden>
+    <div class="card-head">
+      <div><p class="eyebrow">Step 3</p><h2>Single-variable summary</h2></div>
+    </div>
+    <div class="col-map-grid" style="grid-template-columns:1fr;margin-top:0;">
+      <div class="col-map-field">
+        <label for="pivotSingleVarSelect">Variable</label>
+        <select id="pivotSingleVarSelect"></select>
+      </div>
+    </div>
+    <div id="pivotSingleVarOutput" style="margin-top:16px;"></div>
+  </section>
+
+  <section class="card" id="pivotBuilderCard" hidden>
+    <div class="card-head">
+      <div><p class="eyebrow">Step 4</p><h2>Two-variable pivot table</h2></div>
+    </div>
+    <div class="col-map-grid">
+      <div class="col-map-field">
+        <label for="pivotRowSelect">Row variable</label>
+        <select id="pivotRowSelect"></select>
+      </div>
+      <div class="col-map-field">
+        <label for="pivotColSelect">Column variable</label>
+        <select id="pivotColSelect"></select>
+      </div>
+      <div class="col-map-field">
+        <label for="pivotDisplayMode">Cell values</label>
+        <select id="pivotDisplayMode">
+          <option value="count">Count</option>
+          <option value="rowpct">% of row</option>
+          <option value="colpct">% of column</option>
+          <option value="totalpct">% of total</option>
+        </select>
+      </div>
+    </div>
+    <div class="assumption warn" id="pivotBuilderError" hidden style="margin-top:14px;"></div>
+    <div id="pivotCategoryFilters"></div>
+    <div class="pivot-crosstab-wrap" id="pivotCrossTabWrap" style="margin-top:16px;"></div>
+  </section>
+
+  <section class="card" id="pivotTestCard" hidden>
+    <p class="eyebrow">Association test</p>
+    <h2 id="pivotTestTitle">—</h2>
+    <p class="norm-note" id="pivotTestRationale" style="margin-bottom:14px;"></p>
+    <div class="stat-row" id="pivotChi2Row"><span class="stat-label" id="pivotChi2Label">χ²</span><span class="stat-value" id="pivotChi2Value">—</span></div>
+    <div class="stat-row" id="pivotDfRow"><span class="stat-label">df</span><span class="stat-value" id="pivotDfValue">—</span></div>
+    <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="pivotPValue">—</span></div>
+    <div id="pivotVerdict"></div>
+    <div class="stat-row" id="pivotYatesRow" hidden style="margin-top:10px;padding-top:14px;border-top:1px solid var(--line);"><span class="stat-label">Yates' corrected χ²</span><span class="stat-value" id="pivotYatesChi2">—</span></div>
+    <div class="stat-row" id="pivotYatesPRow" hidden><span class="stat-label">Yates' corrected p-value</span><span class="stat-value" id="pivotYatesP">—</span></div>
+    <div class="effect-grid" style="margin-top:16px;">
+      <div>
+        <div class="effect-name">Cramér's V</div>
+        <div class="effect-value" id="pivotCramersV">—</div>
+        <div class="effect-ci"></div>
+      </div>
+      <div id="pivotOrRrBlock" hidden>
+        <div class="effect-name" id="pivotOrRrName">Odds ratio</div>
+        <div class="effect-value" id="pivotOrRrValue">—</div>
+        <div class="effect-ci" id="pivotOrRrCi"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <details class="info-box">
+      <summary>How it's computed</summary>
+      <div class="info-body">
+        <p><b>Expected counts —</b> for each cell, Eᵢⱼ = (row total × column total) ⁄ grand total — the count that would be expected if the row and column variables were independent.</p>
+        <p><b>Test selection (Cochran's criteria) —</b> if any expected count is below 1, or more than 20% of cells have an expected count below 5, the chi-squared approximation is considered unreliable, and an exact test is used instead: Fisher's exact test for a 2×2 table, or the Fisher–Freeman–Halton exact test (the same idea generalized to any number of rows/columns) for larger tables. Otherwise, Pearson's chi-squared test of independence is used, with Yates' continuity correction also shown for 2×2 tables.</p>
+        <p><b>Fisher–Freeman–Halton —</b> enumerates every possible table with the same row and column totals as the one observed, computes the exact hypergeometric probability of each, and sums the probabilities of every table at least as improbable as the one observed — the exact multi-category generalization of Fisher's exact test, needing no large-sample assumption. This is validated in this app by confirming it reproduces the 2×2 Fisher's exact result exactly on 2×2 tables. Enumeration is only feasible for reasonably small tables — if a table is too large to enumerate in the browser, this tool falls back to the chi-squared approximation and says so explicitly, rather than silently reporting an unreliable number as if it were exact.</p>
+        <p><b>Cramér's V —</b> √(χ²⁄(N×min(r−1,c−1))), an effect size between 0 (no association) and 1 (perfect association) that, unlike the p-value, doesn't shrink automatically as the sample size grows.</p>
+        <p><b>Odds ratio / relative risk (2×2 only) —</b> computed the same way as the Contingency table tab, with a 0.5 continuity correction applied to all four cells when any cell is zero, and 95% Wald confidence intervals on the log scale.</p>
+        <p><b>Category filtering —</b> unchecking a category removes every row containing that value from the cross-tabulation and the test — it does not merge it into the other categories. Excluding categories changes the effective sample size and margins, so the test re-runs on exactly the filtered data shown in the table above it.</p>
+        <p><b>Not implemented —</b> Monte Carlo approximation for large tables that exceed the exact-enumeration limit (the tool falls back to the ordinary chi-squared approximation instead), and multi-way (three or more variable) pivot tables.</p>
+      </div>
+    </details>
+  </section>
 
   </div>
 
@@ -2042,6 +2210,7 @@
 
   var TABS = {
     contingency: { btn: document.getElementById("tabBtnContingency"), panel: document.getElementById("panel-contingency") },
+    pivot:       { btn: document.getElementById("tabBtnPivot"),       panel: document.getElementById("panel-pivot") },
     ttest:       { btn: document.getElementById("tabBtnTtest"),       panel: document.getElementById("panel-ttest") },
     anova:       { btn: document.getElementById("tabBtnAnova"),       panel: document.getElementById("panel-anova") },
     regression:  { btn: document.getElementById("tabBtnRegression"),  panel: document.getElementById("panel-regression") },
@@ -6950,6 +7119,718 @@
 "PT-115,37,26.8,1,High,Positive,Post,No Recurrence\nPT-116,56,40.3,3,Intermediate,Positive,Post,Recurrence\n" +
 "PT-117,74,35.3,3,Intermediate,Negative,Post,Recurrence\nPT-118,48,11.2,3,Low,Positive,Pre,No Recurrence\n" +
 "PT-119,69,6.4,0,High,Negative,Post,Recurrence\nPT-120,38,36.8,5,Low,Negative,Pre,Recurrence\n";
+
+  /* ===================== Pivot ===================== */
+
+  function pivotUnique(arr){
+    var out = [];
+    arr.forEach(function(v){ if (out.indexOf(v) < 0) out.push(v); });
+    return out;
+  }
+
+  function pivotDetectDelimiter(text){
+    var firstLine = text.split(/\r\n|\n|\r/)[0] || "";
+    var tabCount = (firstLine.match(/\t/g) || []).length;
+    var commaCount = (firstLine.match(/,/g) || []).length;
+    return tabCount > commaCount ? "\t" : ",";
+  }
+
+  function pivotParseDelimited(text, delim){
+    var rows = [], field = "", row = [], inQuotes = false, i = 0, n = text.length;
+    while (i < n){
+      var ch = text[i];
+      if (inQuotes){
+        if (ch === '"'){
+          if (text[i + 1] === '"'){ field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += ch; i++; continue;
+      }
+      if (ch === '"'){ inQuotes = true; i++; continue; }
+      if (ch === delim){ row.push(field); field = ""; i++; continue; }
+      if (ch === "\r"){ i++; continue; }
+      if (ch === "\n"){ row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+      field += ch; i++;
+    }
+    if (field.length > 0 || row.length > 0){ row.push(field); rows.push(row); }
+    return rows.filter(function(r){ return !(r.length === 1 && r[0].trim() === ""); });
+  }
+
+  function pivotCsvToObjects(text){
+    var delim = pivotDetectDelimiter(text);
+    var rows = pivotParseDelimited(text, delim);
+    if (rows.length < 2) return { columns: [], rows: [], error: "Need a header row and at least one data row." };
+    var seen = {};
+    var header = rows[0].map(function(h, i){
+      var name = (h || "").trim() || ("Column " + (i + 1));
+      if (seen[name]){ seen[name]++; name = name + "_" + seen[name]; } else seen[name] = 1;
+      return name;
+    });
+    var dataRows = rows.slice(1).filter(function(r){ return r.some(function(c){ return c.trim() !== ""; }); }).map(function(r){
+      var obj = {};
+      header.forEach(function(h, i){ obj[h] = r[i] !== undefined ? r[i].trim() : ""; });
+      return obj;
+    });
+    return { columns: header, rows: dataRows, error: null };
+  }
+
+  function pivotInferType(values){
+    var nonEmpty = values.filter(function(v){ return v !== "" && v != null; });
+    if (nonEmpty.length === 0) return "nominal";
+    var allNumeric = nonEmpty.every(function(v){ return isFinite(Number(v)); });
+    return allNumeric ? "continuous" : "nominal";
+  }
+
+  var pivotState = {
+    columns: [], rows: [], types: {},
+    rowVar: null, colVar: null,
+    rowCatFilter: {}, colCatFilter: {}
+  };
+
+  var pivotEls = {
+    fileInput: document.getElementById("pivotFileInput"),
+    pasteToggleBtn: document.getElementById("pivotPasteToggleBtn"),
+    pasteWrap: document.getElementById("pivotPasteWrap"),
+    pasteArea: document.getElementById("pivotPasteArea"),
+    pasteLoadBtn: document.getElementById("pivotPasteLoadBtn"),
+    dropzone: document.getElementById("pivotDropzone"),
+    dataError: document.getElementById("pivotDataError"),
+    dataSummary: document.getElementById("pivotDataSummary"),
+    previewWrap: document.getElementById("pivotPreviewWrap"),
+    previewTable: document.getElementById("pivotPreviewTable"),
+    previewCaption: document.getElementById("pivotPreviewCaption"),
+    schemaCard: document.getElementById("pivotSchemaCard"),
+    schemaBody: document.getElementById("pivotSchemaBody"),
+    singleVarCard: document.getElementById("pivotSingleVarCard"),
+    singleVarSelect: document.getElementById("pivotSingleVarSelect"),
+    singleVarOutput: document.getElementById("pivotSingleVarOutput"),
+    builderCard: document.getElementById("pivotBuilderCard"),
+    rowSelect: document.getElementById("pivotRowSelect"),
+    colSelect: document.getElementById("pivotColSelect"),
+    displayMode: document.getElementById("pivotDisplayMode"),
+    builderError: document.getElementById("pivotBuilderError"),
+    categoryFilters: document.getElementById("pivotCategoryFilters"),
+    crossTabWrap: document.getElementById("pivotCrossTabWrap"),
+    testCard: document.getElementById("pivotTestCard"),
+    testTitle: document.getElementById("pivotTestTitle"),
+    testRationale: document.getElementById("pivotTestRationale"),
+    chi2Row: document.getElementById("pivotChi2Row"),
+    chi2Value: document.getElementById("pivotChi2Value"),
+    dfRow: document.getElementById("pivotDfRow"),
+    dfValue: document.getElementById("pivotDfValue"),
+    pValue: document.getElementById("pivotPValue"),
+    verdict: document.getElementById("pivotVerdict"),
+    yatesRow: document.getElementById("pivotYatesRow"),
+    yatesChi2: document.getElementById("pivotYatesChi2"),
+    yatesPRow: document.getElementById("pivotYatesPRow"),
+    yatesP: document.getElementById("pivotYatesP"),
+    cramersV: document.getElementById("pivotCramersV"),
+    orRrBlock: document.getElementById("pivotOrRrBlock"),
+    orRrName: document.getElementById("pivotOrRrName"),
+    orRrValue: document.getElementById("pivotOrRrValue"),
+    orRrCi: document.getElementById("pivotOrRrCi")
+  };
+
+  function pivotDefaultTypes(columns, rows){
+    var types = {};
+    columns.forEach(function(c){
+      var values = rows.map(function(r){ return r[c]; });
+      types[c] = pivotInferType(values);
+    });
+    return types;
+  }
+
+  function pivotColumnSummary(colName, values, type){
+    var nonEmpty = values.filter(function(v){ return v !== ""; });
+    if (type === "continuous"){
+      var nums = nonEmpty.map(Number).filter(isFinite);
+      if (nums.length === 0) return "no numeric values";
+      return nums.length + " values, mean " + fmtNum(mean(nums), 2) + ", range " + fmtNum(Math.min.apply(null, nums), 1) + "–" + fmtNum(Math.max.apply(null, nums), 1);
+    }
+    var distinct = pivotUnique(nonEmpty);
+    return distinct.length + " categories: " + distinct.slice(0, 4).join(", ") + (distinct.length > 4 ? ", …" : "");
+  }
+
+  function pivotRenderPreview(columns, rows){
+    var previewLimit = 50;
+    var preview = rows.slice(0, previewLimit);
+    var thead = "<thead><tr>" + columns.map(function(c){ return "<th>" + escapeXml(c) + "</th>"; }).join("") + "</tr></thead>";
+    var tbody = "<tbody>" + preview.map(function(r){
+      return "<tr>" + columns.map(function(c){ return "<td>" + escapeXml(r[c]) + "</td>"; }).join("") + "</tr>";
+    }).join("") + "</tbody>";
+    pivotEls.previewTable.innerHTML = thead + tbody;
+    pivotEls.previewWrap.hidden = false;
+    pivotEls.previewCaption.textContent = rows.length > previewLimit
+      ? "Showing " + previewLimit + " of " + rows.length + " rows — scroll to see more, and scroll right for all columns."
+      : "Scroll right to see all columns.";
+  }
+
+  function pivotCategoricalColumns(){
+    return pivotState.columns.filter(function(c){ return pivotState.types[c] === "nominal" || pivotState.types[c] === "ordinal"; });
+  }
+
+  function pivotGetCategories(colName){
+    var values = pivotState.rows.map(function(r){ return r[colName]; }).filter(function(v){ return v !== ""; });
+    return pivotUnique(values);
+  }
+
+  function pivotResetCategoryFilters(){
+    var rowCats = pivotState.rowVar ? pivotGetCategories(pivotState.rowVar) : [];
+    var colCats = pivotState.colVar ? pivotGetCategories(pivotState.colVar) : [];
+    pivotState.rowCatFilter = {}; rowCats.forEach(function(cat){ pivotState.rowCatFilter[cat] = true; });
+    pivotState.colCatFilter = {}; colCats.forEach(function(cat){ pivotState.colCatFilter[cat] = true; });
+  }
+
+  function pivotPopulateRowColSelects(){
+    var catCols = pivotCategoricalColumns();
+    var rowVal = pivotEls.rowSelect.value, colVal = pivotEls.colSelect.value;
+    var optionsHtml = catCols.map(function(c){ return '<option value="' + escapeXml(c) + '">' + escapeXml(c) + '</option>'; }).join("");
+    pivotEls.rowSelect.innerHTML = optionsHtml;
+    pivotEls.colSelect.innerHTML = optionsHtml;
+    if (catCols.length === 0){ pivotState.rowVar = null; pivotState.colVar = null; return; }
+    pivotEls.rowSelect.value = catCols.indexOf(rowVal) >= 0 ? rowVal : catCols[0];
+    pivotEls.colSelect.value = catCols.indexOf(colVal) >= 0 ? colVal : (catCols.length > 1 ? catCols[1] : catCols[0]);
+    pivotState.rowVar = pivotEls.rowSelect.value;
+    pivotState.colVar = pivotEls.colSelect.value;
+    pivotResetCategoryFilters();
+  }
+
+  function pivotPopulateSingleVarSelect(){
+    var currentVal = pivotEls.singleVarSelect.value;
+    pivotEls.singleVarSelect.innerHTML = pivotState.columns.map(function(c){
+      return '<option value="' + escapeXml(c) + '">' + escapeXml(c) + '</option>';
+    }).join("");
+    if (pivotState.columns.indexOf(currentVal) >= 0) pivotEls.singleVarSelect.value = currentVal;
+  }
+
+  function pivotRenderSchemaTable(){
+    var tbody = pivotEls.schemaBody;
+    tbody.innerHTML = "";
+    pivotState.columns.forEach(function(c){
+      var type = pivotState.types[c];
+      var values = pivotState.rows.map(function(r){ return r[c]; });
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td class="col-name">' + escapeXml(c) + '</td>' +
+        '<td><select class="pivot-type-select">' +
+          '<option value="continuous"' + (type === "continuous" ? " selected" : "") + '>Continuous</option>' +
+          '<option value="ordinal"' + (type === "ordinal" ? " selected" : "") + '>Ordinal</option>' +
+          '<option value="nominal"' + (type === "nominal" ? " selected" : "") + '>Nominal</option>' +
+        '</select></td>' +
+        '<td class="col-meta">' + escapeXml(pivotColumnSummary(c, values, type)) + '</td>';
+      tr.querySelector(".pivot-type-select").addEventListener("change", function(e){
+        pivotState.types[c] = e.target.value;
+        tr.querySelector(".col-meta").textContent = pivotColumnSummary(c, values, e.target.value);
+        pivotPopulateSingleVarSelect();
+        pivotPopulateRowColSelects();
+        pivotRenderSingleVarSummary();
+        pivotRenderCategoryFilters();
+        pivotRenderPivotAndTest();
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  /* --- Single-variable summary --- */
+
+  function pivotContinuousStats(values){
+    var nums = values.filter(function(v){ return v !== ""; }).map(Number).filter(isFinite);
+    var missing = values.length - nums.length;
+    if (nums.length === 0) return { n: 0, missing: missing };
+    var sorted = nums.slice().sort(function(a, b){ return a - b; });
+    var m = mean(nums), sd = sampleSd(nums), sem = sd / Math.sqrt(nums.length);
+    var q1 = quantile(sorted, 0.25), q3 = quantile(sorted, 0.75);
+    return {
+      n: nums.length, missing: missing, mean: m, sd: sd, sem: sem,
+      median: median(nums), q1: q1, q3: q3, iqr: q3 - q1,
+      min: sorted[0], max: sorted[sorted.length - 1], sorted: sorted
+    };
+  }
+
+  function pivotFrequencyStats(values, isOrdinal){
+    var nonEmpty = values.filter(function(v){ return v !== ""; });
+    var missing = values.length - nonEmpty.length;
+    var distinct = pivotUnique(nonEmpty);
+    var order = distinct;
+    if (isOrdinal){
+      var allNumeric = distinct.length > 0 && distinct.every(function(v){ return isFinite(Number(v)); });
+      if (allNumeric) order = distinct.slice().sort(function(a, b){ return Number(a) - Number(b); });
+    }
+    var counts = {};
+    order.forEach(function(cat){ counts[cat] = 0; });
+    nonEmpty.forEach(function(v){ counts[v] = (counts[v] || 0) + 1; });
+    var n = nonEmpty.length, cum = 0;
+    var rows = order.map(function(cat){
+      cum += counts[cat];
+      return { category: cat, count: counts[cat], pct: n > 0 ? counts[cat] / n * 100 : 0, cumCount: cum, cumPct: n > 0 ? cum / n * 100 : 0 };
+    });
+    return { n: n, missing: missing, unique: distinct.length, rows: rows };
+  }
+
+  function pivotStatRow(label, value){
+    return '<tr><td>' + escapeXml(label) + '</td><td>' + value + '</td></tr>';
+  }
+
+  function pivotRenderMiniHistogram(container, sorted){
+    container.innerHTML = "";
+    if (sorted.length < 2) return;
+    var lo0 = sorted[0], hi0 = sorted[sorted.length - 1];
+    if (lo0 === hi0){ container.innerHTML = '<p class="norm-note">All values are identical — no spread to show.</p>'; return; }
+    var q1 = quantile(sorted, 0.25), q3 = quantile(sorted, 0.75);
+    var iqr = q3 - q1;
+    var h = iqr > 0 ? 2 * iqr / Math.cbrt(sorted.length) : (hi0 - lo0) / 10;
+    var numBins = Math.max(1, Math.min(20, Math.ceil((hi0 - lo0) / (h || 1))));
+    var binWidth = (hi0 - lo0) / numBins;
+    var bins = new Array(numBins).fill(0);
+    sorted.forEach(function(v){
+      var idx = Math.min(numBins - 1, Math.floor((v - lo0) / binWidth));
+      bins[idx]++;
+    });
+    var maxCount = Math.max.apply(null, bins);
+    var html = '<p class="data-hint" style="margin-bottom:6px;">Distribution</p>';
+    bins.forEach(function(count, i){
+      var binLo = lo0 + i * binWidth, binHi = binLo + binWidth;
+      var pct = maxCount > 0 ? count / maxCount * 100 : 0;
+      html += '<div class="pivot-bar-row"><span class="pivot-bar-label">' + fmtNum(binLo, 1) + '–' + fmtNum(binHi, 1) + '</span>' +
+        '<span class="pivot-bar-track"><span class="pivot-bar-fill" style="width:' + pct + '%;"></span></span>' +
+        '<span class="pivot-bar-value">' + count + '</span></div>';
+    });
+    container.innerHTML = html;
+  }
+
+  function pivotRenderMiniBars(container, freqRows){
+    container.innerHTML = "";
+    if (freqRows.length === 0) return;
+    var maxCount = Math.max.apply(null, freqRows.map(function(r){ return r.count; }));
+    var html = '<p class="data-hint" style="margin-bottom:6px;">Frequency</p>';
+    freqRows.forEach(function(r){
+      var pct = maxCount > 0 ? r.count / maxCount * 100 : 0;
+      html += '<div class="pivot-bar-row"><span class="pivot-bar-label" title="' + escapeXml(r.category) + '">' + escapeXml(r.category) + '</span>' +
+        '<span class="pivot-bar-track"><span class="pivot-bar-fill" style="width:' + pct + '%;"></span></span>' +
+        '<span class="pivot-bar-value">' + r.count + '</span></div>';
+    });
+    container.innerHTML = html;
+  }
+
+  function pivotRenderSingleVarSummary(){
+    var col = pivotEls.singleVarSelect.value;
+    if (!col){ pivotEls.singleVarOutput.innerHTML = ""; return; }
+    var type = pivotState.types[col];
+    var values = pivotState.rows.map(function(r){ return r[col]; });
+    if (type === "continuous"){
+      var s = pivotContinuousStats(values);
+      if (s.n === 0){
+        pivotEls.singleVarOutput.innerHTML = '<p class="norm-note">No numeric values found in this column.</p>';
+        return;
+      }
+      var html = '<div class="qc-grid" style="grid-template-columns:repeat(4,1fr);">' +
+        '<div class="qc-tile"><div class="qc-num">' + s.n + '</div><div class="qc-label">n</div></div>' +
+        '<div class="qc-tile"><div class="qc-num">' + s.missing + '</div><div class="qc-label">Missing</div></div>' +
+        '<div class="qc-tile"><div class="qc-num">' + fmtNum(s.mean, 2) + '</div><div class="qc-label">Mean</div></div>' +
+        '<div class="qc-tile"><div class="qc-num">' + fmtNum(s.sd, 2) + '</div><div class="qc-label">SD</div></div>' +
+        '</div>' +
+        '<div class="table-wrap" style="margin-top:14px;"><table class="life-table"><tbody>' +
+        pivotStatRow("SEM", fmtNum(s.sem, 3)) +
+        pivotStatRow("Median", fmtNum(s.median, 2)) +
+        pivotStatRow("Q1 (25th pct.)", fmtNum(s.q1, 2)) +
+        pivotStatRow("Q3 (75th pct.)", fmtNum(s.q3, 2)) +
+        pivotStatRow("IQR", fmtNum(s.iqr, 2)) +
+        pivotStatRow("Min", fmtNum(s.min, 2)) +
+        pivotStatRow("Max", fmtNum(s.max, 2)) +
+        '</tbody></table></div>';
+      pivotEls.singleVarOutput.innerHTML = html;
+      var chartDiv = document.createElement("div");
+      chartDiv.className = "pivot-mini-chart";
+      pivotEls.singleVarOutput.appendChild(chartDiv);
+      pivotRenderMiniHistogram(chartDiv, s.sorted);
+    } else {
+      var f = pivotFrequencyStats(values, type === "ordinal");
+      var html2 = '<div class="qc-grid">' +
+        '<div class="qc-tile"><div class="qc-num">' + f.n + '</div><div class="qc-label">n (valid)</div></div>' +
+        '<div class="qc-tile"><div class="qc-num">' + f.missing + '</div><div class="qc-label">Missing</div></div>' +
+        '<div class="qc-tile"><div class="qc-num">' + f.unique + '</div><div class="qc-label">Categories</div></div>' +
+        '</div>';
+      html2 += '<div class="table-wrap" style="margin-top:14px;"><table class="life-table"><thead><tr><th>Category</th><th>Count</th><th>%</th>' +
+        (type === "ordinal" ? '<th>Cumulative count</th><th>Cumulative %</th>' : '') + '</tr></thead><tbody>';
+      f.rows.forEach(function(r){
+        html2 += '<tr><td>' + escapeXml(r.category) + '</td><td>' + r.count + '</td><td>' + fmtNum(r.pct, 1) + '%</td>' +
+          (type === "ordinal" ? '<td>' + r.cumCount + '</td><td>' + fmtNum(r.cumPct, 1) + '%</td>' : '') + '</tr>';
+      });
+      html2 += '</tbody></table></div>';
+      pivotEls.singleVarOutput.innerHTML = html2;
+      var chartDiv2 = document.createElement("div");
+      chartDiv2.className = "pivot-mini-chart";
+      pivotEls.singleVarOutput.appendChild(chartDiv2);
+      pivotRenderMiniBars(chartDiv2, f.rows);
+    }
+  }
+
+  /* --- Two-variable pivot builder --- */
+
+  function pivotRenderCategoryFilters(){
+    var container = pivotEls.categoryFilters;
+    if (!pivotState.rowVar || !pivotState.colVar){ container.innerHTML = ""; return; }
+    var rowCats = pivotGetCategories(pivotState.rowVar);
+    var colCats = pivotGetCategories(pivotState.colVar);
+    function renderGroup(title, varName, cats, filterObj){
+      var html = '<p class="data-hint" style="margin:14px 0 6px;font-weight:600;color:var(--ink);">' + escapeXml(title) + ' (' + escapeXml(varName) + ')</p><div class="pivot-cat-filters">';
+      cats.forEach(function(cat){
+        var checked = filterObj[cat] !== false;
+        html += '<label class="pivot-cat-pill' + (checked ? '' : ' excluded') + '" data-cat="' + escapeXml(cat) + '"><input type="checkbox" ' + (checked ? "checked" : "") + '>' + escapeXml(cat) + '</label>';
+      });
+      html += '</div>';
+      return html;
+    }
+    container.innerHTML = renderGroup("Row categories", pivotState.rowVar, rowCats, pivotState.rowCatFilter) +
+      renderGroup("Column categories", pivotState.colVar, colCats, pivotState.colCatFilter);
+    var pills = container.querySelectorAll(".pivot-cat-pill");
+    pills.forEach(function(pill, idx){
+      var isRowGroup = idx < rowCats.length;
+      var cat = pill.getAttribute("data-cat");
+      var filterObj = isRowGroup ? pivotState.rowCatFilter : pivotState.colCatFilter;
+      pill.querySelector("input").addEventListener("change", function(e){
+        filterObj[cat] = e.target.checked;
+        pill.classList.toggle("excluded", !e.target.checked);
+        pivotRenderPivotAndTest();
+      });
+    });
+  }
+
+  function pivotBuildCrossTab(){
+    var rowVar = pivotState.rowVar, colVar = pivotState.colVar;
+    var rowCats = pivotGetCategories(rowVar).filter(function(cat){ return pivotState.rowCatFilter[cat] !== false; });
+    var colCats = pivotGetCategories(colVar).filter(function(cat){ return pivotState.colCatFilter[cat] !== false; });
+    var table = rowCats.map(function(){ return new Array(colCats.length).fill(0); });
+    pivotState.rows.forEach(function(r){
+      var ri = rowCats.indexOf(r[rowVar]), ci = colCats.indexOf(r[colVar]);
+      if (ri >= 0 && ci >= 0) table[ri][ci]++;
+    });
+    var rowSums = table.map(function(row){ return row.reduce(function(a, b){ return a + b; }, 0); });
+    var colSums = new Array(colCats.length).fill(0);
+    table.forEach(function(row){ row.forEach(function(v, j){ colSums[j] += v; }); });
+    var n = rowSums.reduce(function(a, b){ return a + b; }, 0);
+    return { table: table, rowCats: rowCats, colCats: colCats, rowSums: rowSums, colSums: colSums, n: n };
+  }
+
+  function pivotRenderCrossTab(ct){
+    var mode = pivotEls.displayMode.value;
+    function cellDisplay(val, i, j){
+      if (mode === "count") return String(val);
+      if (mode === "rowpct") return ct.rowSums[i] > 0 ? fmtNum(val / ct.rowSums[i] * 100, 1) + "%" : "—";
+      if (mode === "colpct") return ct.colSums[j] > 0 ? fmtNum(val / ct.colSums[j] * 100, 1) + "%" : "—";
+      return ct.n > 0 ? fmtNum(val / ct.n * 100, 1) + "%" : "—";
+    }
+    var html = '<table class="pivot-crosstab"><thead><tr><th class="pivot-corner"></th>';
+    ct.colCats.forEach(function(cat){ html += '<th>' + escapeXml(cat) + '</th>'; });
+    html += '<th class="pivot-total">Total</th></tr></thead><tbody>';
+    ct.table.forEach(function(row, i){
+      html += '<tr><th>' + escapeXml(ct.rowCats[i]) + '</th>';
+      row.forEach(function(val, j){ html += '<td>' + cellDisplay(val, i, j) + '</td>'; });
+      html += '<td class="pivot-total">' + ct.rowSums[i] + '</td></tr>';
+    });
+    html += '<tr><th class="pivot-total">Total</th>';
+    ct.colSums.forEach(function(sum){ html += '<td class="pivot-total">' + sum + '</td>'; });
+    html += '<td class="pivot-grand">' + ct.n + '</td></tr></tbody></table>';
+    pivotEls.crossTabWrap.innerHTML = html;
+  }
+
+  /* --- Statistical tests --- */
+
+  function chiSquareRxC(table){
+    var r = table.length, c = table[0].length;
+    var rowSums = table.map(function(row){ return row.reduce(function(a, b){ return a + b; }, 0); });
+    var colSums = new Array(c).fill(0);
+    for (var i = 0; i < r; i++) for (var j = 0; j < c; j++) colSums[j] += table[i][j];
+    var n = rowSums.reduce(function(a, b){ return a + b; }, 0);
+    var chi2 = 0, expected = [];
+    for (i = 0; i < r; i++){
+      expected.push([]);
+      for (j = 0; j < c; j++){
+        var e = n > 0 ? rowSums[i] * colSums[j] / n : 0;
+        expected[i].push(e);
+        if (e > 0) chi2 += (table[i][j] - e) * (table[i][j] - e) / e;
+      }
+    }
+    var df = (r - 1) * (c - 1);
+    return { chi2: chi2, df: df, p: chiSquaredPGeneral(chi2, df), expected: expected, rowSums: rowSums, colSums: colSums, n: n };
+  }
+
+  function pivotEnumerateTables(rowSums, colSums, callback){
+    var r = rowSums.length, c = colSums.length;
+    var table = []; for (var i = 0; i < r; i++) table.push(new Array(c).fill(0));
+    var count = 0, MAX_TABLES = 300000, aborted = false;
+    function fillRow(rowIdx, colRemaining){
+      if (aborted) return;
+      if (rowIdx === r - 1){
+        var sum = colRemaining.reduce(function(a, b){ return a + b; }, 0);
+        if (sum !== rowSums[rowIdx]) return;
+        for (var j = 0; j < c; j++) table[rowIdx][j] = colRemaining[j];
+        count++;
+        if (count > MAX_TABLES){ aborted = true; return; }
+        callback(table);
+        return;
+      }
+      fillCell(rowIdx, 0, rowSums[rowIdx], colRemaining.slice());
+    }
+    function fillCell(rowIdx, colIdx, rowRemaining, colRemaining){
+      if (aborted) return;
+      if (colIdx === c - 1){
+        if (rowRemaining > colRemaining[colIdx]) return;
+        table[rowIdx][colIdx] = rowRemaining;
+        var newColRemaining = colRemaining.slice();
+        newColRemaining[colIdx] -= rowRemaining;
+        fillRow(rowIdx + 1, newColRemaining);
+        return;
+      }
+      var maxVal = Math.min(rowRemaining, colRemaining[colIdx]);
+      for (var v = 0; v <= maxVal; v++){
+        if (aborted) return;
+        table[rowIdx][colIdx] = v;
+        var newColRemaining = colRemaining.slice();
+        newColRemaining[colIdx] -= v;
+        fillCell(rowIdx, colIdx + 1, rowRemaining - v, newColRemaining);
+      }
+    }
+    fillRow(0, colSums.slice());
+    return { count: count, aborted: aborted };
+  }
+
+  function pivotLogTableProb(table, rowSums, colSums, n){
+    var r = table.length, c = table[0].length, lp = 0, i, j;
+    for (i = 0; i < r; i++) lp += lgamma(rowSums[i] + 1);
+    for (j = 0; j < c; j++) lp += lgamma(colSums[j] + 1);
+    lp -= lgamma(n + 1);
+    for (i = 0; i < r; i++) for (j = 0; j < c; j++) lp -= lgamma(table[i][j] + 1);
+    return lp;
+  }
+
+  function fisherFreemanHalton(table){
+    var rowSums = table.map(function(row){ return row.reduce(function(a, b){ return a + b; }, 0); });
+    var colSums = new Array(table[0].length).fill(0);
+    for (var i = 0; i < table.length; i++) for (var j = 0; j < table[0].length; j++) colSums[j] += table[i][j];
+    var n = rowSums.reduce(function(a, b){ return a + b; }, 0);
+    var logPobs = pivotLogTableProb(table, rowSums, colSums, n);
+    var pSum = 0;
+    var result = pivotEnumerateTables(rowSums, colSums, function(t){
+      var lp = pivotLogTableProb(t, rowSums, colSums, n);
+      if (lp <= logPobs + 1e-7) pSum += Math.exp(lp);
+    });
+    if (result.aborted) return { p: null, tooLarge: true };
+    return { p: Math.min(1, pSum), tooLarge: false };
+  }
+
+  function cramersV(chi2, n, r, c){
+    return n > 0 ? Math.sqrt(chi2 / (n * (Math.min(r, c) - 1))) : NaN;
+  }
+
+  function pivotYatesChiSquare2x2(table){
+    var a = table[0][0], b = table[0][1], c = table[1][0], d = table[1][1];
+    var n = a + b + c + d;
+    var denom = (a + b) * (c + d) * (a + c) * (b + d);
+    if (denom === 0) return { chi2: NaN, p: NaN };
+    var corr = Math.max(0, Math.abs(a * d - b * c) - n / 2);
+    var chi2 = n * corr * corr / denom;
+    return { chi2: chi2, p: chiSquaredPGeneral(chi2, 1) };
+  }
+
+  function pivotCochranCriteria(expected){
+    var flat = [];
+    expected.forEach(function(row){ row.forEach(function(e){ flat.push(e); }); });
+    var anyBelow1 = flat.some(function(e){ return e < 1; });
+    var below5Count = flat.filter(function(e){ return e < 5; }).length;
+    var pctBelow5 = flat.length > 0 ? below5Count / flat.length : 0;
+    return { violated: anyBelow1 || pctBelow5 > 0.20, anyBelow1: anyBelow1, pctBelow5: pctBelow5 };
+  }
+
+  function pivotOrRr2x2(table){
+    var a = table[0][0], b = table[0][1], c = table[1][0], d = table[1][1];
+    var haszero = (a === 0 || b === 0 || c === 0 || d === 0);
+    var za = a, zb = b, zc = c, zd = d;
+    if (haszero){ za += 0.5; zb += 0.5; zc += 0.5; zd += 0.5; }
+    var orv = (za * zd) / (zb * zc);
+    var orSE = Math.sqrt(1 / za + 1 / zb + 1 / zc + 1 / zd);
+    var orLog = Math.log(orv);
+    var result = { or: orv, orLo: Math.exp(orLog - 1.96 * orSE), orHi: Math.exp(orLog + 1.96 * orSE), haszero: haszero, rr: NaN, rrLo: NaN, rrHi: NaN };
+    var r1 = za + zb, r2 = zc + zd;
+    if (r1 > 0 && r2 > 0 && za > 0 && zc > 0){
+      var p1 = za / (za + zb), p2 = zc / (zc + zd);
+      var rrv = p1 / p2, rrSE = Math.sqrt(1 / za - 1 / (za + zb) + 1 / zc - 1 / (zc + zd));
+      var rrLog = Math.log(rrv);
+      result.rr = rrv; result.rrLo = Math.exp(rrLog - 1.96 * rrSE); result.rrHi = Math.exp(rrLog + 1.96 * rrSE);
+    }
+    return result;
+  }
+
+  function pivotRunTest(ct){
+    var r = ct.rowCats.length, c = ct.colCats.length;
+    pivotEls.testCard.hidden = false;
+    if (r < 2 || c < 2 || ct.n === 0){
+      pivotEls.testTitle.textContent = "Not enough data";
+      pivotEls.testRationale.textContent = "Need at least 2 categories (with data) in both the row and column variable, after filtering, to run a test.";
+      pivotEls.chi2Row.hidden = true; pivotEls.dfRow.hidden = true;
+      pivotEls.pValue.textContent = "—"; pivotEls.verdict.innerHTML = "";
+      pivotEls.yatesRow.hidden = true; pivotEls.yatesPRow.hidden = true;
+      pivotEls.cramersV.textContent = "—"; pivotEls.orRrBlock.hidden = true;
+      return;
+    }
+    var chi = chiSquareRxC(ct.table);
+    var cochran = pivotCochranCriteria(chi.expected);
+    var testName, rationale, pValue, chi2Shown = true, dfShown = true;
+
+    if (cochran.violated){
+      var reason = cochran.anyBelow1 ? "at least one expected cell count is below 1" : "more than 20% of expected cell counts are below 5";
+      if (r === 2 && c === 2){
+        testName = "Fisher's exact test";
+        pValue = fisherExactTwoTailed(ct.table[0][0], ct.table[0][1], ct.table[1][0], ct.table[1][1]);
+        rationale = "Fisher's exact test selected: " + reason + " (Cochran's criteria). No χ² statistic or df applies to an exact test.";
+        chi2Shown = false; dfShown = false;
+      } else {
+        var ffh = fisherFreemanHalton(ct.table);
+        if (ffh.tooLarge){
+          testName = "Pearson's chi-squared test (approximate)";
+          pValue = chi.p;
+          rationale = "Cochran's criteria were violated (" + reason + "), which normally calls for the Fisher–Freeman–Halton exact test — but this table is too large to enumerate exactly in the browser, so the chi-squared approximation is shown instead. Treat this p-value with caution.";
+        } else {
+          testName = "Fisher–Freeman–Halton exact test";
+          pValue = ffh.p;
+          rationale = "Fisher–Freeman–Halton exact test selected: " + reason + " (Cochran's criteria). No χ² statistic or df applies to an exact test.";
+          chi2Shown = false; dfShown = false;
+        }
+      }
+    } else {
+      testName = "Pearson's chi-squared test";
+      pValue = chi.p;
+      rationale = "Pearson's chi-squared test selected: all expected cell counts are adequate (Cochran's criteria met).";
+    }
+
+    pivotEls.testTitle.textContent = testName;
+    pivotEls.testRationale.textContent = rationale;
+    pivotEls.chi2Row.hidden = !chi2Shown;
+    pivotEls.dfRow.hidden = !dfShown;
+    if (chi2Shown) pivotEls.chi2Value.textContent = fmtNum(chi.chi2, 3);
+    if (dfShown) pivotEls.dfValue.textContent = chi.df;
+    pivotEls.pValue.textContent = fmtP(pValue);
+    pivotEls.verdict.innerHTML = ""; pivotEls.verdict.appendChild(verdictPill(pValue));
+
+    if (!cochran.violated && r === 2 && c === 2){
+      var yates = pivotYatesChiSquare2x2(ct.table);
+      pivotEls.yatesRow.hidden = false; pivotEls.yatesPRow.hidden = false;
+      pivotEls.yatesChi2.textContent = fmtNum(yates.chi2, 3);
+      pivotEls.yatesP.textContent = fmtP(yates.p);
+    } else {
+      pivotEls.yatesRow.hidden = true; pivotEls.yatesPRow.hidden = true;
+    }
+
+    pivotEls.cramersV.textContent = fmtNum(cramersV(chi.chi2, ct.n, r, c), 3);
+
+    if (r === 2 && c === 2){
+      var orrr = pivotOrRr2x2(ct.table);
+      pivotEls.orRrBlock.hidden = false;
+      pivotEls.orRrName.textContent = "Odds ratio";
+      var ciText = "95% CI " + fmtNum(orrr.orLo, 2) + "–" + fmtNum(orrr.orHi, 2) + (orrr.haszero ? " (0.5 added)" : "");
+      if (isFinite(orrr.rr)) ciText += " · RR " + fmtNum(orrr.rr, 2) + " (95% CI " + fmtNum(orrr.rrLo, 2) + "–" + fmtNum(orrr.rrHi, 2) + ")";
+      pivotEls.orRrValue.textContent = fmtNum(orrr.or, 2);
+      pivotEls.orRrCi.textContent = ciText;
+    } else {
+      pivotEls.orRrBlock.hidden = true;
+    }
+  }
+
+  function pivotRenderPivotAndTest(){
+    if (!pivotState.rowVar || !pivotState.colVar){
+      pivotEls.builderError.hidden = false;
+      pivotEls.builderError.innerHTML = '<span class="dot"></span> Choose both a row and column variable (Nominal or Ordinal) to build a pivot table.';
+      pivotEls.crossTabWrap.innerHTML = "";
+      pivotEls.testCard.hidden = true;
+      return;
+    }
+    if (pivotState.rowVar === pivotState.colVar){
+      pivotEls.builderError.hidden = false;
+      pivotEls.builderError.innerHTML = '<span class="dot"></span> Row and column variables must be different.';
+      pivotEls.crossTabWrap.innerHTML = "";
+      pivotEls.testCard.hidden = true;
+      return;
+    }
+    pivotEls.builderError.hidden = true;
+    var ct = pivotBuildCrossTab();
+    pivotRenderCrossTab(ct);
+    pivotRunTest(ct);
+  }
+
+  /* --- Data loading & wiring --- */
+
+  function pivotLoadDataset(columns, rows){
+    pivotState.columns = columns;
+    pivotState.rows = rows;
+    pivotState.types = pivotDefaultTypes(columns, rows);
+    pivotEls.dataError.hidden = true;
+    pivotEls.dataSummary.innerHTML = '<span class="ml-task-badge">' + rows.length + ' rows × ' + columns.length + ' columns</span>';
+    pivotRenderPreview(columns, rows);
+    pivotEls.schemaCard.hidden = false;
+    pivotEls.singleVarCard.hidden = false;
+    pivotEls.builderCard.hidden = false;
+    pivotRenderSchemaTable();
+    pivotPopulateSingleVarSelect();
+    pivotPopulateRowColSelects();
+    pivotRenderSingleVarSummary();
+    pivotRenderCategoryFilters();
+    pivotRenderPivotAndTest();
+  }
+
+  function pivotHandleCsvText(text){
+    var result = pivotCsvToObjects(text);
+    if (result.error || result.columns.length === 0){
+      pivotEls.dataError.hidden = false;
+      pivotEls.dataError.innerHTML = '<span class="dot"></span> ' + (result.error || "Could not parse this file as CSV/TSV.");
+      return;
+    }
+    pivotLoadDataset(result.columns, result.rows);
+  }
+
+  pivotEls.fileInput.addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){ pivotHandleCsvText(String(reader.result)); };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+
+  pivotEls.pasteToggleBtn.addEventListener("click", function(){ pivotEls.pasteWrap.hidden = !pivotEls.pasteWrap.hidden; });
+  pivotEls.pasteLoadBtn.addEventListener("click", function(){
+    if (!pivotEls.pasteArea.value.trim()) return;
+    pivotHandleCsvText(pivotEls.pasteArea.value);
+    pivotEls.pasteWrap.hidden = true;
+  });
+
+  ["dragenter", "dragover"].forEach(function(evt){
+    pivotEls.dropzone.addEventListener(evt, function(e){ e.preventDefault(); pivotEls.dropzone.classList.add("dragover"); });
+  });
+  ["dragleave", "drop"].forEach(function(evt){
+    pivotEls.dropzone.addEventListener(evt, function(e){ e.preventDefault(); pivotEls.dropzone.classList.remove("dragover"); });
+  });
+  pivotEls.dropzone.addEventListener("drop", function(e){
+    var file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){ pivotHandleCsvText(String(reader.result)); };
+    reader.readAsText(file);
+  });
+
+  pivotEls.singleVarSelect.addEventListener("change", pivotRenderSingleVarSummary);
+  pivotEls.rowSelect.addEventListener("change", function(){
+    pivotState.rowVar = pivotEls.rowSelect.value;
+    pivotResetCategoryFilters();
+    pivotRenderCategoryFilters();
+    pivotRenderPivotAndTest();
+  });
+  pivotEls.colSelect.addEventListener("change", function(){
+    pivotState.colVar = pivotEls.colSelect.value;
+    pivotResetCategoryFilters();
+    pivotRenderCategoryFilters();
+    pivotRenderPivotAndTest();
+  });
+  pivotEls.displayMode.addEventListener("change", pivotRenderPivotAndTest);
 
   recalc();
   recalcTtest();
