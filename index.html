@@ -1936,9 +1936,9 @@
       <div class="info-body">
         <p><b>Preprocessing —</b> numeric features are z-score standardized (mean 0, SD 1) using training-set statistics only; categorical features are one-hot encoded into one column per category seen in the training data; binary variables (features or the target) are mapped to 0/1. A category seen only at prediction time (playground or batch) that wasn't in the training data is encoded as all-zero — effectively "unseen category" — since the model has no coefficient for it.</p>
         <p><b>Task type —</b> determined automatically from the target's data type: <i>Binary</i> → two-class classification, <i>Categorical</i> → multi-class classification, <i>Numeric</i> → regression. The model list, evaluation metrics, and prediction display all adapt accordingly.</p>
-        <p><b>Logistic / softmax regression —</b> a linear model fit by batch gradient descent — binary cross-entropy for two classes, categorical cross-entropy (softmax) for more than two, mean squared error for regression — validated against this app's existing Newton–Raphson GLM engine and against closed-form ordinary least squares, which it reproduces almost exactly given enough iterations.</p>
+        <p><b>Logistic / softmax regression —</b> a linear model, fit exactly rather than approximately: the two-class case uses the same Newton–Raphson engine as the GLM tab, regression uses closed-form ordinary least squares (no iteration involved), and the more-than-two-class (softmax) case uses gradient ascent with an adaptive, self-correcting step size — a step is only kept if it actually improves the fit, which is checked so training can't silently stop short of converging or drift into a non-converging oscillation the way a fixed learning rate can. Nominal features are dummy-coded against a reference category (k−1 columns, not k), matching the GLM tab's encoding, so the model stays well-posed regardless of how many categories a feature has.</p>
         <p><b>Decision tree —</b> built by recursive binary splitting (CART), choosing at each node the feature and threshold that most reduces Gini impurity (classification) or variance (regression), down to the chosen max depth.</p>
-        <p><b>Random forest —</b> an ensemble of trees, each grown on a bootstrap resample of the training rows; predictions are averaged (regression) or majority-voted with class probabilities from the vote fractions (classification). This generally trades a little training time for a more stable, less overfit result than a single tree.</p>
+        <p><b>Random forest —</b> an ensemble of trees, each grown on a bootstrap resample of the training rows; each split is also restricted to a random subset of the features (√p for classification, p/3 for regression, following the standard Breiman recipe) so the trees decorrelate from one another rather than all leaning on the same dominant predictor. Predictions are averaged (regression) or majority-voted with class probabilities from the vote fractions (classification). This generally trades a little training time for a more stable, less overfit result than a single tree.</p>
         <p><b>k-Nearest Neighbors —</b> predicts a new point from the k closest training rows by Euclidean distance (after standardization) — majority class fraction for classification, mean value for regression. No explicit "training" step beyond storing the data.</p>
         <p><b>Neural network —</b> a multilayer perceptron built and trained with TensorFlow.js (loaded from a CDN only when you train one), with your chosen hidden-layer sizes and activation function, Adam optimization at your chosen learning rate, and a sigmoid, softmax, or linear output layer depending on the task. The live loss curve is training loss on a further split of the training data (not the held-out test set), so the test-set evaluation below stays honest.</p>
         <p><b>Evaluation —</b> all metrics are computed on the held-out test set only, never on data the model trained on. Precision, recall, and F1 are macro-averaged across classes for multi-class problems. The ROC curve and AUC are shown only for two-class problems.</p>
@@ -6387,7 +6387,8 @@
 
   /* --- Preprocessing --- */
 
-  function mlBuildPreprocessing(trainRows){
+  function mlBuildPreprocessing(trainRows, allRows){
+    allRows = allRows || trainRows;
     var featureCols = mlState.columns.filter(function(c){ return mlState.schema[c].role === "feature"; });
     var targetCol = mlState.columns.filter(function(c){ return mlState.schema[c].role === "target"; })[0];
     var featureMeta = {};
@@ -6399,12 +6400,19 @@
         var m = nums.length ? mean(nums) : 0;
         var sd = nums.length ? Math.sqrt(nums.reduce(function(s, v){ return s + (v - m) * (v - m); }, 0) / nums.length) : 1;
         featureMeta[c] = { type: "numeric", mean: m, sd: sd || 1, sampleMin: nums.length ? Math.min.apply(null, nums) : 0, sampleMax: nums.length ? Math.max.apply(null, nums) : 1 };
-      } else if (type === "binary"){
-        var distinctB = mlUnique(vals.filter(function(v){ return v !== ""; }));
-        featureMeta[c] = { type: "binary", categories: distinctB.slice(0, 2) };
       } else {
-        var distinctC = mlUnique(vals.filter(function(v){ return v !== ""; }));
-        featureMeta[c] = { type: "categorical", categories: distinctC };
+        // Category vocabulary is drawn from ALL rows (train+test), not just the train split: it's part of the
+        // problem's label space, not a leaked test-set statistic. Using train-only categories risks a category that
+        // happens to land entirely in the test split being unencodable (binary features silently zero out, but a
+        // target category would break evaluation with an out-of-range index).
+        var allVals = allRows.map(function(r){ return r[c]; });
+        if (type === "binary"){
+          var distinctB = mlUnique(allVals.filter(function(v){ return v !== ""; }));
+          featureMeta[c] = { type: "binary", categories: distinctB.slice(0, 2) };
+        } else {
+          var distinctC = mlUnique(allVals.filter(function(v){ return v !== ""; }));
+          featureMeta[c] = { type: "categorical", categories: distinctC };
+        }
       }
     });
     var targetType = mlState.schema[targetCol].type;
@@ -6415,7 +6423,7 @@
       var tsd = Math.sqrt(tnums.reduce(function(s, v){ return s + (v - tm) * (v - tm); }, 0) / tnums.length) || 1;
       targetMeta = { type: "numeric", mean: tm, sd: tsd };
     } else {
-      var tdistinct = mlUnique(trainRows.map(function(r){ return r[targetCol]; }).filter(function(v){ return v !== ""; }));
+      var tdistinct = mlUnique(allRows.map(function(r){ return r[targetCol]; }).filter(function(v){ return v !== ""; }));
       targetMeta = { type: targetType, categories: tdistinct };
     }
     var task = targetType === "numeric" ? "regression" : (targetMeta.categories.length <= 2 ? "binary" : "multiclass");
@@ -6438,7 +6446,13 @@
       } else if (meta.type === "binary"){
         vec.push(raw === meta.categories[1] ? 1 : 0);
       } else {
-        meta.categories.forEach(function(cat){ vec.push(raw === cat ? 1 : 0); });
+        // k-1 dummy coding against the first category as reference (matches the GLM tab's encodeNominal) —
+        // encoding all k categories as separate one-hot columns alongside an intercept term creates exact
+        // multicollinearity (the classic dummy-variable trap): the k one-hot columns always sum to 1, which
+        // is linearly dependent with the always-1 intercept column, making the design matrix singular for
+        // any linear/logistic/softmax model. Tree/forest/k-NN aren't affected the same way (no matrix
+        // inversion involved), but this must be fixed at the shared encoding step all models draw from.
+        meta.categories.slice(1).forEach(function(cat){ vec.push(raw === cat ? 1 : 0); });
       }
     });
     return vec;
@@ -6470,8 +6484,31 @@
     var Xb = X.map(function(row){ return [1].concat(row); });
     var pb = p + 1, i, j, c;
     if (task === "multiclass"){
+      // Softmax cross-entropy has no closed-form or simple Newton-Raphson update available here without a
+      // full (K-1)*(p+1) joint Hessian, so this uses gradient ascent on the log-likelihood — but with an
+      // ADAPTIVE step size, not the user's learning rate applied blindly: a step is only accepted if it
+      // actually improves the log-likelihood (rejected and the step size halved otherwise), and the step
+      // size grows slightly after each accepted step. This matters because softmax cross-entropy is convex,
+      // so gradient ascent with a fixed learning rate that is too large for the data's scale doesn't merely
+      // converge slowly — it can fall into a stable non-convergent oscillation (bouncing between two points
+      // forever, never approaching the optimum), which a fixed-step version has no way to escape no matter
+      // how many extra iterations it's given. Backtracking guarantees each accepted step is a genuine
+      // improvement, so (short of perfectly separable data, where no finite optimum exists) this converges.
+      function softmaxLogLik(W){
+        var ll = 0;
+        for (var ii = 0; ii < n; ii++){
+          var zz = W.map(function(wc){ var s = 0; for (var jj = 0; jj < pb; jj++) s += wc[jj] * Xb[ii][jj]; return s; });
+          var mz = Math.max.apply(null, zz);
+          var se = zz.reduce(function(s, v){ return s + Math.exp(v - mz); }, 0);
+          ll += (zz[y[ii]] - mz) - Math.log(se);
+        }
+        return ll;
+      }
       var W = []; for (c = 0; c < numClasses; c++) W.push(new Array(pb).fill(0));
-      for (var it = 0; it < iters; it++){
+      var curLL = softmaxLogLik(W);
+      var converged = false, totalIters = 0, maxTotalIters = Math.min(Math.max(iters * 3, iters), 5000);
+      var step = lr;
+      while (totalIters < maxTotalIters){
         var grad = []; for (c = 0; c < numClasses; c++) grad.push(new Array(pb).fill(0));
         for (i = 0; i < n; i++){
           var z = W.map(function(wc){ var s = 0; for (var jj = 0; jj < pb; jj++) s += wc[jj] * Xb[i][jj]; return s; });
@@ -6484,23 +6521,62 @@
             for (j = 0; j < pb; j++) grad[c][j] += err * Xb[i][j];
           }
         }
-        for (c = 0; c < numClasses; c++) for (j = 0; j < pb; j++) W[c][j] -= lr * grad[c][j] / n;
+        var trial = W.map(function(row){ return row.slice(); });
+        for (c = 0; c < numClasses; c++) for (j = 0; j < pb; j++) trial[c][j] -= step * grad[c][j] / n;
+        var trialLL = softmaxLogLik(trial);
+        totalIters++;
+        if (trialLL > curLL){
+          var improved = trialLL - curLL;
+          W = trial;
+          curLL = trialLL;
+          step *= 1.1;
+          // Relative log-likelihood tolerance (scale-invariant, standard for convex optimizers) —
+          // stop once further steps can no longer meaningfully change the fit.
+          if (improved < 1e-9 * (Math.abs(curLL) + 1) && totalIters >= iters){ converged = true; break; }
+        } else {
+          step *= 0.5;
+          if (step < 1e-14){ converged = totalIters >= iters; break; }
+        }
       }
-      return { type: "multiclass", W: W };
+      return { type: "multiclass", W: W, converged: converged, iterations: totalIters };
     }
-    var w = new Array(pb).fill(0);
-    for (it = 0; it < iters; it++){
-      var g = new Array(pb).fill(0);
-      for (i = 0; i < n; i++){
-        var zz2 = 0; for (j = 0; j < pb; j++) zz2 += w[j] * Xb[i][j];
-        var pred = task === "binary" ? 1 / (1 + Math.exp(-zz2)) : zz2;
-        var err2 = pred - y[i];
-        for (j = 0; j < pb; j++) g[j] += err2 * Xb[i][j];
+    if (task === "binary"){
+      // Newton-Raphson (IRLS) on the exact logistic log-likelihood — the same proven, validated engine
+      // used by the GLM tab's fitGLM, rather than fixed-budget gradient descent, which for well-separated
+      // data can stop well short of the maximum-likelihood fit within the default iteration/learning-rate
+      // settings without any indication to the user.
+      var w = new Array(pb).fill(0);
+      var converged2 = false, iterUsed = 0, maxIterNR = 100, tol = 1e-10;
+      for (var iter = 0; iter < maxIterNR; iter++){
+        iterUsed = iter;
+        var eta = Xb.map(function(row){ var s = 0; for (var jj = 0; jj < pb; jj++) s += row[jj] * w[jj]; return s; });
+        var mu = eta.map(function(e){ return 1 / (1 + Math.exp(-e)); });
+        var wt = mu.map(function(m){ return m * (1 - m); });
+        var grad2 = new Array(pb).fill(0);
+        for (i = 0; i < n; i++){ var resid = y[i] - mu[i]; for (j = 0; j < pb; j++) grad2[j] += resid * Xb[i][j]; }
+        var H = []; for (j = 0; j < pb; j++) H.push(new Array(pb).fill(0));
+        for (i = 0; i < n; i++) for (j = 0; j < pb; j++) for (var k = 0; k < pb; k++) H[j][k] += wt[i] * Xb[i][j] * Xb[i][k];
+        var delta = solveLinear(H, grad2);
+        if (!delta) break;
+        var maxDelta = 0;
+        for (j = 0; j < pb; j++){ w[j] += delta[j]; maxDelta = Math.max(maxDelta, Math.abs(delta[j])); }
+        if (maxDelta < tol){ converged2 = true; break; }
+        if (w.some(function(b){ return Math.abs(b) > 500; })) break;
       }
-      var scale = task === "binary" ? 1 / n : 2 / n;
-      for (j = 0; j < pb; j++) w[j] -= lr * scale * g[j];
+      return { type: "binary", w: w, converged: converged2, iterations: iterUsed };
     }
-    return { type: task, w: w };
+    // Regression: exact closed-form ordinary least squares (normal equations) — no iteration or
+    // convergence question at all, and strictly more accurate than gradient descent for this case.
+    var XtX = []; for (j = 0; j < pb; j++) XtX.push(new Array(pb).fill(0));
+    var Xty = new Array(pb).fill(0);
+    for (i = 0; i < n; i++){
+      for (j = 0; j < pb; j++){
+        Xty[j] += Xb[i][j] * y[i];
+        for (var k2 = 0; k2 < pb; k2++) XtX[j][k2] += Xb[i][j] * Xb[i][k2];
+      }
+    }
+    var wOls = solveLinear(XtX, Xty);
+    return { type: task, w: wOls || new Array(pb).fill(0), converged: !!wOls, iterations: 0 };
   }
 
   function mlPredictLinearRaw(model, xRow){
@@ -6537,13 +6613,24 @@
     }
     return { leaf: true, value: mean(y) };
   }
-  function mlBuildTree(X, y, task, numClasses, depth, maxDepth, minSamples){
+  function mlRandomFeatureSubset(p, maxFeatures){
+    var idx = []; for (var i = 0; i < p; i++) idx.push(i);
+    if (!maxFeatures || maxFeatures >= p) return idx;
+    for (var s = idx.length - 1; s > 0; s--){
+      var r = Math.floor(Math.random() * (s + 1));
+      var tmp = idx[s]; idx[s] = idx[r]; idx[r] = tmp;
+    }
+    return idx.slice(0, maxFeatures);
+  }
+  function mlBuildTree(X, y, task, numClasses, depth, maxDepth, minSamples, maxFeatures){
     var n = X.length;
     var impurityBase = task === "classification" ? mlGiniImpurity(y, numClasses) : mlVariance(y);
     if (depth >= maxDepth || n < minSamples * 2 || impurityBase === 0) return mlMakeLeaf(y, task, numClasses);
     var p = X[0].length;
     var bestGain = -Infinity, bestFeat = -1, bestThresh = null, bestSplit = null;
-    for (var f = 0; f < p; f++){
+    var candidateFeatures = mlRandomFeatureSubset(p, maxFeatures);
+    for (var fi = 0; fi < candidateFeatures.length; fi++){
+      var f = candidateFeatures[fi];
       var vals = X.map(function(row){ return row[f]; });
       var uniq = mlUnique(vals).sort(function(a, b){ return a - b; });
       for (var u = 0; u < uniq.length - 1; u++){
@@ -6567,8 +6654,8 @@
     var rightYv = bestSplit.rightIdx.map(function(idx){ return y[idx]; });
     return {
       leaf: false, feature: bestFeat, threshold: bestThresh,
-      left: mlBuildTree(leftX, leftYv, task, numClasses, depth + 1, maxDepth, minSamples),
-      right: mlBuildTree(rightX, rightYv, task, numClasses, depth + 1, maxDepth, minSamples)
+      left: mlBuildTree(leftX, leftYv, task, numClasses, depth + 1, maxDepth, minSamples, maxFeatures),
+      right: mlBuildTree(rightX, rightYv, task, numClasses, depth + 1, maxDepth, minSamples, maxFeatures)
     };
   }
   function mlPredictTreeRaw(node, x){
@@ -6582,10 +6669,15 @@
     return { X: Xb, y: yb };
   }
   function mlBuildForest(X, y, task, numClasses, numTrees, maxDepth){
+    var p = X[0].length;
+    // Breiman's standard per-split feature subsample size: sqrt(p) for classification, p/3 for regression.
+    // This randomizes which features each split can even consider, decorrelating the trees beyond what
+    // bootstrap resampling alone achieves — the defining ingredient of a random forest versus plain bagging.
+    var maxFeatures = task === "classification" ? Math.max(1, Math.round(Math.sqrt(p))) : Math.max(1, Math.round(p / 3));
     var trees = [];
     for (var t = 0; t < numTrees; t++){
       var bs = mlBootstrapSample(X, y);
-      trees.push(mlBuildTree(bs.X, bs.y, task, numClasses, 0, maxDepth, 2));
+      trees.push(mlBuildTree(bs.X, bs.y, task, numClasses, 0, maxDepth, 2, maxFeatures));
     }
     return trees;
   }
@@ -6742,13 +6834,19 @@
     var N = yTrue.length - P;
     var tp = 0, fp = 0;
     var points = [{ fpr: 0, tpr: 0 }];
-    pts.forEach(function(pt){
-      if (pt.y === 1) tp++; else fp++;
+    var i = 0;
+    while (i < pts.length){
+      var j = i;
+      while (j < pts.length && pts[j].p === pts[i].p){
+        if (pts[j].y === 1) tp++; else fp++;
+        j++;
+      }
       points.push({ fpr: N > 0 ? fp / N : 0, tpr: P > 0 ? tp / P : 0 });
-    });
+      i = j;
+    }
     var auc = 0;
-    for (var i = 1; i < points.length; i++){
-      auc += (points[i].fpr - points[i - 1].fpr) * (points[i].tpr + points[i - 1].tpr) / 2;
+    for (var k = 1; k < points.length; k++){
+      auc += (points[k].fpr - points[k - 1].fpr) * (points[k].tpr + points[k - 1].tpr) / 2;
     }
     return { points: points, auc: auc };
   }
@@ -6937,7 +7035,7 @@
 
     var trainFraction = Number(mlEls.splitSlider.value) / 100;
     var split = mlSplitTrainTest(mlState.rows, trainFraction);
-    mlBuildPreprocessing(split.train);
+    mlBuildPreprocessing(split.train, mlState.rows);
 
     var numClasses = mlState.targetMeta.categories ? mlState.targetMeta.categories.length : null;
     mlState.trainX = split.train.map(mlEncodeRow);
@@ -6992,6 +7090,10 @@
       mlState.model = model;
       mlEls.progressTitle.textContent = "Training complete";
       mlEls.progressStatus.textContent = family === "nn" ? "Trained for " + opts.epochs + " epochs." : "Model trained on " + mlState.trainX.length + " rows.";
+      if (model.kind === "logistic" && model.data.converged === false){
+        mlEls.trainError.hidden = false;
+        mlEls.trainError.innerHTML = '<span class="dot"></span> The linear model did not fully converge within its iteration budget — this usually happens with strongly separated classes. The coefficients shown may be somewhat imprecise; try raising the learning rate and/or iteration count.';
+      }
       mlRenderEvaluation();
       mlBuildPlayground();
       mlEls.playgroundCard.hidden = false;
