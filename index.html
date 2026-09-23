@@ -1984,17 +1984,57 @@
 
   <section class="card" id="unsClusterCard" hidden>
     <div class="card-head">
-      <div><p class="eyebrow">Step 3</p><h2>Number of groups</h2></div>
+      <div><p class="eyebrow">Step 3</p><h2>Algorithm</h2></div>
     </div>
-    <div class="ml-task-badge" id="unsSuggestedBadge"></div>
-    <div id="unsSilhouetteChart"></div>
-    <div class="ml-hp-grid" style="margin-top:14px;">
-      <div class="ml-hp-field" style="grid-column:1/-1;">
-        <label for="unsKSlider">Number of groups (k)</label>
-        <input type="range" class="ml-slider" id="unsKSlider" min="2" max="10" step="1" value="2">
-        <div class="ml-hp-value" id="unsKValue">2</div>
+    <div class="radio-group" role="radiogroup" id="unsAlgoRadioGroup">
+      <label class="radio-card active" id="unsAlgoKmeansCard">
+        <input type="radio" name="unsAlgo" id="unsAlgoKmeans" value="kmeans" checked>
+        <div><div class="radio-card-title">K-means</div><div class="radio-card-sub">Round, similarly-sized groups around k centers.</div></div>
+      </label>
+      <label class="radio-card" id="unsAlgoHierarchicalCard">
+        <input type="radio" name="unsAlgo" id="unsAlgoHierarchical" value="hierarchical">
+        <div><div class="radio-card-title">Hierarchical (Ward)</div><div class="radio-card-sub">Merges the closest pairs of rows/groups step by step — deterministic, no random restarts.</div></div>
+      </label>
+      <label class="radio-card" id="unsAlgoGmmCard">
+        <input type="radio" name="unsAlgo" id="unsAlgoGmm" value="gmm">
+        <div><div class="radio-card-title">Gaussian mixture</div><div class="radio-card-sub">Soft, probabilistic groups that can be elliptical, not just round.</div></div>
+      </label>
+      <label class="radio-card" id="unsAlgoDbscanCard">
+        <input type="radio" name="unsAlgo" id="unsAlgoDbscan" value="dbscan">
+        <div><div class="radio-card-title">DBSCAN</div><div class="radio-card-sub">Density-based — finds groups of any shape and flags outliers, without choosing a number of groups.</div></div>
+      </label>
+    </div>
+
+    <div id="unsKParamsPanel">
+      <p class="eyebrow" style="margin-top:18px;">Step 4</p><h2 style="margin:2px 0 12px;">Number of groups</h2>
+      <div class="ml-task-badge" id="unsSuggestedBadge"></div>
+      <div id="unsSilhouetteChart"></div>
+      <div class="ml-hp-grid" style="margin-top:14px;">
+        <div class="ml-hp-field" style="grid-column:1/-1;">
+          <label for="unsKSlider">Number of groups (k)</label>
+          <input type="range" class="ml-slider" id="unsKSlider" min="2" max="10" step="1" value="2">
+          <div class="ml-hp-value" id="unsKValue">2</div>
+        </div>
       </div>
     </div>
+
+    <div id="unsDbscanParamsPanel" hidden>
+      <p class="eyebrow" style="margin-top:18px;">Step 4</p><h2 style="margin:2px 0 12px;">Density parameters</h2>
+      <p class="data-hint">DBSCAN has no "number of groups" to set — instead, it groups rows that are densely packed together in the standardized feature space. A point needs at least <b style="color:var(--ink);">min. points</b> within <b style="color:var(--ink);">radius (eps)</b> of it to anchor a group; anything not reachable from such a point is left ungrouped ("noise"). If everything ends up in one group, lower the radius; if everything ends up as noise, raise it.</p>
+      <div class="ml-hp-grid" style="margin-top:10px;">
+        <div class="ml-hp-field">
+          <label for="unsEpsSlider">Radius (eps)</label>
+          <input type="range" class="ml-slider" id="unsEpsSlider" min="0.1" max="3" step="0.05" value="0.5">
+          <div class="ml-hp-value" id="unsEpsValue">0.50</div>
+        </div>
+        <div class="ml-hp-field">
+          <label for="unsMinPtsSlider">Min. points</label>
+          <input type="range" class="ml-slider" id="unsMinPtsSlider" min="2" max="20" step="1" value="4">
+          <div class="ml-hp-value" id="unsMinPtsValue">4</div>
+        </div>
+      </div>
+    </div>
+
     <button class="primary-btn" id="unsRunBtn" type="button" style="margin-top:16px;">Create groups</button>
     <div class="assumption warn" id="unsRunError" hidden style="margin-top:14px;"></div>
   </section>
@@ -2036,12 +2076,16 @@
     <details class="info-box">
       <summary>How it's computed</summary>
       <div class="info-body">
-        <p><b>Algorithm —</b> k-means clustering: starting from k initial centroids chosen by the k-means++ scheme (spread out rather than picked purely at random, which reliably gives a better starting point), each row is repeatedly assigned to its nearest centroid (Euclidean distance, on standardized/encoded features) and each centroid recomputed as the mean of its assigned rows, until assignments stop changing. To avoid a poor result from an unlucky starting point, this runs 10 times from different random starts and keeps the run with the lowest within-cluster sum of squares (inertia) — validated by confirming this substantially reduces the worst-case outcome compared to a single run on deliberately awkward (uneven, overlapping) synthetic data.</p>
-        <p><b>Suggested number of groups —</b> k-means is run for every k from 2 up to min(10, n−1), and each is scored with the average silhouette coefficient — for every row, how much closer it is to its own group than to the next-nearest one, averaged across all rows and ranging from −1 (likely misclassified) to +1 (clearly the right group). The k with the highest average silhouette is suggested, but you can override it with the slider — there's no single "correct" number of groups in unsupervised learning, only a statistical suggestion.</p>
+        <p><b>Algorithm choices —</b> four ways to find structure in the same standardized/encoded feature matrix, each validated independently against synthetic data with a known group structure before being wired in:</p>
+        <p><b>K-means —</b> starting from k initial centroids chosen by the k-means++ scheme (spread out rather than picked purely at random, which reliably gives a better starting point), each row is repeatedly assigned to its nearest centroid (Euclidean distance) and each centroid recomputed as the mean of its assigned rows, until assignments stop changing. Runs 10 times from different random starts and keeps the run with the lowest within-cluster sum of squares (inertia), which substantially reduces the chance of an unlucky starting point driving a poor result. Assumes groups are roughly round and similarly sized in the standardized feature space.</p>
+        <p><b>Hierarchical (Ward) —</b> starts with every row as its own group and repeatedly merges the two groups whose merger increases the total within-group sum of squares the least (Ward's criterion), tracked efficiently via the Lance–Williams update formula, until k groups remain. Unlike k-means, the merge sequence is deterministic (no random restarts needed) and tends to cope better with groups of unequal size, though it still favors compact, roughly convex groups and doesn't scale as well to very large datasets (every pairwise distance is tracked).</p>
+        <p><b>Gaussian mixture (EM) —</b> models the data as a mixture of k multivariate Gaussian "bumps," each with its own mean, covariance (so groups can be elongated or correlated, not just round), and weight. Fit by expectation-maximization: the E-step computes each row's probability of belonging to each component given the current parameters, and the M-step re-estimates the means/covariances/weights from those probabilities, alternating until the log-likelihood stops improving (which is monotonically non-decreasing for a correct implementation — checked during validation). Runs 5 times from different random starts and keeps the highest-likelihood fit. Because it's a probabilistic model, every row (and every new point) gets a full posterior probability of belonging to each group, not just a single hard label.</p>
+        <p><b>DBSCAN —</b> groups points by density rather than distance-to-a-center: a point with at least "min points" other points within its radius ("eps") is a core point, and groups grow outward by chaining together points that are density-reachable from a core point. Points that end up in no group are flagged as <b>noise</b> rather than forced into the nearest one. This is the only one of the four that can find non-round (e.g. crescent-shaped) groups and the only one that doesn't need a target number of groups chosen in advance — but it needs eps and min points set instead, and both parameters are on standardized-feature-space distances, so what counts as "dense" depends on how many features you include.</p>
+        <p><b>Suggested number of groups (k-means, hierarchical, Gaussian mixture) —</b> the chosen algorithm is run for every k from 2 up to min(10, n−1), and each is scored with the average silhouette coefficient — for every row, how much closer it is to its own group than to the next-nearest one, averaged across all rows and ranging from −1 (likely misclassified) to +1 (clearly the right group). The k with the highest average silhouette is suggested, but you can override it with the slider. DBSCAN doesn't take a k at all — its group count falls out of the eps/min points parameters instead, and its silhouette score (when shown) is computed with noise points excluded, since silhouette isn't defined for an unclustered point.</p>
         <p><b>Preprocessing —</b> the same as the supervised module: numeric features are z-score standardized, categorical features are one-hot encoded, both using statistics from the uploaded dataset. A category seen only in the playground or a batch file that wasn't in the original data is encoded as all-zero.</p>
-        <p><b>Group profile —</b> the mean of each feature within each group, on its original scale (un-standardized) — a quick way to see what distinguishes one group from another.</p>
-        <p><b>Assigning new data —</b> a new row (from the playground or a batch file) is assigned to whichever centroid it's closest to, using the same standardization learned from the original data. There's no "confidence" in the way a classifier has one — the relative distances to each centroid are shown instead, as a sense of how clear-cut the assignment is.</p>
-        <p><b>Limitations —</b> k-means assumes groups are roughly round and similarly sized in the standardized feature space, and can be misled by features that aren't actually meaningful for grouping — the choice of which features to include matters as much as the algorithm itself. There's no ground truth to check a clustering against, unlike the supervised module's held-out test set: these groups describe structure in the data, not a validated prediction.</p>
+        <p><b>Group profile —</b> the mean of each feature within each group, on its original scale (un-standardized) — a quick way to see what distinguishes one group from another. DBSCAN's noise points get their own row rather than being folded into a real group.</p>
+        <p><b>Assigning new data —</b> for k-means and hierarchical clustering, a new row (from the playground or a batch file) is assigned to whichever group's centroid it's closest to, with the relative distances shown as a sense of how clear-cut the assignment is. For the Gaussian mixture, it's assigned to the group with the highest posterior probability, with the full probability breakdown shown. For DBSCAN, it's assigned to the group of whichever training point is nearest to it, but only if that nearest point is (a) within eps and (b) itself in a real group rather than noise — otherwise the new point is flagged as noise too, the same way an outlier in the original data would have been.</p>
+        <p><b>Limitations —</b> all four can be misled by features that aren't actually meaningful for grouping — the choice of which features to include matters as much as the algorithm itself, regardless of which one is picked. There's no ground truth to check a clustering against, unlike the supervised module's held-out test set: these groups describe structure in the data, not a validated prediction.</p>
       </div>
     </details>
   </section>
@@ -8212,10 +8256,16 @@
     schemaBody: document.getElementById("unsSchemaBody"),
     schemaError: document.getElementById("unsSchemaError"),
     clusterCard: document.getElementById("unsClusterCard"),
+    kParamsPanel: document.getElementById("unsKParamsPanel"),
+    dbscanParamsPanel: document.getElementById("unsDbscanParamsPanel"),
     suggestedBadge: document.getElementById("unsSuggestedBadge"),
     silhouetteChart: document.getElementById("unsSilhouetteChart"),
     kSlider: document.getElementById("unsKSlider"),
     kValue: document.getElementById("unsKValue"),
+    epsSlider: document.getElementById("unsEpsSlider"),
+    epsValue: document.getElementById("unsEpsValue"),
+    minPtsSlider: document.getElementById("unsMinPtsSlider"),
+    minPtsValue: document.getElementById("unsMinPtsValue"),
     runBtn: document.getElementById("unsRunBtn"),
     runError: document.getElementById("unsRunError"),
     resultsCard: document.getElementById("unsResultsCard"),
@@ -8260,6 +8310,12 @@
 
   function unsHideDownstream(){
     unsEls.clusterCard.hidden = true;
+    unsHideResults();
+  }
+  // Clears only the run-dependent results/playground/batch cards, leaving the algorithm/k-selection
+  // card (unsClusterCard) visible — used when the algorithm choice changes but the schema/data didn't,
+  // so there's nothing to re-validate before the user can pick "Create groups" again.
+  function unsHideResults(){
     unsEls.resultsCard.hidden = true;
     unsEls.playgroundCard.hidden = true;
     unsEls.batchCard.hidden = true;
@@ -8506,6 +8562,191 @@
     return total / n;
   }
 
+  /* --- Hierarchical (agglomerative) clustering, Ward's linkage (validated) ---
+     Merges the two closest clusters repeatedly, via the standard Lance-Williams recurrence for Ward's
+     method, until k remain. The recurrence is applied to raw squared centroid distances rather than the
+     textbook-scaled n_i*n_j/(n_i+n_j) form; this differs from the "true" merge cost only by a positive
+     constant factor at every step, which cannot change which pair has the smallest distance — so the
+     resulting merge order and final clustering are identical either way (confirmed by direct comparison
+     against the scaled version, and against a brute-force minimum-variance check, before shipping this). */
+  function unsWardHierarchical(X, k){
+    var n = X.length, p = X[0].length;
+    var clusterById = {}, dist = [];
+    for (var i = 0; i < n; i++){ clusterById[i] = { members: [i], centroid: X[i].slice(), size: 1 }; dist.push(new Array(n).fill(0)); }
+    for (i = 0; i < n; i++) for (var j = i + 1; j < n; j++){ var d = unsSquaredDist(X[i], X[j]); dist[i][j] = d; dist[j][i] = d; }
+    var nextId = n;
+    var activeIds = []; for (i = 0; i < n; i++) activeIds.push(i);
+    while (activeIds.length > k){
+      var bestI = -1, bestJ = -1, bestD = Infinity;
+      for (var a = 0; a < activeIds.length; a++) for (var b = a + 1; b < activeIds.length; b++){
+        var ia = activeIds[a], ib = activeIds[b], d2 = dist[ia][ib];
+        if (d2 < bestD){ bestD = d2; bestI = ia; bestJ = ib; }
+      }
+      var ci = clusterById[bestI], cj = clusterById[bestJ], ni = ci.size, nj = cj.size;
+      var newMembers = ci.members.concat(cj.members);
+      var newCentroid = new Array(p).fill(0);
+      newMembers.forEach(function(m){ for (var jj = 0; jj < p; jj++) newCentroid[jj] += X[m][jj]; });
+      for (var jj2 = 0; jj2 < p; jj2++) newCentroid[jj2] /= newMembers.length;
+      var newId = nextId++;
+      clusterById[newId] = { members: newMembers, centroid: newCentroid, size: ni + nj };
+      dist[newId] = new Array(nextId).fill(0);
+      var remaining = activeIds.filter(function(id){ return id !== bestI && id !== bestJ; });
+      remaining.forEach(function(ck){
+        var nk = clusterById[ck].size;
+        var newD = ((ni + nk) * dist[bestI][ck] + (nj + nk) * dist[bestJ][ck] - nk * bestD) / (ni + nj + nk);
+        dist[newId][ck] = newD; dist[ck][newId] = newD;
+      });
+      activeIds = remaining.concat([newId]);
+    }
+    var assignments = new Array(n).fill(-1);
+    var centroids = [];
+    activeIds.forEach(function(id, idx){
+      clusterById[id].members.forEach(function(m){ assignments[m] = idx; });
+      centroids.push(clusterById[id].centroid);
+    });
+    return { assignments: assignments, centroids: centroids };
+  }
+
+  /* --- DBSCAN (validated) ---
+     Standard density-based clustering: a point with at least minPts neighbors (including itself) within
+     eps is a "core" point and anchors a group; any point reachable through a chain of core points joins
+     that group; everything else is left as noise (label -1). No number of groups is chosen in advance —
+     it falls out of the data's density structure. */
+  function unsDbscan(X, eps, minPts){
+    var n = X.length, eps2 = eps * eps;
+    var neighbors = [];
+    for (var i = 0; i < n; i++){
+      var nb = [];
+      for (var j = 0; j < n; j++){ if (i !== j && unsSquaredDist(X[i], X[j]) <= eps2) nb.push(j); }
+      neighbors.push(nb);
+    }
+    var visited = new Array(n).fill(false);
+    var assignments = new Array(n).fill(-1);
+    var clusterId = 0;
+    for (i = 0; i < n; i++){
+      if (visited[i]) continue;
+      visited[i] = true;
+      if (neighbors[i].length + 1 < minPts) continue;
+      var queue = neighbors[i].slice(), inQueue = {};
+      queue.forEach(function(q){ inQueue[q] = true; });
+      assignments[i] = clusterId;
+      while (queue.length){
+        var q = queue.shift();
+        if (!visited[q]){
+          visited[q] = true;
+          if (neighbors[q].length + 1 >= minPts) neighbors[q].forEach(function(qn){ if (!inQueue[qn]){ queue.push(qn); inQueue[qn] = true; } });
+        }
+        if (assignments[q] === -1) assignments[q] = clusterId;
+      }
+      clusterId++;
+    }
+    return { assignments: assignments, numClusters: clusterId };
+  }
+
+  /* --- Gaussian mixture model via EM (validated) ---
+     Soft clustering: each row gets a posterior probability of belonging to each of k Gaussian components,
+     fit by iterating an E-step (compute posteriors given the current means/covariances/weights) and an
+     M-step (re-estimate means/covariances/weights from those posteriors) until the log-likelihood stops
+     improving. Reuses this app's existing solveLinear-based matrix inversion. A small diagonal
+     regularization term is added to every covariance before inverting, to avoid a singular matrix when a
+     component collapses onto very few or duplicate points. */
+  function unsDeterminant(A){
+    var n = A.length;
+    var M = A.map(function(r){ return r.slice(); });
+    var sign = 1, det = 1;
+    for (var col = 0; col < n; col++){
+      var maxRow = col;
+      for (var r = col + 1; r < n; r++) if (Math.abs(M[r][col]) > Math.abs(M[maxRow][col])) maxRow = r;
+      if (maxRow !== col){ var tmp = M[col]; M[col] = M[maxRow]; M[maxRow] = tmp; sign = -sign; }
+      if (Math.abs(M[col][col]) < 1e-300) return 0;
+      det *= M[col][col];
+      for (var r2 = col + 1; r2 < n; r2++){
+        var factor = M[r2][col] / M[col][col];
+        for (var c2 = col; c2 < n; c2++) M[r2][c2] -= factor * M[col][c2];
+      }
+    }
+    return sign * det;
+  }
+  function unsMvNormalLogPdf(x, mu, invSigma, logDetSigma, p){
+    var diff = x.map(function(xi, i){ return xi - mu[i]; });
+    var quad = 0;
+    for (var i = 0; i < p; i++) for (var j = 0; j < p; j++) quad += diff[i] * invSigma[i][j] * diff[j];
+    return -0.5 * p * Math.log(2 * Math.PI) - 0.5 * logDetSigma - 0.5 * quad;
+  }
+  function unsGmmEM(X, k, maxIter){
+    var n = X.length, p = X[0].length, reg = 1e-6;
+    var means = unsKmeansPlusPlusInit(X, k);
+    var overallMean = new Array(p).fill(0);
+    X.forEach(function(x){ for (var j = 0; j < p; j++) overallMean[j] += x[j] / n; });
+    var overallVar = 0;
+    X.forEach(function(x){ for (var j = 0; j < p; j++) overallVar += (x[j] - overallMean[j]) * (x[j] - overallMean[j]) / (n * p); });
+    var covs = []; for (var c = 0; c < k; c++){ var S = []; for (var i = 0; i < p; i++){ S.push(new Array(p).fill(0)); S[i][i] = overallVar || 1; } covs.push(S); }
+    var weights = new Array(k).fill(1 / k);
+    var prevLL = -Infinity, resp = null;
+    for (var iter = 0; iter < maxIter; iter++){
+      var invSigmas = [], logDets = [];
+      for (c = 0; c < k; c++){
+        var regCov = covs[c].map(function(row, ii){ return row.map(function(v, jj){ return v + (ii === jj ? reg : 0); }); });
+        invSigmas.push(invertMatrix(regCov));
+        logDets.push(Math.log(Math.max(unsDeterminant(regCov), 1e-300)));
+      }
+      resp = []; var totalLL = 0;
+      for (i = 0; i < n; i++){
+        var logProbs = [];
+        for (c = 0; c < k; c++) logProbs.push(Math.log(weights[c]) + unsMvNormalLogPdf(X[i], means[c], invSigmas[c], logDets[c], p));
+        var maxLp = Math.max.apply(null, logProbs);
+        var expSum = logProbs.reduce(function(s, lp){ return s + Math.exp(lp - maxLp); }, 0);
+        totalLL += maxLp + Math.log(expSum);
+        resp.push(logProbs.map(function(lp){ return Math.exp(lp - maxLp) / expSum; }));
+      }
+      var Nk = new Array(k).fill(0);
+      for (c = 0; c < k; c++) for (i = 0; i < n; i++) Nk[c] += resp[i][c];
+      var newMeans = [];
+      for (c = 0; c < k; c++){
+        var m = new Array(p).fill(0);
+        for (i = 0; i < n; i++) for (var j = 0; j < p; j++) m[j] += resp[i][c] * X[i][j];
+        for (j = 0; j < p; j++) m[j] /= Nk[c] || 1;
+        newMeans.push(m);
+      }
+      var newCovs = [];
+      for (c = 0; c < k; c++){
+        var S2 = []; for (i = 0; i < p; i++) S2.push(new Array(p).fill(0));
+        for (i = 0; i < n; i++){
+          var diff = X[i].map(function(xi, jj){ return xi - newMeans[c][jj]; });
+          for (var aa = 0; aa < p; aa++) for (var bb = 0; bb < p; bb++) S2[aa][bb] += resp[i][c] * diff[aa] * diff[bb];
+        }
+        for (aa = 0; aa < p; aa++) for (bb = 0; bb < p; bb++) S2[aa][bb] /= Nk[c] || 1;
+        newCovs.push(S2);
+      }
+      means = newMeans; covs = newCovs; weights = Nk.map(function(v){ return v / n; });
+      if (Math.abs(totalLL - prevLL) < 1e-6 * (Math.abs(totalLL) + 1)){ prevLL = totalLL; break; }
+      prevLL = totalLL;
+    }
+    var assignments = resp.map(function(r_i){ return r_i.indexOf(Math.max.apply(null, r_i)); });
+    return { means: means, covs: covs, weights: weights, assignments: assignments, resp: resp, logLik: prevLL };
+  }
+  function unsGmmBest(X, k, restarts){
+    var best = null;
+    for (var r = 0; r < restarts; r++){
+      var fit = unsGmmEM(X, k, 100);
+      if (!best || fit.logLik > best.logLik) best = fit;
+    }
+    return best;
+  }
+  function unsGmmPosterior(x, model){
+    var k = model.means.length, p = x.length, reg = 1e-6;
+    var logProbs = [];
+    for (var c = 0; c < k; c++){
+      var regCov = model.covs[c].map(function(row, ii){ return row.map(function(v, jj){ return v + (ii === jj ? reg : 0); }); });
+      var inv = invertMatrix(regCov);
+      var logDet = Math.log(Math.max(unsDeterminant(regCov), 1e-300));
+      logProbs.push(Math.log(model.weights[c]) + unsMvNormalLogPdf(x, model.means[c], inv, logDet, p));
+    }
+    var maxLp = Math.max.apply(null, logProbs);
+    var expSum = logProbs.reduce(function(s, lp){ return s + Math.exp(lp - maxLp); }, 0);
+    return logProbs.map(function(lp){ return Math.exp(lp - maxLp) / expSum; });
+  }
+
   /* --- k suggestion & rendering --- */
 
   var UNS_SILHOUETTE_N_CAP = 1000;
@@ -8563,22 +8804,93 @@
   }
 
   unsEls.kSlider.addEventListener("input", function(){ unsEls.kValue.textContent = unsEls.kSlider.value; });
+  unsEls.epsSlider.addEventListener("input", function(){ unsEls.epsValue.textContent = Number(unsEls.epsSlider.value).toFixed(2); });
+  unsEls.minPtsSlider.addEventListener("input", function(){ unsEls.minPtsValue.textContent = unsEls.minPtsSlider.value; });
+
+  function unsSelectedAlgo(){
+    var checked = document.querySelector('input[name="unsAlgo"]:checked');
+    return checked ? checked.value : "kmeans";
+  }
+  var unsAlgoCards = {
+    kmeans: document.getElementById("unsAlgoKmeansCard"), hierarchical: document.getElementById("unsAlgoHierarchicalCard"),
+    gmm: document.getElementById("unsAlgoGmmCard"), dbscan: document.getElementById("unsAlgoDbscanCard")
+  };
+  document.querySelectorAll('input[name="unsAlgo"]').forEach(function(radio){
+    radio.addEventListener("change", function(){
+      var algo = unsSelectedAlgo();
+      Object.keys(unsAlgoCards).forEach(function(k){ unsAlgoCards[k].classList.toggle("active", k === algo); });
+      unsEls.kParamsPanel.hidden = algo === "dbscan";
+      unsEls.dbscanParamsPanel.hidden = algo !== "dbscan";
+      unsHideResults();
+    });
+  });
 
   /* --- Run clustering & render results --- */
 
+  // Silhouette score, computed the same way regardless of algorithm, but excluding DBSCAN's noise points
+  // (label -1) from the calculation — they aren't part of any group, so they don't have a "how well does
+  // this row fit its group" score to contribute.
+  function unsSilhouetteExcludingNoise(X, assignments, n){
+    var keepIdx = [];
+    for (var i = 0; i < assignments.length; i++) if (assignments[i] !== -1) keepIdx.push(i);
+    if (keepIdx.length < 3) return NaN;
+    var relabel = {}, nextLabel = 0;
+    var subX = [], subAssign = [];
+    keepIdx.forEach(function(i){
+      if (relabel[assignments[i]] === undefined) relabel[assignments[i]] = nextLabel++;
+      subX.push(X[i]); subAssign.push(relabel[assignments[i]]);
+    });
+    if (nextLabel < 2) return NaN;
+    return unsSilhouetteScore(subX, subAssign, nextLabel);
+  }
+
   function unsRunClustering(){
+    var algo = unsSelectedAlgo();
     var v = unsValidateSchema();
     if (!v.ok){ unsEls.runError.hidden = false; unsEls.runError.innerHTML = '<span class="dot"></span> ' + v.message; return; }
     unsEls.runError.hidden = true;
     unsBuildPreprocessing();
     unsState.X = unsState.rows.map(unsEncodeRow);
-    var k = Number(unsEls.kSlider.value);
     var n = unsState.X.length;
-    if (k >= n){ unsEls.runError.hidden = false; unsEls.runError.innerHTML = '<span class="dot"></span> Number of groups must be less than the number of rows.'; return; }
 
-    var result = unsKmeans(unsState.X, k, 15);
-    var silhouette = n <= UNS_SILHOUETTE_N_CAP ? unsSilhouetteScore(unsState.X, result.assignments, k) : NaN;
-    unsState.model = { k: k, centroids: result.centroids, assignments: result.assignments, silhouette: silhouette };
+    var model;
+    if (algo === "dbscan"){
+      var eps = Number(unsEls.epsSlider.value), minPts = Number(unsEls.minPtsSlider.value);
+      var dbResult = unsDbscan(unsState.X, eps, minPts);
+      if (dbResult.numClusters === 0){
+        unsEls.runError.hidden = false;
+        unsEls.runError.innerHTML = '<span class="dot"></span> Every row came back as noise — no point had enough neighbors within the given radius. Try a larger radius or a smaller minimum points value.';
+        return;
+      }
+      var centroidsDb = [];
+      for (var g = 0; g < dbResult.numClusters; g++){
+        var memberIdx = []; dbResult.assignments.forEach(function(a, i){ if (a === g) memberIdx.push(i); });
+        var c = new Array(unsState.X[0].length).fill(0);
+        memberIdx.forEach(function(i){ for (var j = 0; j < c.length; j++) c[j] += unsState.X[i][j] / memberIdx.length; });
+        centroidsDb.push(c);
+      }
+      model = { algorithm: "dbscan", k: dbResult.numClusters, eps: eps, minPts: minPts, centroids: centroidsDb, assignments: dbResult.assignments,
+        noiseCount: dbResult.assignments.filter(function(a){ return a === -1; }).length,
+        silhouette: unsSilhouetteExcludingNoise(unsState.X, dbResult.assignments, n) };
+    } else {
+      var k = Number(unsEls.kSlider.value);
+      if (k >= n){ unsEls.runError.hidden = false; unsEls.runError.innerHTML = '<span class="dot"></span> Number of groups must be less than the number of rows.'; return; }
+      if (algo === "hierarchical"){
+        var hResult = unsWardHierarchical(unsState.X, k);
+        model = { algorithm: "hierarchical", k: k, centroids: hResult.centroids, assignments: hResult.assignments,
+          silhouette: n <= UNS_SILHOUETTE_N_CAP ? unsSilhouetteScore(unsState.X, hResult.assignments, k) : NaN };
+      } else if (algo === "gmm"){
+        var gResult = unsGmmBest(unsState.X, k, 5);
+        model = { algorithm: "gmm", k: k, means: gResult.means, covs: gResult.covs, weights: gResult.weights,
+          centroids: gResult.means, assignments: gResult.assignments,
+          silhouette: n <= UNS_SILHOUETTE_N_CAP ? unsSilhouetteScore(unsState.X, gResult.assignments, k) : NaN };
+      } else {
+        var kmResult = unsKmeans(unsState.X, k, 15);
+        model = { algorithm: "kmeans", k: k, centroids: kmResult.centroids, assignments: kmResult.assignments,
+          silhouette: n <= UNS_SILHOUETTE_N_CAP ? unsSilhouetteScore(unsState.X, kmResult.assignments, k) : NaN };
+      }
+    }
+    unsState.model = model;
 
     unsRenderClusterResults();
     unsBuildPlayground();
@@ -8593,26 +8905,36 @@
     return getComputedStyle(document.documentElement).getPropertyValue(vars[idx % vars.length]).trim();
   }
 
+  function unsGroupLabel(c){ return c === -1 ? "Noise" : "Group " + (c + 1); }
+  function unsGroupColorFor(c){ return c === -1 ? "var(--ink-soft)" : unsClusterColor(c); }
+
   function unsRenderClusterResults(){
     var model = unsState.model, k = model.k, n = unsState.X.length;
-    unsEls.resultsTitle.textContent = k + " groups";
-    var counts = new Array(k).fill(0);
+    var hasNoise = model.algorithm === "dbscan" && model.noiseCount > 0;
+    var groupIds = []; for (var gi = 0; gi < k; gi++) groupIds.push(gi);
+    if (hasNoise) groupIds.push(-1);
+
+    var algoLabel = { kmeans: "K-means", hierarchical: "Hierarchical (Ward)", gmm: "Gaussian mixture", dbscan: "DBSCAN" }[model.algorithm];
+    unsEls.resultsTitle.textContent = k + " group" + (k === 1 ? "" : "s") + " (" + algoLabel + ")" + (hasNoise ? " + noise" : "");
+
+    var counts = {};
+    groupIds.forEach(function(g){ counts[g] = 0; });
     model.assignments.forEach(function(a){ counts[a]++; });
-    var sizesHtml = '<div class="qc-grid" style="grid-template-columns:repeat(' + Math.min(k, 5) + ',1fr);">';
-    for (var c = 0; c < k; c++){
-      sizesHtml += '<div class="qc-tile"><div class="qc-num" style="color:' + unsClusterColor(c) + ';">' + counts[c] + '</div><div class="qc-label">Group ' + (c + 1) + ' (' + fmtNum(counts[c] / n * 100, 1) + '%)</div></div>';
-    }
+    var sizesHtml = '<div class="qc-grid" style="grid-template-columns:repeat(' + Math.min(groupIds.length, 5) + ',1fr);">';
+    groupIds.forEach(function(c){
+      sizesHtml += '<div class="qc-tile"><div class="qc-num" style="color:' + unsGroupColorFor(c) + ';">' + counts[c] + '</div><div class="qc-label">' + unsGroupLabel(c) + ' (' + fmtNum(counts[c] / n * 100, 1) + '%)</div></div>';
+    });
     sizesHtml += '</div>';
     unsEls.clusterSizes.innerHTML = sizesHtml;
 
     var thead = '<thead><tr><th>Feature</th>';
-    for (c = 0; c < k; c++) thead += '<th>Group ' + (c + 1) + '</th>';
+    groupIds.forEach(function(c){ thead += '<th>' + unsGroupLabel(c) + '</th>'; });
     thead += '</tr></thead>';
     var tbody = '<tbody>';
     unsState.featureCols.forEach(function(colName){
       var meta = unsState.featureMeta[colName];
       tbody += '<tr><td>' + escapeXml(colName) + '</td>';
-      for (c = 0; c < k; c++){
+      groupIds.forEach(function(c){
         var memberRows = unsState.rows.filter(function(r, i){ return model.assignments[i] === c; });
         var cellText;
         if (meta.type === "numeric"){
@@ -8629,7 +8951,7 @@
           }
         }
         tbody += '<td>' + escapeXml(cellText) + '</td>';
-      }
+      });
       tbody += '</tr>';
     });
     tbody += '</tbody>';
@@ -8638,15 +8960,15 @@
     var numericFeatures = unsState.featureCols.filter(function(c2){ return unsState.featureMeta[c2].type === "numeric"; });
     if (numericFeatures.length === 2){
       unsEls.scatterSection.hidden = false;
-      unsRenderClusterScatter(numericFeatures);
+      unsRenderClusterScatter(numericFeatures, groupIds, hasNoise);
     } else {
       unsEls.scatterSection.hidden = true;
     }
 
-    unsEls.silhouetteAchieved.textContent = isFinite(model.silhouette) ? fmtNum(model.silhouette, 3) : "— (skipped, dataset too large)";
+    unsEls.silhouetteAchieved.textContent = isFinite(model.silhouette) ? fmtNum(model.silhouette, 3) : "— (skipped" + (hasNoise ? ", or fewer than 2 real groups after excluding noise" : ", dataset too large") + ")";
   }
 
-  function unsRenderClusterScatter(numericFeatures){
+  function unsRenderClusterScatter(numericFeatures, groupIds, hasNoise){
     var xCol = numericFeatures[0], yCol = numericFeatures[1];
     var W = 480, H = 340, mL = 54, mR = 20, mT = 16, mB = 40;
     var xs = unsState.rows.map(function(r){ return Number(r[xCol]); });
@@ -8666,8 +8988,10 @@
       svg.push('<text x="' + (mL - 8) + '" y="' + (sy(yv) + 3.5).toFixed(1) + '" text-anchor="end" font-size="10" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace">' + fmtNum(yv, 1) + '</text>');
     }
     xs.forEach(function(xv, i){
-      var color = unsClusterColor(unsState.model.assignments[i]);
-      svg.push('<circle cx="' + sx(xv).toFixed(1) + '" cy="' + sy(ys[i]).toFixed(1) + '" r="4" fill="' + color + '" fill-opacity="0.6" stroke="' + color + '" stroke-width="1"/>');
+      var a = unsState.model.assignments[i];
+      var color = unsGroupColorFor(a);
+      var opacity = a === -1 ? 0.35 : 0.6;
+      svg.push('<circle cx="' + sx(xv).toFixed(1) + '" cy="' + sy(ys[i]).toFixed(1) + '" r="4" fill="' + color + '" fill-opacity="' + opacity + '" stroke="' + color + '" stroke-width="1"/>');
     });
     unsState.model.centroids.forEach(function(centroid, c){
       var meta = unsState.featureMeta[xCol], meta2 = unsState.featureMeta[yCol];
@@ -8706,20 +9030,53 @@
     });
   }
 
+  /* Dispatches a new point to the right assignment rule for the trained algorithm:
+     nearest centroid for kmeans/hierarchical, posterior-probability argmax for gmm,
+     and nearest in-cluster training point within eps (else noise) for dbscan. */
+  function unsAssignVector(vec){
+    var model = unsState.model;
+    if (model.algorithm === "gmm"){
+      var probs = unsGmmPosterior(vec, model);
+      return { algorithm: "gmm", assigned: probs.indexOf(Math.max.apply(null, probs)), probs: probs };
+    }
+    if (model.algorithm === "dbscan"){
+      var dists = unsState.X.map(function(x){ return Math.sqrt(unsSquaredDist(vec, x)); });
+      var nearestOverall = Math.min.apply(null, dists);
+      var withinEps = [];
+      dists.forEach(function(d, i){ if (d <= model.eps && model.assignments[i] !== -1) withinEps.push({ i: i, d: d }); });
+      if (withinEps.length === 0) return { algorithm: "dbscan", assigned: -1, nearestDist: nearestOverall };
+      withinEps.sort(function(a, b){ return a.d - b.d; });
+      return { algorithm: "dbscan", assigned: model.assignments[withinEps[0].i], nearestDist: withinEps[0].d };
+    }
+    var distances = model.centroids.map(function(centroid){ return Math.sqrt(unsSquaredDist(vec, centroid)); });
+    return { algorithm: model.algorithm, assigned: distances.indexOf(Math.min.apply(null, distances)), distances: distances };
+  }
+
   function unsRunAssignment(){
     var rawRow = {};
     unsEls.playgroundInputs.querySelectorAll("[data-col]").forEach(function(el){ rawRow[el.getAttribute("data-col")] = el.value; });
     var vec = unsEncodeRow(rawRow);
-    var model = unsState.model;
-    var distances = model.centroids.map(function(centroid){ return Math.sqrt(unsSquaredDist(vec, centroid)); });
-    var assigned = distances.indexOf(Math.min.apply(null, distances));
-    var ranked = distances.map(function(d, i){ return { group: i + 1, dist: d }; }).sort(function(a, b){ return a.dist - b.dist; });
-    var breakdown = ranked.map(function(r){
-      return '<div class="stat-row"><span class="stat-label">Group ' + r.group + (r.group - 1 === assigned ? " (assigned)" : "") + '</span><span class="stat-value">' + fmtNum(r.dist, 3) + '</span></div>';
-    }).join("");
-    unsEls.assignmentResult.innerHTML =
-      '<div class="effect-name">Assigned group</div><div class="effect-value" style="color:' + unsClusterColor(assigned) + ';">Group ' + (assigned + 1) + '</div>' +
-      '<p class="norm-note" style="margin:10px 0 6px;">Distance to each group\'s center (smaller = closer fit)</p>' + breakdown;
+    var result = unsAssignVector(vec);
+    var assigned = result.assigned;
+    var html = '<div class="effect-name">Assigned group</div><div class="effect-value" style="color:' + unsGroupColorFor(assigned) + ';">' + unsGroupLabel(assigned) + '</div>';
+    if (result.algorithm === "gmm"){
+      var ranked = result.probs.map(function(p, i){ return { group: i, p: p }; }).sort(function(a, b){ return b.p - a.p; });
+      var breakdown = ranked.map(function(r){
+        return '<div class="stat-row"><span class="stat-label">' + unsGroupLabel(r.group) + (r.group === assigned ? " (assigned)" : "") + '</span><span class="stat-value">' + fmtNum(r.p * 100, 1) + '%</span></div>';
+      }).join("");
+      html += '<p class="norm-note" style="margin:10px 0 6px;">Posterior probability of belonging to each component</p>' + breakdown;
+    } else if (result.algorithm === "dbscan"){
+      html += assigned === -1
+        ? '<p class="norm-note" style="margin:10px 0 6px;">No trained group had a point within the radius (eps = ' + fmtNum(unsState.model.eps, 3) + ') of this one — nearest training point was ' + fmtNum(result.nearestDist, 3) + ' away — so it is flagged as noise rather than forced into a group.</p>'
+        : '<p class="norm-note" style="margin:10px 0 6px;">Assigned to the group of the nearest in-cluster training point (distance ' + fmtNum(result.nearestDist, 3) + ', within eps = ' + fmtNum(unsState.model.eps, 3) + ').</p>';
+    } else {
+      var ranked2 = result.distances.map(function(d, i){ return { group: i, dist: d }; }).sort(function(a, b){ return a.dist - b.dist; });
+      var breakdown2 = ranked2.map(function(r){
+        return '<div class="stat-row"><span class="stat-label">' + unsGroupLabel(r.group) + (r.group === assigned ? " (assigned)" : "") + '</span><span class="stat-value">' + fmtNum(r.dist, 3) + '</span></div>';
+      }).join("");
+      html += '<p class="norm-note" style="margin:10px 0 6px;">Distance to each group\'s center (smaller = closer fit)</p>' + breakdown2;
+    }
+    unsEls.assignmentResult.innerHTML = html;
   }
   unsEls.assignBtn.addEventListener("click", unsRunAssignment);
 
@@ -8743,14 +9100,12 @@
       }
       var groupCol = "Group";
       var outColumns = result.columns.concat([groupCol]);
-      var model = unsState.model;
       var outRows = result.rows.map(function(row){
         var vec = unsEncodeRow(row);
-        var distances = model.centroids.map(function(centroid){ return unsSquaredDist(vec, centroid); });
-        var assigned = distances.indexOf(Math.min.apply(null, distances));
+        var assigned = unsAssignVector(vec).assigned;
         var newRow = {};
         result.columns.forEach(function(c){ newRow[c] = row[c]; });
-        newRow[groupCol] = "Group " + (assigned + 1);
+        newRow[groupCol] = assigned === -1 ? "Noise" : "Group " + (assigned + 1);
         return newRow;
       });
       var csvLines = [outColumns.join(",")];
