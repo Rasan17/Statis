@@ -1790,16 +1790,7 @@
     </div>
 
     <div id="mlHpLogistic" class="ml-hp-grid">
-      <div class="ml-hp-field">
-        <label for="mlLogisticLr">Learning rate</label>
-        <input type="range" class="ml-slider" id="mlLogisticLr" min="0.01" max="1" step="0.01" value="0.3">
-        <div class="ml-hp-value" id="mlLogisticLrValue">0.30</div>
-      </div>
-      <div class="ml-hp-field">
-        <label for="mlLogisticIters">Iterations</label>
-        <input type="range" class="ml-slider" id="mlLogisticIters" min="100" max="3000" step="100" value="1000">
-        <div class="ml-hp-value" id="mlLogisticItersValue">1000</div>
-      </div>
+      <p class="data-hint">No hyperparameters to set here — the binary and multi-class cases are fit exactly by Newton–Raphson (they converge in a handful of iterations, not a tunable number), and regression is solved directly in closed form. If training doesn't converge, it's because the classes are perfectly or near-perfectly separable, not because of a learning rate or iteration budget.</p>
     </div>
 
     <div id="mlHpTree" class="ml-hp-grid" hidden>
@@ -6418,6 +6409,15 @@
 
   /* --- Preprocessing --- */
 
+  function mlToNum(raw){
+    // Number("") is 0, not NaN — a blank cell would otherwise silently count as a real zero in mean/SD
+    // and, worse, pass the `isFinite` guard meant to catch it during encoding (isFinite(0) is true), so the
+    // guard written to mean-impute a missing value never fires and the blank becomes literal 0 instead.
+    if (raw === undefined || raw === null) return NaN;
+    var s = String(raw).trim();
+    if (s === "") return NaN;
+    return Number(s);
+  }
   function mlBuildPreprocessing(trainRows, allRows){
     allRows = allRows || trainRows;
     var featureCols = mlState.columns.filter(function(c){ return mlState.schema[c].role === "feature"; });
@@ -6427,7 +6427,7 @@
       var type = mlState.schema[c].type;
       var vals = trainRows.map(function(r){ return r[c]; });
       if (type === "numeric"){
-        var nums = vals.map(Number).filter(isFinite);
+        var nums = vals.map(mlToNum).filter(isFinite);
         var m = nums.length ? mean(nums) : 0;
         var sd = nums.length ? Math.sqrt(nums.reduce(function(s, v){ return s + (v - m) * (v - m); }, 0) / nums.length) : 1;
         featureMeta[c] = { type: "numeric", mean: m, sd: sd || 1, sampleMin: nums.length ? Math.min.apply(null, nums) : 0, sampleMax: nums.length ? Math.max.apply(null, nums) : 1 };
@@ -6449,7 +6449,7 @@
     var targetType = mlState.schema[targetCol].type;
     var targetMeta;
     if (targetType === "numeric"){
-      var tnums = trainRows.map(function(r){ return Number(r[targetCol]); }).filter(isFinite);
+      var tnums = trainRows.map(function(r){ return mlToNum(r[targetCol]); }).filter(isFinite);
       var tm = mean(tnums);
       var tsd = Math.sqrt(tnums.reduce(function(s, v){ return s + (v - tm) * (v - tm); }, 0) / tnums.length) || 1;
       targetMeta = { type: "numeric", mean: tm, sd: tsd };
@@ -6471,7 +6471,7 @@
       var meta = mlState.featureMeta[c];
       var raw = rawRow[c];
       if (meta.type === "numeric"){
-        var v = Number(raw);
+        var v = mlToNum(raw);
         if (!isFinite(v)) v = meta.mean;
         vec.push((v - meta.mean) / meta.sd);
       } else if (meta.type === "binary"){
@@ -6491,7 +6491,7 @@
 
   function mlEncodeTarget(rawValue){
     if (mlState.task === "regression"){
-      var v = Number(rawValue);
+      var v = mlToNum(rawValue);
       return (v - mlState.targetMeta.mean) / mlState.targetMeta.sd;
     }
     return mlState.targetMeta.categories.indexOf(rawValue);
@@ -6533,67 +6533,67 @@
 
   /* --- Classical models --- */
 
-  function mlTrainLinearModel(X, y, task, numClasses, opts){
+  function mlTrainLinearModel(X, y, task, numClasses){
     var n = X.length, p = X[0].length;
-    var lr = opts.lr, iters = opts.iters;
     var Xb = X.map(function(row){ return [1].concat(row); });
     var pb = p + 1, i, j, c;
     if (task === "multiclass"){
-      // Softmax cross-entropy has no closed-form or simple Newton-Raphson update available here without a
-      // full (K-1)*(p+1) joint Hessian, so this uses gradient ascent on the log-likelihood — but with an
-      // ADAPTIVE step size, not the user's learning rate applied blindly: a step is only accepted if it
-      // actually improves the log-likelihood (rejected and the step size halved otherwise), and the step
-      // size grows slightly after each accepted step. This matters because softmax cross-entropy is convex,
-      // so gradient ascent with a fixed learning rate that is too large for the data's scale doesn't merely
-      // converge slowly — it can fall into a stable non-convergent oscillation (bouncing between two points
-      // forever, never approaching the optimum), which a fixed-step version has no way to escape no matter
-      // how many extra iterations it's given. Backtracking guarantees each accepted step is a genuine
-      // improvement, so (short of perfectly separable data, where no finite optimum exists) this converges.
-      function softmaxLogLik(W){
-        var ll = 0;
-        for (var ii = 0; ii < n; ii++){
-          var zz = W.map(function(wc){ var s = 0; for (var jj = 0; jj < pb; jj++) s += wc[jj] * Xb[ii][jj]; return s; });
-          var mz = Math.max.apply(null, zz);
-          var se = zz.reduce(function(s, v){ return s + Math.exp(v - mz); }, 0);
-          ll += (zz[y[ii]] - mz) - Math.log(se);
-        }
-        return ll;
-      }
-      var W = []; for (c = 0; c < numClasses; c++) W.push(new Array(pb).fill(0));
-      var curLL = softmaxLogLik(W);
-      var converged = false, totalIters = 0, maxTotalIters = Math.min(Math.max(iters * 3, iters), 5000);
-      var step = lr;
-      while (totalIters < maxTotalIters){
-        var grad = []; for (c = 0; c < numClasses; c++) grad.push(new Array(pb).fill(0));
+      // Newton-Raphson (IRLS) on the exact multinomial log-likelihood, K-1 parameterization (class 0 fixed
+      // as the reference, all-zero weight row — softmax is invariant to adding a constant to every class's
+      // score, so without fixing a reference the K full weight vectors are non-identifiable, which is part
+      // of why a plain gradient-ascent version of this used to converge slowly or stall). This mirrors the
+      // binary case's proven Newton-Raphson engine, generalized to a (K-1)*(p+1)-sized joint Hessian —
+      // solveLinear already handles a system of that size without any special-casing.
+      var K1 = numClasses - 1, dim = K1 * pb;
+      var beta = new Array(dim).fill(0);
+      var convergedM = false, iterUsedM = 0, maxIterM = 100, tolM = 1e-10;
+      for (var iterM = 0; iterM < maxIterM; iterM++){
+        iterUsedM = iterM;
+        var probs = new Array(n);
         for (i = 0; i < n; i++){
-          var z = W.map(function(wc){ var s = 0; for (var jj = 0; jj < pb; jj++) s += wc[jj] * Xb[i][jj]; return s; });
-          var maxZ = Math.max.apply(null, z);
-          var exps = z.map(function(zz){ return Math.exp(zz - maxZ); });
-          var sumExp = exps.reduce(function(a, b){ return a + b; }, 0);
-          var probs = exps.map(function(e){ return e / sumExp; });
-          for (c = 0; c < numClasses; c++){
-            var err = probs[c] - (y[i] === c ? 1 : 0);
-            for (j = 0; j < pb; j++) grad[c][j] += err * Xb[i][j];
+          var scores = new Array(K1);
+          for (var k = 0; k < K1; k++){
+            var s = 0; for (j = 0; j < pb; j++) s += beta[k*pb+j] * Xb[i][j];
+            scores[k] = s;
+          }
+          var maxS = Math.max(0, Math.max.apply(null, scores));
+          var expRef = Math.exp(0 - maxS);
+          var expK = scores.map(function(sv){ return Math.exp(sv - maxS); });
+          var sumExp = expRef + expK.reduce(function(a,b){ return a+b; }, 0);
+          probs[i] = expK.map(function(e){ return e / sumExp; });
+        }
+        var gradM = new Array(dim).fill(0);
+        for (i = 0; i < n; i++){
+          for (k = 0; k < K1; k++){
+            var indicator = (y[i] === (k+1)) ? 1 : 0;
+            var err = indicator - probs[i][k];
+            for (j = 0; j < pb; j++) gradM[k*pb+j] += err * Xb[i][j];
           }
         }
-        var trial = W.map(function(row){ return row.slice(); });
-        for (c = 0; c < numClasses; c++) for (j = 0; j < pb; j++) trial[c][j] -= step * grad[c][j] / n;
-        var trialLL = softmaxLogLik(trial);
-        totalIters++;
-        if (trialLL > curLL){
-          var improved = trialLL - curLL;
-          W = trial;
-          curLL = trialLL;
-          step *= 1.1;
-          // Relative log-likelihood tolerance (scale-invariant, standard for convex optimizers) —
-          // stop once further steps can no longer meaningfully change the fit.
-          if (improved < 1e-9 * (Math.abs(curLL) + 1) && totalIters >= iters){ converged = true; break; }
-        } else {
-          step *= 0.5;
-          if (step < 1e-14){ converged = totalIters >= iters; break; }
+        var Hm = []; for (var r = 0; r < dim; r++) Hm.push(new Array(dim).fill(0));
+        for (i = 0; i < n; i++){
+          for (k = 0; k < K1; k++){
+            for (var l = 0; l < K1; l++){
+              var wkl = probs[i][k] * ((k === l ? 1 : 0) - probs[i][l]);
+              if (wkl === 0) continue;
+              for (var a = 0; a < pb; a++){
+                var xa = Xb[i][a];
+                if (xa === 0) continue;
+                for (var b = 0; b < pb; b++) Hm[k*pb+a][l*pb+b] += wkl * xa * Xb[i][b];
+              }
+            }
+          }
         }
+        var deltaM = solveLinear(Hm, gradM);
+        if (!deltaM) break;
+        var maxDeltaM = 0;
+        for (var d = 0; d < dim; d++){ beta[d] += deltaM[d]; maxDeltaM = Math.max(maxDeltaM, Math.abs(deltaM[d])); }
+        if (maxDeltaM < tolM){ convergedM = true; break; }
+        if (beta.some(function(bv){ return Math.abs(bv) > 500; })) break;
       }
-      return { type: "multiclass", W: W, converged: converged, iterations: totalIters };
+      var W = [new Array(pb).fill(0)];
+      for (var k2 = 0; k2 < K1; k2++) W.push(beta.slice(k2*pb, k2*pb+pb));
+      return { type: "multiclass", W: W, converged: convergedM, iterations: iterUsedM };
     }
     if (task === "binary"){
       // Newton-Raphson (IRLS) on the exact logistic log-likelihood — the same proven, validated engine
@@ -6752,14 +6752,18 @@
       return { d: Math.sqrt(s), idx: i };
     });
     dists.sort(function(a, b){ return a.d - b.d; });
+    // Fewer than k rows may exist to draw neighbors from (k can exceed the training set size via the
+    // slider); dividing by the requested k rather than the number actually found left probabilities
+    // summing to less than 1 and biased regression predictions toward 0. Divide by what was actually used.
     var neighbors = dists.slice(0, k).map(function(o){ return o.idx; });
+    var keff = neighbors.length;
     if (task === "classification"){
       var counts = new Array(numClasses).fill(0);
       neighbors.forEach(function(idx){ counts[y[idx]]++; });
-      return counts.map(function(c){ return c / k; });
+      return counts.map(function(c){ return c / keff; });
     }
     var sum = 0; neighbors.forEach(function(idx){ sum += y[idx]; });
-    return sum / k;
+    return sum / keff;
   }
 
   /* --- Neural network via TensorFlow.js (loaded lazily from CDN) --- */
@@ -6940,8 +6944,6 @@
     slider.addEventListener("input", update);
     update();
   }
-  mlWireSlider("mlLogisticLr", "mlLogisticLrValue", function(v){ return v.toFixed(2); });
-  mlWireSlider("mlLogisticIters", "mlLogisticItersValue", function(v){ return String(v); });
   mlWireSlider("mlTreeDepth", "mlTreeDepthValue", function(v){ return String(v); });
   mlWireSlider("mlForestTrees", "mlForestTreesValue", function(v){ return String(v); });
   mlWireSlider("mlForestDepth", "mlForestDepthValue", function(v){ return String(v); });
@@ -7080,7 +7082,7 @@
   /* --- Training orchestration --- */
 
   function mlGetHyperparams(family){
-    if (family === "logistic") return { lr: Number(document.getElementById("mlLogisticLr").value), iters: Number(document.getElementById("mlLogisticIters").value) };
+    if (family === "logistic") return {};
     if (family === "tree") return { maxDepth: Number(document.getElementById("mlTreeDepth").value) };
     if (family === "forest") return { numTrees: Number(document.getElementById("mlForestTrees").value), maxDepth: Number(document.getElementById("mlForestDepth").value) };
     if (family === "knn") return { k: Number(document.getElementById("mlKnnK").value) };
@@ -7098,18 +7100,35 @@
   function mlTrainModel(){
     var v = mlValidateSchema();
     if (!v.ok){ mlEls.trainError.hidden = false; mlEls.trainError.innerHTML = '<span class="dot"></span> ' + v.message; return; }
-    if (mlState.rows.length < 10){
-      mlEls.trainError.hidden = false; mlEls.trainError.innerHTML = '<span class="dot"></span> Need at least 10 rows to train a model.';
+    var targetColForSplit = mlState.columns.filter(function(c){ return mlState.schema[c].role === "target"; })[0];
+    // A row with no target value can't be used for supervised learning — worse, for classification, an
+    // empty target string isn't in the encoded category list at all, so it would later encode to index -1
+    // and crash confusion-matrix construction. Drop such rows up front rather than let that happen.
+    var usableRows = mlState.rows.filter(function(r){ return r[targetColForSplit] !== "" && r[targetColForSplit] != null; });
+    var droppedForBlankTarget = mlState.rows.length - usableRows.length;
+    if (usableRows.length < 10){
+      mlEls.trainError.hidden = false;
+      mlEls.trainError.innerHTML = '<span class="dot"></span> Need at least 10 rows with a non-blank target value to train a model' +
+        (droppedForBlankTarget > 0 ? ' (' + droppedForBlankTarget + ' row(s) have a blank target and were excluded)' : '') + '.';
       return;
     }
-    mlEls.trainError.hidden = true;
+    // Collected rather than written straight to the DOM, since a second warning (e.g. non-convergence,
+    // decided once training finishes below) must not silently overwrite this one — both can be true at once.
+    var mlTrainWarnings = [];
+    if (droppedForBlankTarget > 0){
+      mlTrainWarnings.push(droppedForBlankTarget + ' row(s) had a blank target value and were excluded from training and evaluation.');
+    }
+    function mlRenderTrainWarnings(){
+      mlEls.trainError.hidden = mlTrainWarnings.length === 0;
+      mlEls.trainError.innerHTML = mlTrainWarnings.map(function(m){ return '<span class="dot"></span> ' + m; }).join('<br>');
+    }
+    mlRenderTrainWarnings();
     mlHideResultCards();
 
     var trainFraction = Number(mlEls.splitSlider.value) / 100;
-    var targetColForSplit = mlState.columns.filter(function(c){ return mlState.schema[c].role === "target"; })[0];
     var isClassificationTask = mlState.schema[targetColForSplit].type !== "numeric";
-    var split = mlSplitTrainTest(mlState.rows, trainFraction, isClassificationTask ? targetColForSplit : null);
-    mlBuildPreprocessing(split.train, mlState.rows);
+    var split = mlSplitTrainTest(usableRows, trainFraction, isClassificationTask ? targetColForSplit : null);
+    mlBuildPreprocessing(split.train, usableRows);
 
     var numClasses = mlState.targetMeta.categories ? mlState.targetMeta.categories.length : null;
     mlState.trainX = split.train.map(mlEncodeRow);
@@ -7127,9 +7146,9 @@
 
     var trainPromise;
     if (family === "logistic"){
-      mlEls.progressStatus.textContent = "Fitting a linear model by gradient descent…";
+      mlEls.progressStatus.textContent = mlState.task === "regression" ? "Solving the least-squares fit directly…" : "Fitting by Newton–Raphson (IRLS)…";
       trainPromise = Promise.resolve().then(function(){
-        return { kind: "logistic", data: mlTrainLinearModel(mlState.trainX, mlState.trainY, mlState.task, numClasses, opts) };
+        return { kind: "logistic", data: mlTrainLinearModel(mlState.trainX, mlState.trainY, mlState.task, numClasses) };
       });
     } else if (family === "tree"){
       mlEls.progressStatus.textContent = "Building a decision tree…";
@@ -7165,8 +7184,10 @@
       mlEls.progressTitle.textContent = "Training complete";
       mlEls.progressStatus.textContent = family === "nn" ? "Trained for " + opts.epochs + " epochs." : "Model trained on " + mlState.trainX.length + " rows.";
       if (model.kind === "logistic" && model.data.converged === false){
-        mlEls.trainError.hidden = false;
-        mlEls.trainError.innerHTML = '<span class="dot"></span> The linear model did not fully converge within its iteration budget — this usually happens with strongly separated classes. The coefficients shown may be somewhat imprecise; try raising the learning rate and/or iteration count.';
+        mlTrainWarnings.push(mlState.task === "regression"
+          ? 'The least-squares fit couldn\'t be solved — the features are perfectly or near-perfectly collinear (one is an exact combination of the others), which leaves no unique solution. Remove the redundant feature(s) and try again.'
+          : 'The linear model did not converge — with an exact fitting method this means the classes are perfectly or near-perfectly separable (a decision boundary exists that gets every training row right), which makes the coefficients themselves blow up toward infinity rather than settle on finite values. The coefficients shown should not be trusted; consider a tree-based model instead, or fewer/less-separating features.');
+        mlRenderTrainWarnings();
       }
       mlRenderEvaluation();
       mlBuildPlayground();
@@ -7307,6 +7328,25 @@
         mlEls.batchError.innerHTML = '<span class="dot"></span> Missing feature column(s): ' + missing.map(escapeXml).join(", ") + '.';
         return;
       }
+      // A category value present in this scoring file but absent from training encodes as an all-zero
+      // (reference-level) row rather than raising any error — silently correct, but worth surfacing, since
+      // otherwise it looks identical to a confident, ordinary prediction with no indication anything unusual
+      // was fed in.
+      var unknownExamples = [];
+      var unknownCount = 0;
+      mlState.featureCols.forEach(function(c){
+        var meta = mlState.featureMeta[c];
+        if (meta.type === "numeric") return;
+        var known = meta.categories;
+        result.rows.forEach(function(row){
+          var v = row[c];
+          if (v !== "" && known.indexOf(v) < 0){
+            unknownCount++;
+            if (unknownExamples.length < 3) unknownExamples.push(c + "=" + v);
+          }
+        });
+      });
+
       var predCol = "Predicted_" + mlState.targetCol;
       var probCol = "Confidence_%";
       var outColumns = result.columns.concat([predCol]).concat(mlState.task === "regression" ? [] : [probCol]);
@@ -7331,7 +7371,9 @@
           return v.indexOf(",") >= 0 ? '"' + v.replace(/"/g, '""') + '"' : v;
         }).join(","));
       });
-      mlEls.batchResult.innerHTML = '<p class="data-hint">' + outRows.length + ' rows scored.</p>';
+      mlEls.batchResult.innerHTML = '<p class="data-hint">' + outRows.length + ' rows scored.</p>' +
+        (unknownCount > 0 ? '<p class="data-hint" style="color:var(--warn);margin-top:6px;">' + unknownCount + ' value(s) (e.g. ' + unknownExamples.map(escapeXml).join(", ") +
+          ') were categories not seen during training — encoded as the reference level rather than left as an error.</p>' : '');
       var dlBtn = document.createElement("button");
       dlBtn.className = "primary-btn"; dlBtn.type = "button"; dlBtn.textContent = "Download predictions CSV";
       dlBtn.addEventListener("click", function(){
@@ -8317,7 +8359,7 @@
       var type = unsState.schema[c].type;
       var vals = unsState.rows.map(function(r){ return r[c]; });
       if (type === "numeric"){
-        var nums = vals.map(Number).filter(isFinite);
+        var nums = vals.map(mlToNum).filter(isFinite);
         var m = nums.length ? mean(nums) : 0;
         var sd = nums.length ? Math.sqrt(nums.reduce(function(s, v){ return s + (v - m) * (v - m); }, 0) / nums.length) : 1;
         featureMeta[c] = { type: "numeric", mean: m, sd: sd || 1, sampleMin: nums.length ? Math.min.apply(null, nums) : 0, sampleMax: nums.length ? Math.max.apply(null, nums) : 1 };
@@ -8337,7 +8379,7 @@
       var meta = unsState.featureMeta[c];
       var raw = rawRow[c];
       if (meta.type === "numeric"){
-        var v = Number(raw);
+        var v = mlToNum(raw);
         if (!isFinite(v)) v = meta.mean;
         vec.push((v - meta.mean) / meta.sd);
       } else if (meta.type === "binary"){
