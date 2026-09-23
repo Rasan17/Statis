@@ -1079,7 +1079,7 @@
 
   <section class="card">
     <div class="card-head">
-      <div><p class="eyebrow">Step 3</p><h2>Linearity check</h2></div>
+      <div><p class="eyebrow">Step 3</p><h2>Curvature check</h2></div>
     </div>
     <div id="linRows"></div>
     <p class="norm-note" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
@@ -1101,7 +1101,7 @@
     <div class="toggle-row" style="flex-direction:column;align-items:stretch;gap:8px;">
       <span class="toggle-label" style="font-weight:600;">Method</span>
       <select id="corrMethodSelect" class="label-input" style="text-align:left;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--paper);">
-        <option value="auto">Auto (recommended)</option>
+        <option value="auto">Auto (assumption-guided)</option>
         <option value="pearson">Pearson's r</option>
         <option value="spearman">Spearman's rank correlation</option>
         <option value="kendall">Kendall's tau</option>
@@ -1135,7 +1135,7 @@
   </section>
 
   <footer class="notes">
-    <b>How it's computed —</b> Pearson's r is the standardized covariance of X and Y; its significance test uses t = r√((n−2)⁄(1−r²)) with df = n−2. Spearman's rank correlation applies the same formula to the ranks of X and Y (average ranks for ties), which only assumes a monotonic relationship, not a linear or normal one. Kendall's tau (tau-b) counts concordant minus discordant pairs among all n(n−1)⁄2 pairs of points, normalized by the pairs not tied on X or Y; its p-value uses the tie-corrected normal approximation for Kendall's S statistic (Kendall &amp; Gibbons), rather than a t-distribution. Kendall's tau is offered manually, and suggested (not auto-applied) whenever the sample is small and either variable has tied values, since it's generally considered more reliable than Spearman's in exactly that situation. Linear regression fits y = b₀+b₁x by least squares; R² is the share of Y's variance the line explains (equal to r² for a simple regression), and the slope's t-test uses the same t-distribution relation as above. <b>Auto</b> picks Pearson's r when both variables are consistent with normality and the linearity check finds no significant curvature; otherwise it picks Spearman's. Linear regression itself always uses ordinary least squares — when its diagnostics flag non-normal residuals or unequal variance, that's shown as a caution on the result rather than switching methods, since Pearson's r above already gives the assumption-robust alternative.
+    <b>How it's computed —</b> Pearson's r is the standardized covariance of X and Y; its significance test uses t = r√((n−2)⁄(1−r²)) with df = n−2. Spearman's rank correlation applies the same formula to the ranks of X and Y (average ranks for ties), which only assumes a monotonic relationship, not a linear or normal one. Kendall's tau (tau-b) counts concordant minus discordant pairs among all n(n−1)⁄2 pairs of points, normalized by the pairs not tied on X or Y; its p-value uses the tie-corrected normal approximation for Kendall's S statistic (Kendall &amp; Gibbons), rather than a t-distribution. Kendall's tau is offered manually, and suggested (not auto-applied) whenever the sample is small and either variable has tied values, since it's generally considered more reliable than Spearman's in exactly that situation. Linear regression fits y = b₀+b₁x by least squares; R² is the share of Y's variance the line explains (equal to r² for a simple regression), and the slope's t-test uses the same t-distribution relation as above. <b>Auto</b> picks Pearson's r when both variables are consistent with normality and the curvature check (a nested quadratic-vs-linear test, not a universal test of linearity) finds no significant curvature; otherwise it picks Spearman's. Linear regression itself always uses ordinary least squares — when its diagnostics flag non-normal residuals or unequal variance, that's shown as a caution on the result rather than switching methods, since Pearson's r above already gives the assumption-robust alternative.
   </footer>
 
   </div>
@@ -1432,7 +1432,7 @@
     <div class="toggle-row" style="flex-direction:column;align-items:stretch;gap:8px;">
       <span class="toggle-label" style="font-weight:600;">Method</span>
       <select id="anovaMethodSelect" class="label-input" style="text-align:left;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--paper);">
-        <option value="auto">Auto (recommended)</option>
+        <option value="auto">Auto (assumption-guided)</option>
         <option value="anova">One-way ANOVA</option>
         <option value="welch">Welch's ANOVA</option>
         <option value="transform">Transform + Welch's ANOVA</option>
@@ -1450,7 +1450,7 @@
   </section>
 
   <footer class="notes">
-    <b>How it's computed —</b> One-way ANOVA partitions total variance into between-group and within-group sums of squares; F = MS<sub>between</sub>⁄MS<sub>within</sub> with df = (k−1, N−k), assuming normal groups with equal variance. Welch's ANOVA (1951) reweights each group by n<sub>i</sub>⁄s<sub>i</sub>², with an adjusted denominator and a non-integer df₂ — it doesn't assume equal variances, only normality. Kruskal–Wallis ranks all observations across groups and compares mean ranks (H, tie-corrected), needing neither assumption. All p-values use the exact regularized incomplete beta (F-distribution) or incomplete gamma (chi-squared) relations, not approximations. <b>Auto</b> picks standard ANOVA when every group is normal and Levene's test finds equal variances; Welch's ANOVA when every group is normal but variances differ; a Box–Cox transform followed by Welch's ANOVA when a group is non-normal but a transform fixes it; and Kruskal–Wallis when nothing else applies. Eta-squared (η² = SS<sub>between</sub>⁄SS<sub>total</sub>) is shown for standard ANOVA and Welch's ANOVA; Kruskal–Wallis instead reports an analogous rank-based epsilon-squared.
+    <b>How it's computed —</b> One-way ANOVA partitions total variance into between-group and within-group sums of squares; F = MS<sub>between</sub>⁄MS<sub>within</sub> with df = (k−1, N−k), assuming normal groups with equal variance. Welch's ANOVA (1951) reweights each group by n<sub>i</sub>⁄s<sub>i</sub>², with an adjusted denominator and a non-integer df₂ — it doesn't assume equal variances, only normality. Kruskal–Wallis ranks all observations across groups and compares mean ranks (H, tie-corrected), needing neither assumption. All p-values use the exact regularized incomplete beta (F-distribution) or incomplete gamma (chi-squared) relations, not approximations. <b>Auto</b> picks standard ANOVA when every group is normal and Levene's test finds equal variances; Welch's ANOVA when every group is normal but variances differ; a Box–Cox transform followed by Welch's ANOVA when a group is non-normal but a transform fixes it; and Kruskal–Wallis when nothing else applies. Eta-squared (η² = SS<sub>between</sub>⁄SS<sub>total</sub>) is shown for standard ANOVA only — Welch's adjusted denominator doesn't partition sums of squares the same way, so its effect size is left unreported rather than shown as a misleading number; Kruskal–Wallis instead reports an analogous rank-based epsilon-squared.
   </footer>
 
   </div>
@@ -1928,15 +1928,15 @@
     <details class="info-box">
       <summary>How it's computed</summary>
       <div class="info-body">
-        <p><b>Preprocessing —</b> numeric features are z-score standardized (mean 0, SD 1) using training-set statistics only; categorical features are one-hot encoded into one column per category seen in the training data; binary variables (features or the target) are mapped to 0/1. A category seen only at prediction time (playground or batch) that wasn't in the training data is encoded as all-zero — effectively "unseen category" — since the model has no coefficient for it.</p>
+        <p><b>Preprocessing —</b> numeric standardization (mean/SD) is computed from training-set statistics only, never the test set. Categorical features are dummy-coded into k−1 indicator columns against a reference category, matching the GLM tab's convention and avoiding exact collinearity with the intercept; binary variables (features or the target) are mapped to 0/1. One deliberate exception: the list of known categories itself is built from the full uploaded dataset, training and test rows together, not training rows alone — so a category that happens to appear only in the test split still gets its own column instead of crashing the encoder or silently becoming "unseen." This is a conscious trade-off (a stricter train-only vocabulary is more methodologically pure but would need explicit unseen-category handling instead), and its practical effect is small since which categories exist, not their values, is all that crosses the train/test boundary. A category seen only at prediction time (playground or batch) that wasn't in the data at all is encoded as all-zero — effectively "unseen category," treated as the reference level.</p>
         <p><b>Task type —</b> determined automatically from the target's data type: <i>Binary</i> → two-class classification, <i>Categorical</i> → multi-class classification, <i>Numeric</i> → regression. The model list, evaluation metrics, and prediction display all adapt accordingly.</p>
-        <p><b>Logistic / softmax regression —</b> a linear model, fit exactly rather than approximately: the two-class case uses the same Newton–Raphson engine as the GLM tab, regression uses closed-form ordinary least squares (no iteration involved), and the more-than-two-class (softmax) case uses gradient ascent with an adaptive, self-correcting step size — a step is only kept if it actually improves the fit, which is checked so training can't silently stop short of converging or drift into a non-converging oscillation the way a fixed learning rate can. Nominal features are dummy-coded against a reference category (k−1 columns, not k), matching the GLM tab's encoding, so the model stays well-posed regardless of how many categories a feature has.</p>
+        <p><b>Logistic / softmax regression —</b> a linear model, fit exactly rather than approximately, with no learning-rate or iteration-count hyperparameters to set for any of the three cases: the two-class case uses the same Newton–Raphson (IRLS) engine as the GLM tab; regression uses closed-form ordinary least squares (no iteration involved); and the more-than-two-class (softmax) case uses Newton–Raphson on a k−1 free-parameter reformulation (one class fixed as reference), with the full multinomial Hessian solved at each step. Nominal features are dummy-coded against a reference category (k−1 columns, not k), matching the GLM tab's encoding, so the model stays well-posed regardless of how many categories a feature has.</p>
         <p><b>Decision tree —</b> built by recursive binary splitting (CART), choosing at each node the feature and threshold that most reduces Gini impurity (classification) or variance (regression), down to the chosen max depth.</p>
-        <p><b>Random forest —</b> an ensemble of trees, each grown on a bootstrap resample of the training rows; each split is also restricted to a random subset of the features (√p for classification, p/3 for regression, following the standard Breiman recipe) so the trees decorrelate from one another rather than all leaning on the same dominant predictor. Predictions are averaged (regression) or majority-voted with class probabilities from the vote fractions (classification). This generally trades a little training time for a more stable, less overfit result than a single tree.</p>
+        <p><b>Random forest —</b> an ensemble of trees, each grown on a bootstrap resample of the training rows; each split is also restricted to a random subset of the features (√p for classification, p/3 for regression, following the standard Breiman recipe) so the trees decorrelate from one another rather than all leaning on the same dominant predictor. For regression, predictions are averaged across trees. For classification, each tree's leaf gives a class-probability vector (not just a single predicted class), and these vectors are averaged across trees; the class with the highest resulting probability is the prediction. This generally trades a little training time for a more stable, less overfit result than a single tree.</p>
         <p><b>k-Nearest Neighbors —</b> predicts a new point from the k closest training rows by Euclidean distance (after standardization) — majority class fraction for classification, mean value for regression. No explicit "training" step beyond storing the data.</p>
         <p><b>Neural network —</b> a multilayer perceptron built and trained with TensorFlow.js (loaded from a CDN only when you train one), with your chosen hidden-layer sizes and activation function, Adam optimization at your chosen learning rate, and a sigmoid, softmax, or linear output layer depending on the task. The live loss curve is training loss on a further split of the training data (not the held-out test set), so the test-set evaluation below stays honest.</p>
-        <p><b>Evaluation —</b> all metrics are computed on the held-out test set only, never on data the model trained on. Precision, recall, and F1 are macro-averaged across classes for multi-class problems. The ROC curve and AUC are shown only for two-class problems.</p>
-        <p><b>Not implemented —</b> support vector machines, cross-validation / hyperparameter search, feature importance, stratified splitting, and REML-style iterative estimators aren't available in this tool.</p>
+        <p><b>Evaluation —</b> all metrics are computed on the held-out test set only, never on data the model trained on. The train/test split (and, for the neural network, its internal training/validation split) is stratified by class for classification tasks, so a rare class's proportion is preserved on both sides rather than left to chance. Precision, recall, and F1 are macro-averaged across classes for multi-class problems. The ROC curve and AUC are shown only for two-class problems.</p>
+        <p><b>Not implemented —</b> support vector machines, cross-validation / hyperparameter search, feature importance, and REML-style iterative estimators aren't available in this tool.</p>
       </div>
     </details>
   </section>
@@ -2077,14 +2077,14 @@
       <summary>How it's computed</summary>
       <div class="info-body">
         <p><b>Algorithm choices —</b> four ways to find structure in the same standardized/encoded feature matrix, each validated independently against synthetic data with a known group structure before being wired in:</p>
-        <p><b>K-means —</b> starting from k initial centroids chosen by the k-means++ scheme (spread out rather than picked purely at random, which reliably gives a better starting point), each row is repeatedly assigned to its nearest centroid (Euclidean distance) and each centroid recomputed as the mean of its assigned rows, until assignments stop changing. Runs 10 times from different random starts and keeps the run with the lowest within-cluster sum of squares (inertia), which substantially reduces the chance of an unlucky starting point driving a poor result. Assumes groups are roughly round and similarly sized in the standardized feature space.</p>
+        <p><b>K-means —</b> starting from k initial centroids chosen by the k-means++ scheme (spread out rather than picked purely at random, which reliably gives a better starting point), each row is repeatedly assigned to its nearest centroid (Euclidean distance) and each centroid recomputed as the mean of its assigned rows, until assignments stop changing. Runs from several different random starts and keeps the run with the lowest within-cluster sum of squares (inertia), which substantially reduces the chance of an unlucky starting point driving a poor result — 5 restarts while scanning candidate k values below (for speed, since that scan repeats the whole fit up to 9 times), 15 restarts for the final fit once k is chosen. Assumes groups are roughly round and similarly sized in the standardized feature space.</p>
         <p><b>Hierarchical (Ward) —</b> starts with every row as its own group and repeatedly merges the two groups whose merger increases the total within-group sum of squares the least (Ward's criterion), tracked efficiently via the Lance–Williams update formula, until k groups remain. Unlike k-means, the merge sequence is deterministic (no random restarts needed) and tends to cope better with groups of unequal size, though it still favors compact, roughly convex groups and doesn't scale as well to very large datasets (every pairwise distance is tracked).</p>
-        <p><b>Gaussian mixture (EM) —</b> models the data as a mixture of k multivariate Gaussian "bumps," each with its own mean, covariance (so groups can be elongated or correlated, not just round), and weight. Fit by expectation-maximization: the E-step computes each row's probability of belonging to each component given the current parameters, and the M-step re-estimates the means/covariances/weights from those probabilities, alternating until the log-likelihood stops improving (which is monotonically non-decreasing for a correct implementation — checked during validation). Runs 5 times from different random starts and keeps the highest-likelihood fit. Because it's a probabilistic model, every row (and every new point) gets a full posterior probability of belonging to each group, not just a single hard label.</p>
+        <p><b>Gaussian mixture (EM) —</b> models the data as a mixture of k multivariate Gaussian "bumps," each with its own mean, covariance (so groups can be elongated or correlated, not just round), and weight. Fit by expectation-maximization: the E-step computes each row's probability of belonging to each component given the current parameters, and the M-step re-estimates the means/covariances/weights from those probabilities, alternating until the log-likelihood stops improving (which is monotonically non-decreasing for a correct implementation — checked during validation). Runs from several different random starts and keeps the highest-likelihood fit — 2 restarts while scanning candidate k values below (for speed), 5 restarts for the final fit once k is chosen. Because it's a probabilistic model, every row (and every new point) gets a full posterior probability of belonging to each group, not just a single hard label.</p>
         <p><b>DBSCAN —</b> groups points by density rather than distance-to-a-center: a point with at least "min points" other points within its radius ("eps") is a core point, and groups grow outward by chaining together points that are density-reachable from a core point. Points that end up in no group are flagged as <b>noise</b> rather than forced into the nearest one. This is the only one of the four that can find non-round (e.g. crescent-shaped) groups and the only one that doesn't need a target number of groups chosen in advance — but it needs eps and min points set instead, and both parameters are on standardized-feature-space distances, so what counts as "dense" depends on how many features you include.</p>
         <p><b>Suggested number of groups (k-means, hierarchical, Gaussian mixture) —</b> the chosen algorithm is run for every k from 2 up to min(10, n−1), and each is scored with the average silhouette coefficient — for every row, how much closer it is to its own group than to the next-nearest one, averaged across all rows and ranging from −1 (likely misclassified) to +1 (clearly the right group). The k with the highest average silhouette is suggested, but you can override it with the slider. DBSCAN doesn't take a k at all — its group count falls out of the eps/min points parameters instead, and its silhouette score (when shown) is computed with noise points excluded, since silhouette isn't defined for an unclustered point.</p>
-        <p><b>Preprocessing —</b> the same as the supervised module: numeric features are z-score standardized, categorical features are one-hot encoded, both using statistics from the uploaded dataset. A category seen only in the playground or a batch file that wasn't in the original data is encoded as all-zero.</p>
+        <p><b>Preprocessing —</b> numeric features are z-score standardized; categorical features are one-hot encoded (one column per category — full one-hot here, unlike the supervised module's k−1 dummy coding, since there's no intercept term for a category to be collinear with), both using statistics from the uploaded dataset. A category seen only in the playground or a batch file that wasn't in the original data is encoded as all-zero. Mixing numeric and categorical features this way means Euclidean distance treats every one-hot column like any other standardized number — a categorical feature with many levels (each becoming its own column) can end up carrying more weight in the distance calculation than a single continuous feature does, simply because it occupies more dimensions. Results can be sensitive to which categorical features are included and how many levels they have, not just to the algorithm chosen.</p>
         <p><b>Group profile —</b> the mean of each feature within each group, on its original scale (un-standardized) — a quick way to see what distinguishes one group from another. DBSCAN's noise points get their own row rather than being folded into a real group.</p>
-        <p><b>Assigning new data —</b> for k-means and hierarchical clustering, a new row (from the playground or a batch file) is assigned to whichever group's centroid it's closest to, with the relative distances shown as a sense of how clear-cut the assignment is. For the Gaussian mixture, it's assigned to the group with the highest posterior probability, with the full probability breakdown shown. For DBSCAN, it's assigned to the group of whichever training point is nearest to it, but only if that nearest point is (a) within eps and (b) itself in a real group rather than noise — otherwise the new point is flagged as noise too, the same way an outlier in the original data would have been.</p>
+        <p><b>Assigning new data —</b> for k-means and hierarchical clustering, a new row (from the playground or a batch file) is assigned to whichever group's centroid it's closest to, with the relative distances shown as a sense of how clear-cut the assignment is. For the Gaussian mixture, it's assigned to the group with the highest posterior probability, with the full probability breakdown shown. DBSCAN itself defines no rule for a new point — that's outside what the algorithm covers — so this is a disclosed <b>heuristic</b>, not part of formal DBSCAN: the nearest training <b>core</b> point within eps is preferred (a core point is what anchors a group in the first place), falling back to the nearest in-cluster point of any kind only if no core point is in range; if nothing is within eps at all, the new point is flagged as noise, the same way an outlier in the original data would have been.</p>
         <p><b>Limitations —</b> all four can be misled by features that aren't actually meaningful for grouping — the choice of which features to include matters as much as the algorithm itself, regardless of which one is picked. There's no ground truth to check a clustering against, unlike the supervised module's held-out test set: these groups describe structure in the data, not a validated prediction.</p>
       </div>
     </details>
@@ -2703,13 +2703,13 @@
   };
 
   var INDEPENDENT_METHODS = [
-    { value: "auto", label: "Auto (recommended)" },
+    { value: "auto", label: "Auto (assumption-guided)" },
     { value: "welch", label: "Welch's t-test" },
     { value: "student", label: "Student's t-test" },
     { value: "mannwhitney", label: "Mann–Whitney U test" }
   ];
   var PAIRED_METHODS = [
-    { value: "auto", label: "Auto (recommended)" },
+    { value: "auto", label: "Auto (assumption-guided)" },
     { value: "pairedt", label: "Paired t-test" },
     { value: "wilcoxon", label: "Wilcoxon signed-rank test" }
   ];
@@ -3429,12 +3429,12 @@
       return { method: "pearson", reason: "Not enough data to test normality (need n ≥ 3 each) — defaulting to Pearson's r." };
     }
     if (normalOk && linearOk){
-      var linNote = linearKnown ? (" and the linearity check finds no significant curvature (p = " + fmtP(linP) + ")") : "";
+      var linNote = linearKnown ? (" and the curvature check finds no significant curvature (p = " + fmtP(linP) + ")") : "";
       return { method: "pearson", reason: "Both variables are consistent with normality" + linNote + " — Pearson's r applies cleanly." };
     }
     var reasons = [];
     if (!normalOk) reasons.push("at least one variable departs from normality (Shapiro–Wilk p < 0.05)");
-    if (!linearOk) reasons.push("the relationship shows significant curvature (linearity test p < 0.05)");
+    if (!linearOk) reasons.push("the relationship shows significant curvature (curvature test p < 0.05)");
     return { method: "spearman", reason: "Spearman's rank correlation is used instead because " + reasons.join(" and ") + " — it only assumes a monotonic relationship." };
   }
 
@@ -4937,6 +4937,12 @@
     return C;
   }
 
+  // Math.exp(e) overflows to Infinity for e >= ~710, which is finite and comparison-safe in IEEE-754
+  // (never NaN) but can still contaminate a Hessian solve with Infinity - Infinity mid-fit before the
+  // |beta| > 500 divergence check gets a chance to break the loop. Capping the exponent keeps every
+  // intermediate value a large-but-finite number instead, so a diverging fit fails cleanly through the
+  // existing convergence/divergence checks rather than through stray Infinity arithmetic.
+  function safeExp(e){ return Math.exp(Math.min(e, 700)); }
   function fitGLM(X, y, family){
     var n = X.length, p = X[0].length;
     var beta = new Array(p).fill(0);
@@ -4944,7 +4950,7 @@
     for (var iter = 0; iter < maxIter; iter++){
       iterUsed = iter;
       var eta = X.map(function(row){ var s = 0; for (var jj = 0; jj < p; jj++) s += row[jj] * beta[jj]; return s; });
-      var mu = eta.map(function(e){ return family === "logistic" ? 1 / (1 + Math.exp(-e)) : Math.exp(e); });
+      var mu = eta.map(function(e){ return family === "logistic" ? 1 / (1 + Math.exp(-e)) : safeExp(e); });
       var w = mu.map(function(m){ return family === "logistic" ? m * (1 - m) : m; });
       var grad = new Array(p).fill(0);
       for (i = 0; i < n; i++){ var resid = y[i] - mu[i]; for (j = 0; j < p; j++) grad[j] += resid * X[i][j]; }
@@ -4959,7 +4965,7 @@
       if (beta.some(function(b){ return Math.abs(b) > 500; })) break;
     }
     var etaF = X.map(function(row){ var s = 0; for (var jj = 0; jj < p; jj++) s += row[jj] * beta[jj]; return s; });
-    var muF = etaF.map(function(e){ return family === "logistic" ? 1 / (1 + Math.exp(-e)) : Math.exp(e); });
+    var muF = etaF.map(function(e){ return family === "logistic" ? 1 / (1 + Math.exp(-e)) : safeExp(e); });
     var wF = muF.map(function(m){ return family === "logistic" ? m * (1 - m) : m; });
     var Hf = [];
     for (j = 0; j < p; j++) Hf.push(new Array(p).fill(0));
@@ -8563,12 +8569,10 @@
   }
 
   /* --- Hierarchical (agglomerative) clustering, Ward's linkage (validated) ---
-     Merges the two closest clusters repeatedly, via the standard Lance-Williams recurrence for Ward's
-     method, until k remain. The recurrence is applied to raw squared centroid distances rather than the
-     textbook-scaled n_i*n_j/(n_i+n_j) form; this differs from the "true" merge cost only by a positive
-     constant factor at every step, which cannot change which pair has the smallest distance — so the
-     resulting merge order and final clustering are identical either way (confirmed by direct comparison
-     against the scaled version, and against a brute-force minimum-variance check, before shipping this). */
+     Merges the two closest clusters repeatedly, via the Lance-Williams recurrence for Ward's method,
+     until k remain. The stored dissimilarities are raw squared centroid distances, which are proportional
+     to the conventional Ward merge cost (n_i*n_j/(n_i+n_j) times squared distance) at every step, so the
+     merge order — and therefore the resulting clustering — is unchanged. */
   function unsWardHierarchical(X, k){
     var n = X.length, p = X[0].length;
     var clusterById = {}, dist = [];
@@ -8607,6 +8611,51 @@
     return { assignments: assignments, centroids: centroids };
   }
 
+  // Silhouette score for every k from 2 to maxK, computed from a SINGLE Ward merge pass down to k=2
+  // rather than re-running the O(n^3) merge from scratch for each candidate k — every intermediate
+  // partition along one merge sequence is itself a valid Ward clustering at that k (agglomerative
+  // merges are nested), which was confirmed to give assignments identical (up to label permutation)
+  // to calling unsWardHierarchical(X, k) independently for every k, at a fraction of the cost.
+  function unsWardSilhouetteScan(X, maxK){
+    var n = X.length, p = X[0].length;
+    var clusterById = {}, dist = [];
+    for (var i = 0; i < n; i++){ clusterById[i] = { members: [i], centroid: X[i].slice(), size: 1 }; dist.push(new Array(n).fill(0)); }
+    for (i = 0; i < n; i++) for (var j = i + 1; j < n; j++){ var d = unsSquaredDist(X[i], X[j]); dist[i][j] = d; dist[j][i] = d; }
+    var nextId = n;
+    var activeIds = []; for (i = 0; i < n; i++) activeIds.push(i);
+    function snapshotAssignments(){
+      var assignments = new Array(n).fill(-1);
+      activeIds.forEach(function(id, idx){ clusterById[id].members.forEach(function(m){ assignments[m] = idx; }); });
+      return assignments;
+    }
+    var scores = [];
+    while (activeIds.length > 2){
+      var bestI = -1, bestJ = -1, bestD = Infinity;
+      for (var a = 0; a < activeIds.length; a++) for (var b = a + 1; b < activeIds.length; b++){
+        var ia = activeIds[a], ib = activeIds[b], d2 = dist[ia][ib];
+        if (d2 < bestD){ bestD = d2; bestI = ia; bestJ = ib; }
+      }
+      var ci = clusterById[bestI], cj = clusterById[bestJ], ni = ci.size, nj = cj.size;
+      var newMembers = ci.members.concat(cj.members);
+      var newCentroid = new Array(p).fill(0);
+      newMembers.forEach(function(m){ for (var jj = 0; jj < p; jj++) newCentroid[jj] += X[m][jj]; });
+      for (var jj2 = 0; jj2 < p; jj2++) newCentroid[jj2] /= newMembers.length;
+      var newId = nextId++;
+      clusterById[newId] = { members: newMembers, centroid: newCentroid, size: ni + nj };
+      dist[newId] = new Array(nextId).fill(0);
+      var remaining = activeIds.filter(function(id){ return id !== bestI && id !== bestJ; });
+      remaining.forEach(function(ck){
+        var nk = clusterById[ck].size;
+        var newD = ((ni + nk) * dist[bestI][ck] + (nj + nk) * dist[bestJ][ck] - nk * bestD) / (ni + nj + nk);
+        dist[newId][ck] = newD; dist[ck][newId] = newD;
+      });
+      activeIds = remaining.concat([newId]);
+      if (activeIds.length <= maxK) scores.push({ k: activeIds.length, silhouette: unsSilhouetteScore(X, snapshotAssignments(), activeIds.length) });
+    }
+    scores.reverse();
+    return scores;
+  }
+
   /* --- DBSCAN (validated) ---
      Standard density-based clustering: a point with at least minPts neighbors (including itself) within
      eps is a "core" point and anchors a group; any point reachable through a chain of core points joins
@@ -8640,7 +8689,8 @@
       }
       clusterId++;
     }
-    return { assignments: assignments, numClusters: clusterId };
+    var isCore = neighbors.map(function(nb){ return nb.length + 1 >= minPts; });
+    return { assignments: assignments, numClusters: clusterId, isCore: isCore };
   }
 
   /* --- Gaussian mixture model via EM (validated) ---
@@ -8673,8 +8723,21 @@
     for (var i = 0; i < p; i++) for (var j = 0; j < p; j++) quad += diff[i] * invSigma[i][j] * diff[j];
     return -0.5 * p * Math.log(2 * Math.PI) - 0.5 * logDetSigma - 0.5 * quad;
   }
+  // Inverts a covariance matrix with escalating diagonal regularization: tries 1e-6 first (enough for
+  // almost every case), then backs off to progressively larger values only if that still leaves the
+  // matrix singular (e.g. a component has collapsed onto duplicate points) — returns null only if even
+  // the largest regularization fails, which callers turn into a clear error instead of a raw crash.
+  function unsRegularizedInverse(cov, p){
+    var regs = [1e-6, 1e-4, 1e-2, 1e-1, 1];
+    for (var ri = 0; ri < regs.length; ri++){
+      var regCov = cov.map(function(row, ii){ return row.map(function(v, jj){ return v + (ii === jj ? regs[ri] : 0); }); });
+      var inv = invertMatrix(regCov);
+      if (inv) return { inv: inv, logDet: Math.log(Math.max(unsDeterminant(regCov), 1e-300)) };
+    }
+    return null;
+  }
   function unsGmmEM(X, k, maxIter){
-    var n = X.length, p = X[0].length, reg = 1e-6;
+    var n = X.length, p = X[0].length;
     var means = unsKmeansPlusPlusInit(X, k);
     var overallMean = new Array(p).fill(0);
     X.forEach(function(x){ for (var j = 0; j < p; j++) overallMean[j] += x[j] / n; });
@@ -8682,13 +8745,14 @@
     X.forEach(function(x){ for (var j = 0; j < p; j++) overallVar += (x[j] - overallMean[j]) * (x[j] - overallMean[j]) / (n * p); });
     var covs = []; for (var c = 0; c < k; c++){ var S = []; for (var i = 0; i < p; i++){ S.push(new Array(p).fill(0)); S[i][i] = overallVar || 1; } covs.push(S); }
     var weights = new Array(k).fill(1 / k);
-    var prevLL = -Infinity, resp = null;
+    var prevLL = -Infinity, resp = null, converged = false, iterUsed = 0;
     for (var iter = 0; iter < maxIter; iter++){
+      iterUsed = iter;
       var invSigmas = [], logDets = [];
       for (c = 0; c < k; c++){
-        var regCov = covs[c].map(function(row, ii){ return row.map(function(v, jj){ return v + (ii === jj ? reg : 0); }); });
-        invSigmas.push(invertMatrix(regCov));
-        logDets.push(Math.log(Math.max(unsDeterminant(regCov), 1e-300)));
+        var reg = unsRegularizedInverse(covs[c], p);
+        if (!reg) throw new Error("A Gaussian mixture component's covariance matrix could not be inverted even after regularization. Try fewer groups, or check for duplicate/collinear rows.");
+        invSigmas.push(reg.inv); logDets.push(reg.logDet);
       }
       resp = []; var totalLL = 0;
       for (i = 0; i < n; i++){
@@ -8701,29 +8765,41 @@
       }
       var Nk = new Array(k).fill(0);
       for (c = 0; c < k; c++) for (i = 0; i < n; i++) Nk[c] += resp[i][c];
-      var newMeans = [];
+      var newMeans = new Array(k), newCovs = new Array(k);
       for (c = 0; c < k; c++){
-        var m = new Array(p).fill(0);
-        for (i = 0; i < n; i++) for (var j = 0; j < p; j++) m[j] += resp[i][c] * X[i][j];
-        for (j = 0; j < p; j++) m[j] /= Nk[c] || 1;
-        newMeans.push(m);
+        if (Nk[c] < 1e-6){
+          // Component collapsed onto (near) zero responsibility — reinitialize it at a random data
+          // point with the overall data covariance, rather than divide by ~0 and produce garbage.
+          var reinitIdx = Math.floor(Math.random() * n);
+          newMeans[c] = X[reinitIdx].slice();
+          var S3 = []; for (i = 0; i < p; i++){ S3.push(new Array(p).fill(0)); S3[i][i] = overallVar || 1; }
+          newCovs[c] = S3;
+          Nk[c] = n * 1e-6;
+        } else {
+          var m = new Array(p).fill(0);
+          for (i = 0; i < n; i++) for (var j = 0; j < p; j++) m[j] += resp[i][c] * X[i][j];
+          for (j = 0; j < p; j++) m[j] /= Nk[c];
+          newMeans[c] = m;
+        }
       }
-      var newCovs = [];
       for (c = 0; c < k; c++){
+        if (newCovs[c]) continue;
         var S2 = []; for (i = 0; i < p; i++) S2.push(new Array(p).fill(0));
         for (i = 0; i < n; i++){
           var diff = X[i].map(function(xi, jj){ return xi - newMeans[c][jj]; });
           for (var aa = 0; aa < p; aa++) for (var bb = 0; bb < p; bb++) S2[aa][bb] += resp[i][c] * diff[aa] * diff[bb];
         }
-        for (aa = 0; aa < p; aa++) for (bb = 0; bb < p; bb++) S2[aa][bb] /= Nk[c] || 1;
-        newCovs.push(S2);
+        for (aa = 0; aa < p; aa++) for (bb = 0; bb < p; bb++) S2[aa][bb] /= Nk[c];
+        newCovs[c] = S2;
       }
       means = newMeans; covs = newCovs; weights = Nk.map(function(v){ return v / n; });
-      if (Math.abs(totalLL - prevLL) < 1e-6 * (Math.abs(totalLL) + 1)){ prevLL = totalLL; break; }
+      if (Math.abs(totalLL - prevLL) < 1e-6 * (Math.abs(totalLL) + 1)){ prevLL = totalLL; converged = true; break; }
       prevLL = totalLL;
     }
     var assignments = resp.map(function(r_i){ return r_i.indexOf(Math.max.apply(null, r_i)); });
-    return { means: means, covs: covs, weights: weights, assignments: assignments, resp: resp, logLik: prevLL };
+    var minComponentWeight = Math.min.apply(null, weights);
+    return { means: means, covs: covs, weights: weights, assignments: assignments, resp: resp, logLik: prevLL,
+      converged: converged, iterations: iterUsed + 1, minComponentWeight: minComponentWeight };
   }
   function unsGmmBest(X, k, restarts){
     var best = null;
@@ -8734,13 +8810,12 @@
     return best;
   }
   function unsGmmPosterior(x, model){
-    var k = model.means.length, p = x.length, reg = 1e-6;
+    var k = model.means.length, p = x.length;
     var logProbs = [];
     for (var c = 0; c < k; c++){
-      var regCov = model.covs[c].map(function(row, ii){ return row.map(function(v, jj){ return v + (ii === jj ? reg : 0); }); });
-      var inv = invertMatrix(regCov);
-      var logDet = Math.log(Math.max(unsDeterminant(regCov), 1e-300));
-      logProbs.push(Math.log(model.weights[c]) + unsMvNormalLogPdf(x, model.means[c], inv, logDet, p));
+      var reg = unsRegularizedInverse(model.covs[c], p);
+      if (!reg) throw new Error("A Gaussian mixture component's covariance matrix could not be inverted for this prediction.");
+      logProbs.push(Math.log(model.weights[c]) + unsMvNormalLogPdf(x, model.means[c], reg.inv, reg.logDet, p));
     }
     var maxLp = Math.max.apply(null, logProbs);
     var expSum = logProbs.reduce(function(s, lp){ return s + Math.exp(lp - maxLp); }, 0);
@@ -8751,6 +8826,11 @@
 
   var UNS_SILHOUETTE_N_CAP = 1000;
 
+  // Names the algorithm a k-suggestion was computed with, since the "right" k for k-means, Ward, and a
+  // Gaussian mixture aren't necessarily the same value — the badge and slider must reflect whichever
+  // algorithm is currently selected, not always default to k-means.
+  var UNS_ALGO_NOUN = { kmeans: "k-means", hierarchical: "hierarchical (Ward)", gmm: "the Gaussian mixture" };
+
   function unsUpdateSuggestedK(){
     var v = unsValidateSchema();
     unsEls.schemaError.hidden = v.ok;
@@ -8760,6 +8840,14 @@
     unsState.X = unsState.rows.map(unsEncodeRow);
     var n = unsState.X.length;
     unsEls.clusterCard.hidden = false;
+
+    var algo = unsSelectedAlgo();
+    if (algo === "dbscan"){
+      // DBSCAN doesn't take a number of groups to suggest — its own eps/minPts panel replaces this step.
+      unsEls.suggestedBadge.textContent = "";
+      unsEls.silhouetteChart.innerHTML = "";
+      return;
+    }
 
     var maxK = Math.min(10, n - 1);
     if (maxK < 2){
@@ -8779,13 +8867,33 @@
       return;
     }
 
-    var scores = [];
-    for (var k = 2; k <= maxK; k++){
-      var result = unsKmeans(unsState.X, k, 5);
-      scores.push({ k: k, silhouette: unsSilhouetteScore(unsState.X, result.assignments, k) });
+    var scores;
+    if (algo === "hierarchical"){
+      // A single merge pass down to k=2 yields every intermediate k for free (each merge step IS the
+      // k = (previous count − 1) partition), instead of re-running the whole O(n^3) merge from scratch
+      // for each of the up to 9 candidate k values.
+      scores = unsWardSilhouetteScan(unsState.X, maxK);
+    } else if (algo === "gmm"){
+      scores = [];
+      try {
+        for (var k1 = 2; k1 <= maxK; k1++){
+          var gFit = unsGmmBest(unsState.X, k1, 2);
+          scores.push({ k: k1, silhouette: unsSilhouetteScore(unsState.X, gFit.assignments, k1) });
+        }
+      } catch (e){
+        unsEls.suggestedBadge.textContent = "Could not compute a suggested k for the Gaussian mixture on this data — pick k manually.";
+        unsEls.silhouetteChart.innerHTML = "";
+        return;
+      }
+    } else {
+      scores = [];
+      for (var k2 = 2; k2 <= maxK; k2++){
+        var kmResult = unsKmeans(unsState.X, k2, 5);
+        scores.push({ k: k2, silhouette: unsSilhouetteScore(unsState.X, kmResult.assignments, k2) });
+      }
     }
     var best = scores.reduce(function(a, b){ return b.silhouette > a.silhouette ? b : a; }, scores[0]);
-    unsEls.suggestedBadge.textContent = "Suggested number of groups: " + best.k + " (highest average silhouette score, " + fmtNum(best.silhouette, 3) + ")";
+    unsEls.suggestedBadge.textContent = "Suggested number of groups (based on " + UNS_ALGO_NOUN[algo] + "): " + best.k + " (highest average silhouette score, " + fmtNum(best.silhouette, 3) + ")";
     unsEls.kSlider.value = best.k;
     unsEls.kValue.textContent = best.k;
     unsRenderSilhouetteChart(scores, best.k);
@@ -8822,6 +8930,7 @@
       unsEls.kParamsPanel.hidden = algo === "dbscan";
       unsEls.dbscanParamsPanel.hidden = algo !== "dbscan";
       unsHideResults();
+      if (algo !== "dbscan") unsUpdateSuggestedK();
     });
   });
 
@@ -8854,6 +8963,7 @@
     var n = unsState.X.length;
 
     var model;
+    try {
     if (algo === "dbscan"){
       var eps = Number(unsEls.epsSlider.value), minPts = Number(unsEls.minPtsSlider.value);
       var dbResult = unsDbscan(unsState.X, eps, minPts);
@@ -8870,6 +8980,7 @@
         centroidsDb.push(c);
       }
       model = { algorithm: "dbscan", k: dbResult.numClusters, eps: eps, minPts: minPts, centroids: centroidsDb, assignments: dbResult.assignments,
+        isCore: dbResult.isCore,
         noiseCount: dbResult.assignments.filter(function(a){ return a === -1; }).length,
         silhouette: unsSilhouetteExcludingNoise(unsState.X, dbResult.assignments, n) };
     } else {
@@ -8884,11 +8995,23 @@
         model = { algorithm: "gmm", k: k, means: gResult.means, covs: gResult.covs, weights: gResult.weights,
           centroids: gResult.means, assignments: gResult.assignments,
           silhouette: n <= UNS_SILHOUETTE_N_CAP ? unsSilhouetteScore(unsState.X, gResult.assignments, k) : NaN };
+        var gmmWarnings = [];
+        if (!gResult.converged) gmmWarnings.push("the fit did not fully converge within " + gResult.iterations + " iterations — results may be unstable; try fewer groups");
+        if (gResult.minComponentWeight < 0.02) gmmWarnings.push("one component ended up very small (" + fmtNum(gResult.minComponentWeight * 100, 1) + "% of rows) — consider fewer groups");
+        if (gmmWarnings.length){
+          unsEls.runError.hidden = false;
+          unsEls.runError.innerHTML = '<span class="dot"></span> Gaussian mixture warning: ' + gmmWarnings.join("; also, ") + '.';
+        }
       } else {
         var kmResult = unsKmeans(unsState.X, k, 15);
         model = { algorithm: "kmeans", k: k, centroids: kmResult.centroids, assignments: kmResult.assignments,
           silhouette: n <= UNS_SILHOUETTE_N_CAP ? unsSilhouetteScore(unsState.X, kmResult.assignments, k) : NaN };
       }
+    }
+    } catch (e){
+      unsEls.runError.hidden = false;
+      unsEls.runError.innerHTML = '<span class="dot"></span> ' + (e && e.message ? e.message : "Clustering failed unexpectedly. Try a different algorithm or number of groups.");
+      return;
     }
     unsState.model = model;
 
@@ -9030,9 +9153,13 @@
     });
   }
 
-  /* Dispatches a new point to the right assignment rule for the trained algorithm:
-     nearest centroid for kmeans/hierarchical, posterior-probability argmax for gmm,
-     and nearest in-cluster training point within eps (else noise) for dbscan. */
+  /* Dispatches a new point to the right assignment rule for the trained algorithm: nearest centroid for
+     kmeans/hierarchical, posterior-probability argmax for gmm. DBSCAN itself has no formal rule for a new
+     point (that's outside what the algorithm defines), so this is a disclosed heuristic: prefer the
+     nearest training CORE point within eps and take its cluster (the textbook-faithful choice, since a
+     core point is what "anchors" a group); only if no core point is in range, fall back to the nearest
+     in-cluster point of any kind (a border point); otherwise the new point is noise, same as an outlier
+     would have been during training. */
   function unsAssignVector(vec){
     var model = unsState.model;
     if (model.algorithm === "gmm"){
@@ -9042,11 +9169,16 @@
     if (model.algorithm === "dbscan"){
       var dists = unsState.X.map(function(x){ return Math.sqrt(unsSquaredDist(vec, x)); });
       var nearestOverall = Math.min.apply(null, dists);
-      var withinEps = [];
-      dists.forEach(function(d, i){ if (d <= model.eps && model.assignments[i] !== -1) withinEps.push({ i: i, d: d }); });
-      if (withinEps.length === 0) return { algorithm: "dbscan", assigned: -1, nearestDist: nearestOverall };
-      withinEps.sort(function(a, b){ return a.d - b.d; });
-      return { algorithm: "dbscan", assigned: model.assignments[withinEps[0].i], nearestDist: withinEps[0].d };
+      var coreWithinEps = [], anyWithinEps = [];
+      dists.forEach(function(d, i){
+        if (d > model.eps || model.assignments[i] === -1) return;
+        anyWithinEps.push({ i: i, d: d });
+        if (model.isCore[i]) coreWithinEps.push({ i: i, d: d });
+      });
+      var candidates = coreWithinEps.length ? coreWithinEps : anyWithinEps;
+      if (candidates.length === 0) return { algorithm: "dbscan", assigned: -1, nearestDist: nearestOverall };
+      candidates.sort(function(a, b){ return a.d - b.d; });
+      return { algorithm: "dbscan", assigned: model.assignments[candidates[0].i], nearestDist: candidates[0].d, viaCore: coreWithinEps.length > 0 };
     }
     var distances = model.centroids.map(function(centroid){ return Math.sqrt(unsSquaredDist(vec, centroid)); });
     return { algorithm: model.algorithm, assigned: distances.indexOf(Math.min.apply(null, distances)), distances: distances };
@@ -9068,7 +9200,7 @@
     } else if (result.algorithm === "dbscan"){
       html += assigned === -1
         ? '<p class="norm-note" style="margin:10px 0 6px;">No trained group had a point within the radius (eps = ' + fmtNum(unsState.model.eps, 3) + ') of this one — nearest training point was ' + fmtNum(result.nearestDist, 3) + ' away — so it is flagged as noise rather than forced into a group.</p>'
-        : '<p class="norm-note" style="margin:10px 0 6px;">Assigned to the group of the nearest in-cluster training point (distance ' + fmtNum(result.nearestDist, 3) + ', within eps = ' + fmtNum(unsState.model.eps, 3) + ').</p>';
+        : '<p class="norm-note" style="margin:10px 0 6px;">New-point assignment heuristic (DBSCAN itself has no formal rule for a new point): assigned to the group of the nearest ' + (result.viaCore ? "core" : "border") + ' training point (distance ' + fmtNum(result.nearestDist, 3) + ', within eps = ' + fmtNum(unsState.model.eps, 3) + ').</p>';
     } else {
       var ranked2 = result.distances.map(function(d, i){ return { group: i, dist: d }; }).sort(function(a, b){ return a.dist - b.dist; });
       var breakdown2 = ranked2.map(function(r){
