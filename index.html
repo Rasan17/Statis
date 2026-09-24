@@ -161,6 +161,22 @@
     outline-offset:2px;
   }
 
+  .cell-input.invalid-count{outline:2px solid var(--warn);background:var(--warn-soft);}
+  .chart-dl-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+  .chart-dl-btn{
+    font-family:inherit;
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--accent-ink);
+    background:var(--accent-soft);
+    border:1px solid transparent;
+    border-radius:6px;
+    padding:4px 9px;
+    cursor:pointer;
+  }
+  .chart-dl-btn:hover{filter:brightness(0.97);}
+  .chart-dl-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
   .table-wrap{overflow-x:auto;}
   table.ct{
     border-collapse:collapse;
@@ -995,7 +1011,7 @@
     <h2 id="ttTitle">Welch's t-test</h2>
     <div class="stat-row"><span class="stat-label" id="ttStatLabel">t</span><span class="stat-value" id="ttStat">—</span></div>
     <div class="stat-row"><span class="stat-label" id="ttDfLabel">df</span><span class="stat-value" id="ttDf">—</span></div>
-    <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="ttP">—</span></div>
+    <div class="stat-row"><span class="stat-label" id="ttPLabel">p-value</span><span class="stat-value" id="ttP">—</span></div>
     <div id="ttVerdict"></div>
     <div class="toggle-row" style="flex-direction:column;align-items:stretch;gap:8px;">
       <span class="toggle-label" style="font-weight:600;">Method</span>
@@ -1028,7 +1044,7 @@
   </section>
 
   <footer class="notes">
-    <b>How it's computed —</b> Welch's t-test doesn't assume equal variances: t = (x̄₁−x̄₂)⁄√(s₁²⁄n₁+s₂²⁄n₂), with the Welch–Satterthwaite approximation for degrees of freedom. Student's t-test pools the two variances and uses df = n₁+n₂−2. The paired t-test runs on the within-subject differences: t = d̄⁄(s_d⁄√n), df = n−1. All t p-values use the exact regularized incomplete beta relation to the t-distribution. When Shapiro–Wilk flags non-normal data, Mann–Whitney U (independent) or the Wilcoxon signed-rank test (paired) replace the t-test — both are rank-based, so they don't need a normality assumption, and both use the standard continuity- and tie-corrected normal approximation for their p-values. <b>Auto</b> chooses between these using the normality and variance checks above; the reasoning for each pick is shown next to the result. Cohen's d, the Mann–Whitney rank-biserial correlation r, and the Wilcoxon effect size r (z⁄√n — a different, non-interchangeable statistic from rank-biserial correlation) each express their respective test's effect as a standardized, sample-size-independent magnitude. The bar chart's error bars use each group's own t-distribution critical value (not a fixed 1.96), since with small samples the normal approximation understates the interval.
+    <b>How it's computed —</b> Welch's t-test doesn't assume equal variances: t = (x̄₁−x̄₂)⁄√(s₁²⁄n₁+s₂²⁄n₂), with the Welch–Satterthwaite approximation for degrees of freedom. Student's t-test pools the two variances and uses df = n₁+n₂−2. The paired t-test runs on the within-subject differences: t = d̄⁄(s_d⁄√n), df = n−1. All t p-values use the exact regularized incomplete beta relation to the t-distribution. When Shapiro–Wilk flags non-normal data, Mann–Whitney U (independent) or the Wilcoxon signed-rank test (paired) replace the t-test — both are rank-based, so they don't need a normality assumption, and for small samples (fewer than 50 per group, or fewer than 50 non-zero paired differences — the same rule R uses) their p-values are exact, computed from the full permutation distribution of the ranks (exact conditional on any tied values); larger samples use the standard continuity- and tie-corrected normal approximation. The p-value label says which was used. <b>Auto</b> chooses between these using the normality and variance checks above; the reasoning for each pick is shown next to the result. Cohen's d, the Mann–Whitney rank-biserial correlation r, and the Wilcoxon effect size r (z⁄√n — a different, non-interchangeable statistic from rank-biserial correlation) each express their respective test's effect as a standardized, sample-size-independent magnitude. The bar chart's error bars use each group's own t-distribution critical value (not a fixed 1.96), since with small samples the normal approximation understates the interval.
   </footer>
 
   </div>
@@ -1110,13 +1126,13 @@
     </div>
   </section>
 
-  <section class="card">
+ <section class="card">
     <div class="card-head">
       <div><p class="eyebrow">Step 4</p><h2>Regression diagnostics</h2></div>
     </div>
     <div id="regDiagRows"></div>
     <p class="norm-note" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
-      <b style="color:var(--ink);">Why these tests —</b> linear regression's significance tests additionally assume the residuals (actual − predicted) are normally distributed and have constant variance across X (homoscedasticity). Residual normality is checked with Shapiro–Wilk again, this time on the residuals. Constant variance is checked with the Breusch–Pagan test: it regresses the squared residuals on X and tests whether that explains a significant share of their variance (via n·R², a chi-squared statistic with 1 df) — a significant result (p &lt; 0.05) means the spread of residuals changes across X, so standard errors on the slope may be misleading.
+      <b style="color:var(--ink);">Why these tests —</b> linear regression's significance tests additionally assume the residuals (actual − predicted) are normally distributed and have constant variance across X (homoscedasticity). Residual normality is checked with Shapiro–Wilk again, this time on the residuals. Constant variance is checked with a single-predictor Breusch–Pagan diagnostic: it regresses the squared residuals on X and tests whether that explains a significant share of their variance (via n·R², a chi-squared statistic with 1 df) — a significant result (p &lt; 0.05) means the spread of residuals changes across X, so standard errors on the slope may be misleading.
     </p>
   </section>
 
@@ -1574,7 +1590,7 @@
         <p><b>Fitting —</b> both models are fit by Newton–Raphson (equivalent to iteratively reweighted least squares) maximizing the exact log-likelihood over all predictors at once — logistic: Σ[yᵢlog(pᵢ)+(1−yᵢ)log(1−pᵢ)] with pᵢ = 1⁄(1+e<sup>−ηᵢ</sup>); Poisson: Σ[yᵢlog(μᵢ)−μᵢ−log(yᵢ!)] with μᵢ = e<sup>ηᵢ</sup>, where ηᵢ = β₀ + β₁x₁ᵢ + β₂x₂ᵢ + … is the linear predictor. Standard errors come from the observed information matrix (inverse Hessian) at convergence.</p>
         <p><b>How predictor type changes the model —</b> a <b>continuous</b> predictor contributes its raw value as one column of the design matrix, with one coefficient. An <b>ordinal</b> predictor is converted to an equally-spaced numeric score following its category order (typed order, or auto-detected: numeric sort if the categories are already numbers, otherwise the order they first appear) and enters as one column with one coefficient — this assumes the effect of moving up one category is the same size at every step, which is a simplification worth checking against subject-matter knowledge. A <b>nominal</b> predictor with k categories is dummy-coded into k−1 binary columns against a reference category (the first category encountered in the data), so each non-reference level gets its own coefficient, estimated without assuming any order or equal spacing between categories.</p>
         <p><b>Odds ratio / incidence rate ratio / relative risk —</b> for each term, e<sup>β</sup> — the multiplicative change in odds (logistic), rate (Poisson), or risk (Poisson for binary outcomes) per one-unit increase (continuous or ordinal) or per category vs. the reference (nominal) — with a 95% <b>Wald</b> CI from e<sup>β ± 1.96·SE(β)</sup>. Wald intervals are the conventional choice but are known to be less reliable with sparse data, very large coefficients, or near-separation — the events-per-variable and convergence checks below are the main safeguards against relying on one in exactly those conditions.</p>
-        <p><b>Poisson regression for binary outcomes —</b> logistic regression's odds ratio overstates the relative risk whenever the outcome is common (roughly above 10%), which matters if what you actually want is "how many times more likely," not "how much greater the odds." This option gets around that by fitting the same Poisson log-link model to a 0/1 outcome instead — e<sup>β</sup> is then directly the relative risk. Because a 0/1 outcome doesn't really follow a Poisson distribution (its true variance is p(1−p), not equal to its mean), the model's own standard errors would be wrong if used as-is; this tool corrects for that with a robust "sandwich" (Huber–White) variance estimator instead of the model-based one, which is exactly the standard fix used in the epidemiological literature for this technique (sometimes called "modified Poisson regression," Zou 2004). One known quirk: because the Poisson link has no upper bound, the model can imply a fitted probability above 1 for some observations — this is flagged when it happens, and doesn't invalidate the coefficients, but is worth noting when predictors take extreme values.</p>
+        <p><b>Poisson regression for binary outcomes —</b> logistic regression's odds ratio overstates the relative risk whenever the outcome is common (roughly above 10%), which matters if what you actually want is "how many times more likely," not "how much greater the odds." This option gets around that by fitting the same Poisson log-link model to a 0/1 outcome instead — e<sup>β</sup> is then directly the relative risk. Because a 0/1 outcome doesn't really follow a Poisson distribution (its true variance is p(1−p), not equal to its mean), the model's own standard errors would be wrong if used as-is; this tool corrects for that with a robust "sandwich" (Huber–White) variance estimator instead of the model-based one, which is exactly the standard fix used in the epidemiological literature for this technique (sometimes called "modified Poisson regression," Zou 2004). One known quirk: because the Poisson link has no upper bound, the model can imply a fitted probability above 1 for some observations. This indicates that the Poisson mean model is producing values outside the probability scale; the robust variance estimator may still provide a useful approximation for relative-risk inference, but predictions near or beyond 1 should be treated as a model-diagnostic warning.</p>
         <p><b>Likelihood ratio test —</b> 2×(log-likelihood of this model − log-likelihood of an intercept-only model), compared to a chi-squared distribution with degrees of freedom equal to the number of coefficients added (one per continuous/ordinal predictor, k−1 per nominal predictor with k categories). This tests whether the predictors jointly improve on a model with none of them — it's the recommended overall significance test, more reliable than the per-coefficient Wald z-test when effects are large or samples are small.</p>
         <p><b>McFadden's pseudo-R² —</b> 1 − (log-likelihood of this model ⁄ log-likelihood of the intercept-only model). It doesn't mean the same thing as R² in linear regression — values of 0.2–0.4 are often considered a good fit for this measure, not a low one.</p>
         <p><b>Convergence —</b> if Newton–Raphson doesn't settle within 100 iterations, or a coefficient grows extremely large, that usually means perfect or near-perfect separation (the predictors sort the outcome too cleanly for a finite estimate to exist) — the result is flagged rather than reported as if it were a stable estimate. For Poisson models, the fitted rate e<sup>η</sup> is capped at e<sup>700</sup> internally during fitting purely to keep a runaway iteration's arithmetic finite (so it fails through this same convergence check instead of producing raw <code>Infinity</code>/<code>NaN</code>); it has no effect on any model that actually converges, but it means the coefficients shown for a flagged, non-converged fit come from an already-capped likelihood, not an uncapped one.</p>
@@ -1712,7 +1728,7 @@
       <div class="info-body">
         <p><b>Per-study effect —</b> for each 2×2 table (a, b = intervention events/non-events; c, d = control events/non-events; n₁ = a+b, n₂ = c+d): odds ratio OR = ad⁄bc; risk ratio RR = (a⁄n₁)⁄(c⁄n₂); risk difference RD = a⁄n₁ − c⁄n₂. OR and RR are pooled on the log scale, back-transformed for display.</p>
         <p><b>Zero cells —</b> if any of a study's four cells is 0, that study has 0.5 added to all four cells before any calculation involving it (a commonly used empirical continuity correction) — otherwise its log OR/RR or variance would be undefined. This is applied consistently to that study's contribution to every statistic below, and is flagged in the studies table. It isn't the only correction in use — treatment-arm continuity corrections and methods designed specifically for sparse data exist and can behave differently, particularly when arm sizes are unequal — so treat any pooled result driven by several zero-cell studies with proportionate caution.</p>
-        <p><b>Fixed effect —</b> for OR and RR, the Mantel–Haenszel method (weights bd/n or specific to each measure) is used, with the Robins–Breslow–Greenland (OR) or Greenland–Robins (RR) variance — these remain stable even with sparse data, which is why they're preferred over inverse-variance weighting for fixed-effect OR/RR. Risk difference uses inverse-variance weighting instead (Mantel–Haenszel is not commonly extended to risk difference in the same way).</p>
+        <p><b>Fixed effect —</b> for OR and RR, the Mantel–Haenszel method (weights bd/n or specific to each measure) is used, with the Robins–Breslow–Greenland (OR) or Greenland–Robins (RR) variance — computed from the raw cell counts with no continuity correction (as in RevMan, Stata and R's metafor/meta) — these remain stable even with sparse data and zero cells, which is why they're preferred over inverse-variance weighting for fixed-effect OR/RR. Risk difference uses inverse-variance weighting instead (Mantel–Haenszel is not commonly extended to risk difference in the same way).</p>
         <p><b>Random effects —</b> DerSimonian–Laird: between-study variance τ² is estimated from Cochran's Q by method of moments, then each study is re-weighted by 1⁄(vᵢ+τ²) and pooled by inverse variance. This is a closed-form, non-iterative estimator — it doesn't require the CI to be built from a fitted likelihood, unlike REML, which <b>isn't implemented in this tool</b>.</p>
         <p><b>HKSJ adjustment —</b> when enabled, replaces the standard random-effects variance with one based on the residual variation around the pooled estimate, and uses a t-distribution with k−1 df instead of a normal z — this is generally more conservative (wider CIs) and recommended whenever there are few studies, since the plain DerSimonian–Laird CI is known to be too narrow in that situation.</p>
         <p><b>Heterogeneity —</b> Cochran's Q = Σwᵢ(yᵢ−ȳ)² (fixed-effect inverse-variance weights), compared to a chi-squared distribution with k−1 df. I² = max(0, (Q−df)⁄Q) × 100% estimates the proportion of total variation due to real between-study differences rather than chance — conventionally, under 25% is considered low, 25–75% moderate, and over 75% substantial, though these bands are only a rough guide.</p>
@@ -1854,6 +1870,11 @@
       <div class="ml-hp-field" style="grid-column:1/-1;">
         <label for="mlSplitSlider">Train / test split — <span id="mlSplitLabel">80% train / 20% test</span></label>
         <input type="range" class="ml-slider" id="mlSplitSlider" min="50" max="90" step="5" value="80">
+      </div>
+      <div class="ml-hp-field">
+        <label for="mlSeedInput">Random seed (optional)</label>
+        <input type="text" inputmode="numeric" class="cell-input" id="mlSeedInput" placeholder="blank = random each run" style="width:100%;max-width:220px;">
+        <div class="ml-hp-value" style="font-size:12px;">Same seed + same data/settings = identical split &amp; model</div>
       </div>
     </div>
 
@@ -2035,6 +2056,14 @@
       </div>
     </div>
 
+    <div class="ml-hp-grid" style="margin-top:14px;">
+      <div class="ml-hp-field">
+        <label for="unsSeedInput">Random seed (optional)</label>
+        <input type="text" inputmode="numeric" class="cell-input" id="unsSeedInput" placeholder="blank = random each run" style="width:100%;max-width:220px;">
+        <div class="ml-hp-value" style="font-size:12px;">Makes k-means / Gaussian mixture repeatable</div>
+      </div>
+    </div>
+
     <button class="primary-btn" id="unsRunBtn" type="button" style="margin-top:16px;">Create groups</button>
     <div class="assumption warn" id="unsRunError" hidden style="margin-top:14px;"></div>
   </section>
@@ -2123,13 +2152,27 @@
     });
   })();
 
+   // Memoized lgamma for non-negative integers — FFH enumeration calls this millions of times
+  // with the same handful of integer arguments (factorials of cell counts and margins), so caching
+  // turns what was a 7-term polynomial evaluation into a single array lookup. Falls back to the
+  // uncached implementation for non-integer or out-of-range x, which the rest of the app uses.
+  var lgammaCache = [0, 0];   // lgamma(0) = log(0!) = 0, lgamma(1) = log(1!) = 0
   function lgamma(x){
+    if (x >= 0 && x < 100000 && Number.isInteger(x)){
+      var cached = lgammaCache[x];
+      if (cached !== undefined) return cached;
+      return (lgammaCache[x] = lgammaUncached(x));
+    }
+    return lgammaUncached(x);
+  }
+
+  function lgammaUncached(x){
     var g = 7;
     var c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028,
       771.32342877765313, -176.61502916214059, 12.507343278686905,
       -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
     if (x < 0.5){
-      return Math.log(Math.PI / Math.sin(Math.PI * x)) - lgamma(1 - x);
+      return Math.log(Math.PI / Math.sin(Math.PI * x)) - lgammaUncached(1 - x);
     }
     x -= 1;
     var a = c[0];
@@ -2168,7 +2211,8 @@
 
   function chiSquaredP(stat){
     if (!isFinite(stat) || stat < 0) return NaN;
-    return erfc(Math.sqrt(stat / 2));
+    // The erfc approximation is accurate to ~1e-7 but can return 1.00000003 at stat = 0; clamp to [0, 1].
+    return Math.min(1, Math.max(0, erfc(Math.sqrt(stat / 2))));
   }
 
   function fmtP(p){
@@ -2246,9 +2290,42 @@
     resetBtn: document.getElementById("resetBtn")
   };
 
+  // All 2x2 statistics in one pure function (testable without the page). Cells: a b / c d.
+  // Chi-squared (optionally Yates-corrected), odds ratio and relative risk with Woolf / Katz log-scale
+  // 95% CIs; 0.5 is added to every cell when any cell is zero (Haldane-Anscombe), as in R's epitools
+  // and statsmodels. OR and RR are reported as undefined (NaN) when a whole row or column is empty
+  // (e.g. no events in either group), because the ratio then compares nothing — the 0.5 correction
+  // would otherwise manufacture a number such as "OR 1.00 (95% CI 0.02-50)" from no information.
+  var Z975 = 1.959963984540054;
+  function contingency2x2(a, b, c, d, yates){
+    var r1 = a + b, r2 = c + d, c1 = a + c, c2 = b + d, n = r1 + r2;
+    var out = { n: n, chi2: NaN, chiP: NaN, or: NaN, orLo: NaN, orHi: NaN, rr: NaN, rrLo: NaN, rrHi: NaN, haszero: false };
+    if (n === 0) return out;
+    var denom = r1 * r2 * c1 * c2, adbc = a * d - b * c;
+    if (denom > 0){
+      var num = yates ? Math.max(0, Math.abs(adbc) - n / 2) : Math.abs(adbc);
+      out.chi2 = n * num * num / denom;
+      out.chiP = chiSquaredP(out.chi2);
+    }
+    if (denom === 0) return out;   // an empty row or column: no ratio can be estimated
+    var haszero = a === 0 || b === 0 || c === 0 || d === 0;
+    var za = a, zb = b, zc = c, zd = d;
+    if (haszero){ za += 0.5; zb += 0.5; zc += 0.5; zd += 0.5; }
+    out.haszero = haszero;
+    out.or = (za * zd) / (zb * zc);
+    var orSE = Math.sqrt(1 / za + 1 / zb + 1 / zc + 1 / zd);
+    out.orLo = Math.exp(Math.log(out.or) - Z975 * orSE); out.orHi = Math.exp(Math.log(out.or) + Z975 * orSE);
+    var p1 = za / (za + zb), p2 = zc / (zc + zd);
+    out.rr = p1 / p2;
+    var rrSE = Math.sqrt(1 / za - 1 / (za + zb) + 1 / zc - 1 / (zc + zd));
+    out.rrLo = Math.exp(Math.log(out.rr) - Z975 * rrSE); out.rrHi = Math.exp(Math.log(out.rr) + Z975 * rrSE);
+    return out;
+  }
+
   function readInt(el){
-    var v = parseInt(el.value, 10);
-    return isNaN(v) || v < 0 ? 0 : v;
+    var raw = String(el.value).trim(), v = Number(raw);
+    el.classList.toggle("invalid-count", raw !== "" && !(Number.isInteger(v) && v >= 0));
+    return Number.isInteger(v) && v >= 0 ? v : 0;
   }
 
   function recalc(){
@@ -2261,6 +2338,16 @@
     els.c2total.textContent = cc2;
     els.grandTotal.textContent = n;
 
+    var badInputs = [els.a, els.b, els.c, els.d].filter(function(el){ return el.classList.contains("invalid-count"); }).length;
+    if (badInputs){
+      els.assumption.className = "assumption warn";
+      els.assumption.innerHTML = '<span class="dot"></span> Counts must be whole numbers ≥ 0 — ' + badInputs + ' highlighted cell(s) contain something else (a decimal, a negative number or text). Results are hidden until this is fixed.';
+      els.chiStat.textContent = "—"; els.chiP.textContent = "—"; els.fisherP.textContent = "—";
+      els.chiVerdict.innerHTML = ""; els.fisherVerdict.innerHTML = "";
+      els.chiRecommend.innerHTML = ""; els.chiReason.textContent = ""; els.fisherRecommend.innerHTML = ""; els.fisherReason.textContent = "";
+      els.orValue.textContent = "—"; els.orCi.textContent = ""; els.rrValue.textContent = "—"; els.rrCi.textContent = "";
+      return;
+    }
     if (n === 0){
       els.assumption.className = "assumption warn";
       els.assumption.innerHTML = '<span class="dot"></span> Enter counts to run the tests.';
@@ -2296,47 +2383,20 @@
     els.chiRecommend.innerHTML = ""; els.chiRecommend.appendChild(chiRecommendBadge(chiOk));
     els.fisherRecommend.innerHTML = ""; els.fisherRecommend.appendChild(fisherRecommendBadge(!chiOk));
 
-    var ad_bc = a * d - b * c;
-    var denom = r1 * r2 * cc1 * cc2;
-    var chi2;
-    if (denom === 0){
-      chi2 = NaN;
-    } else if (els.yatesToggle.checked){
-      var corr = Math.max(0, Math.abs(ad_bc) - n / 2);
-      chi2 = n * corr * corr / denom;
-    } else {
-      chi2 = n * ad_bc * ad_bc / denom;
-    }
-    var chiP = chiSquaredP(chi2);
-    els.chiStat.textContent = fmtNum(chi2, 3);
-    els.chiP.textContent = fmtP(chiP);
-    els.chiVerdict.innerHTML = ""; els.chiVerdict.appendChild(verdictPill(chiP));
+    var cs = contingency2x2(a, b, c, d, els.yatesToggle.checked);
+    els.chiStat.textContent = fmtNum(cs.chi2, 3);
+    els.chiP.textContent = fmtP(cs.chiP);
+    els.chiVerdict.innerHTML = ""; els.chiVerdict.appendChild(verdictPill(cs.chiP));
 
     var fisherP = fisherExactTwoTailed(a, b, c, d);
     els.fisherP.textContent = fmtP(fisherP);
     els.fisherVerdict.innerHTML = ""; els.fisherVerdict.appendChild(verdictPill(fisherP));
 
-    var za = a, zb = b, zc = c, zd = d, haszero = (a === 0 || b === 0 || c === 0 || d === 0);
-    if (haszero){ za += 0.5; zb += 0.5; zc += 0.5; zd += 0.5; }
-    var orv = (za * zd) / (zb * zc);
-    var orSE = Math.sqrt(1 / za + 1 / zb + 1 / zc + 1 / zd);
-    var orLog = Math.log(orv);
-    var orLo = Math.exp(orLog - 1.96 * orSE), orHi = Math.exp(orLog + 1.96 * orSE);
-    els.orValue.textContent = fmtNum(orv, 2);
-    els.orCi.textContent = "95% CI " + fmtNum(orLo, 2) + "–" + fmtNum(orHi, 2) + (haszero ? " (0.5 added)" : "");
-
-    if (r1 > 0 && r2 > 0 && za > 0 && zc > 0){
-      var p1 = za / (za + zb), p2 = zc / (zc + zd);
-      var rrv = p1 / p2;
-      var rrSE = Math.sqrt(1 / za - 1 / (za + zb) + 1 / zc - 1 / (zc + zd));
-      var rrLog = Math.log(rrv);
-      var rrLo = Math.exp(rrLog - 1.96 * rrSE), rrHi = Math.exp(rrLog + 1.96 * rrSE);
-      els.rrValue.textContent = fmtNum(rrv, 2);
-      els.rrCi.textContent = "95% CI " + fmtNum(rrLo, 2) + "–" + fmtNum(rrHi, 2) + (haszero ? " (0.5 added)" : "");
-    } else {
-      els.rrValue.textContent = "—";
-      els.rrCi.textContent = "";
-    }
+    var zeroNote = cs.haszero ? " (0.5 added)" : "";
+    els.orValue.textContent = fmtNum(cs.or, 2);
+    els.orCi.textContent = isFinite(cs.or) ? "95% CI " + fmtNum(cs.orLo, 2) + "–" + fmtNum(cs.orHi, 2) + zeroNote : "not estimable — a row or column total is 0";
+    els.rrValue.textContent = fmtNum(cs.rr, 2);
+    els.rrCi.textContent = isFinite(cs.rr) ? "95% CI " + fmtNum(cs.rrLo, 2) + "–" + fmtNum(cs.rrHi, 2) + zeroNote : "not estimable — a row or column total is 0";
   }
 
   [els.a, els.b, els.c, els.d, els.yatesToggle].forEach(function(el){
@@ -2377,7 +2437,10 @@
   });
 
   function betacf(a, b, x){
-    var MAXIT = 100, EPS = 3e-7, FPMIN = 1e-30;
+    // EPS tightened from 3e-7 (Numerical Recipes' single-precision default) to 1e-15 with more iterations:
+    // p-values were already fine at 7 significant figures, but t critical values (hence every CI) and
+    // very small p-values inherit this tolerance directly. Cost is negligible — typically < 30 iterations.
+    var MAXIT = 300, EPS = 1e-15, FPMIN = 1e-300;
     var qab = a + b, qap = a + 1, qam = a - 1;
     var c = 1, d = 1 - qab * x / qap;
     if (Math.abs(d) < FPMIN) d = FPMIN;
@@ -2440,7 +2503,7 @@
     return { n: n, mean: m, sd: sd, se: se, df: df, tCrit: tCrit, ciLower: m - tCrit * se, ciUpper: m + tCrit * se };
   }
 
-  function renderBarChart(container, groups){
+  function renderBarChart(container, groups, filenameBase){
     var valid = groups.filter(function(g){ return !isNaN(g.stats.mean); });
     if (valid.length === 0){
       container.innerHTML = '<p class="norm-note">Each group needs at least 2 values to show means with a confidence interval.</p>';
@@ -2500,6 +2563,7 @@
 
     container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;max-width:' + Math.max(480, W) + 'px;height:auto;display:block;margin:0 auto;" role="img" aria-label="Bar chart of group means with 95% confidence intervals">' +
       yTicks + axes + bars + labels + '</svg>';
+    if (filenameBase) attachChartDownload(container, container.querySelector("svg"), filenameBase);
   }
 
   function quantile(sorted, p){
@@ -2570,8 +2634,15 @@
     return '<div><div class="norm-name" style="margin-bottom:8px;">' + escapeXml(name) + ' (n=' + n + ')</div>' + svg + '</div>';
   }
 
-  function renderHistograms(container, groups){
+  function renderHistograms(container, groups, filenamePrefix){
     container.innerHTML = groups.map(function(g){ return histogramSVG(g.arr, g.color, g.name); }).join("");
+    if (!filenamePrefix) return;
+    Array.prototype.forEach.call(container.children, function(wrap, i){
+      var svg = wrap.querySelector("svg");
+      if (!svg) return;
+      var safeName = String(groups[i].name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      attachChartDownload(wrap, svg, filenamePrefix + "-" + (safeName || (i + 1)));
+    });
   }
 
   function parseNumbers(text){
@@ -2637,6 +2708,43 @@
     return { ranks: ranks, tieGroups: tieGroups };
   }
 
+  // Exact two-sided p-values for the rank tests, used for small samples (each group / n < 50, the same
+  // cut-off R's wilcox.test uses). Ranks may contain ties (mid-ranks), so the null distribution is built
+  // by dynamic programming over *doubled* ranks (always integers) — the exact conditional permutation
+  // distribution given the observed ranks, which reduces to the classical exact tables when there are no
+  // ties. Two-sided p = min(1, 2 × smaller tail), as in R and SciPy.
+  var RANK_EXACT_MAX_N = 50;
+  function exactRankSumP(ranks, nA, observedSumA){
+    var N = ranks.length, r2 = ranks.map(function(r){ return Math.round(2 * r); });
+    var maxS = 0; r2.forEach(function(v){ maxS += v; });
+    var dp = []; for (var k = 0; k <= nA; k++) dp.push(new Float64Array(maxS + 1));
+    dp[0][0] = 1;
+    var reach = 0;
+    for (var i = 0; i < N; i++){
+      var v = r2[i]; reach += v;
+      for (var kk = Math.min(i + 1, nA); kk >= 1; kk--){
+        var row = dp[kk], prev = dp[kk - 1];
+        for (var sIdx = reach; sIdx >= v; sIdx--) if (prev[sIdx - v]) row[sIdx] += prev[sIdx - v];
+      }
+    }
+    var obs = Math.round(2 * observedSumA), total = 0, lo = 0, hi = 0, dist = dp[nA];
+    for (var t = 0; t <= maxS; t++){
+      var c = dist[t]; if (!c) continue;
+      total += c; if (t <= obs) lo += c; if (t >= obs) hi += c;
+    }
+    return Math.min(1, 2 * Math.min(lo, hi) / total);
+  }
+  function exactSignedRankP(absRanks, observedWpos){
+    var r2 = absRanks.map(function(r){ return Math.round(2 * r); });
+    var maxS = 0; r2.forEach(function(v){ maxS += v; });
+    var dist = new Float64Array(maxS + 1); dist[0] = 1;
+    var reach = 0;
+    r2.forEach(function(v){ reach += v; for (var sIdx = reach; sIdx >= v; sIdx--) if (dist[sIdx - v]) dist[sIdx] += dist[sIdx - v]; });
+    var obs = Math.round(2 * observedWpos), total = 0, lo = 0, hi = 0;
+    for (var t = 0; t <= maxS; t++){ var c = dist[t]; if (!c) continue; total += c; if (t <= obs) lo += c; if (t >= obs) hi += c; }
+    return Math.min(1, 2 * Math.min(lo, hi) / total);
+  }
+
   function mannWhitneyU(arrA, arrB){
     var nA = arrA.length, nB = arrB.length, n = nA + nB;
     var rk = rankWithTies(arrA.concat(arrB));
@@ -2650,8 +2758,13 @@
     var diff = U1 - muU;
     var z = sigmaU === 0 ? 0 : (diff - 0.5 * Math.sign(diff)) / sigmaU;
     var p = Math.min(1, Math.max(0, erfc(Math.abs(z) / Math.SQRT2)));
-    var r = 1 - (2 * U1) / (nA * nB);
-    return { U1: U1, U2: nA * nB - U1, z: z, p: p, r: r };
+    // Rank-biserial correlation, signed the same way as the mean difference (A − B) and z shown next to
+    // it: r = P(A > B) − P(A < B) = 2·U1/(nA·nB) − 1, so r = +1 when every A value exceeds every B value.
+    // (The earlier 1 − 2U/(nA·nB) had the right magnitude but the opposite sign to the other two figures.)
+    var r = (2 * U1) / (nA * nB) - 1;
+    var pApprox = p, exact = false, hasTies = rk.tieGroups.some(function(t){ return t > 1; });
+    if (nA < RANK_EXACT_MAX_N && nB < RANK_EXACT_MAX_N){ p = exactRankSumP(rk.ranks, nA, R1); exact = true; }
+    return { U1: U1, U2: nA * nB - U1, z: z, p: p, pApprox: pApprox, exact: exact, hasTies: hasTies, r: r };
   }
 
   function wilcoxonSignedRank(diffs){
@@ -2669,7 +2782,9 @@
     var z = sigmaW === 0 ? 0 : (diff - 0.5 * Math.sign(diff)) / sigmaW;
     var p = Math.min(1, Math.max(0, erfc(Math.abs(z) / Math.SQRT2)));
     var r = z / Math.sqrt(n);
-    return { Wpos: Wpos, z: z, p: p, n: n, r: r };
+    var pApprox = p, exact = false, hasTies = rk.tieGroups.some(function(t){ return t > 1; });
+    if (n < RANK_EXACT_MAX_N){ p = exactSignedRankP(rk.ranks, Wpos); exact = true; }
+    return { Wpos: Wpos, z: z, p: p, pApprox: pApprox, exact: exact, hasTies: hasTies, n: n, r: r };
   }
 
   var ttEls = {
@@ -2690,6 +2805,7 @@
     dfLabel: document.getElementById("ttDfLabel"),
     df: document.getElementById("ttDf"),
     p: document.getElementById("ttP"),
+    pLabel: document.getElementById("ttPLabel"),
     verdict: document.getElementById("ttVerdict"),
     methodSelect: document.getElementById("methodSelect"),
     methodReason: document.getElementById("methodReason"),
@@ -2791,8 +2907,21 @@
     ttEls.title.textContent = info.title;
     ttEls.statLabel.textContent = info.stat;
     ttEls.dfLabel.textContent = info.df;
+    ttEls.pLabel.textContent = "p-value";
+    ttEls.pLabel.title = "";
     ttEls.effectTitle.textContent = info.effectTitle;
     ttEls.effectName.textContent = info.effectName;
+  }
+
+  function setRankPLabel(res){
+    if (res.exact){
+      ttEls.pLabel.textContent = "p-value (exact)";
+      ttEls.pLabel.title = "Exact permutation p-value (used when each group / the number of non-zero differences is below " + RANK_EXACT_MAX_N +
+        (res.hasTies ? "; exact conditional on the tied ranks" : "") + "). Normal-approximation p = " + fmtP(res.pApprox) + ".";
+    } else {
+      ttEls.pLabel.textContent = "p-value (normal approx.)";
+      ttEls.pLabel.title = "Large sample: tie- and continuity-corrected normal approximation.";
+    }
   }
 
   function effectMagnitudeLabel(absVal, thresholds){
@@ -2906,7 +3035,7 @@
     renderHistograms(ttEls.histograms, [
       { name: labelA, arr: arrA, color: histColors[0] },
       { name: labelB, arr: arrB, color: histColors[1] }
-    ]);
+    ], "ttest-histogram");
 
     ttEls.warning.hidden = true;
 
@@ -2958,7 +3087,7 @@
       renderBarChart(ttEls.barChart, [
         { name: labelA, stats: groupMeanCI(arrA) },
         { name: labelB, stats: groupMeanCI(arrB) }
-      ]);
+      ], "ttest-means");
       ttEls.barChartCaption.textContent = "Bars show each side's mean; error bars show the 95% CI of the mean (t-distribution, df = n−1) — not the paired test's own CI on the mean difference.";
 
       if (chosenMethod === "wilcoxon"){
@@ -2971,6 +3100,7 @@
         ttEls.stat.textContent = fmtNum(wres.Wpos, 1);
         ttEls.df.textContent = fmtNum(wres.z, 2);
         ttEls.p.textContent = fmtP(wres.p);
+        setRankPLabel(wres);
         ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(wres.p));
         ttEls.cohenD.textContent = fmtNum(wres.r, 2);
         ttEls.cohenDNote.textContent = "effect size r (z / √n) — not the same statistic as rank-biserial correlation" +
@@ -3008,7 +3138,7 @@
       renderBarChart(ttEls.barChart, [
         { name: labelA, stats: groupMeanCI(arrA) },
         { name: labelB, stats: groupMeanCI(arrB) }
-      ]);
+      ], "ttest-means");
       ttEls.barChartCaption.textContent = "Bars show each group's mean; error bars show the 95% CI of the mean (t-distribution, df = n−1).";
 
       if (chosenMethod === "mannwhitney"){
@@ -3016,6 +3146,7 @@
         ttEls.stat.textContent = fmtNum(mwres.U1, 1);
         ttEls.df.textContent = fmtNum(mwres.z, 2);
         ttEls.p.textContent = fmtP(mwres.p);
+        setRankPLabel(mwres);
         ttEls.verdict.innerHTML = ""; ttEls.verdict.appendChild(verdictPill(mwres.p));
         ttEls.cohenD.textContent = fmtNum(mwres.r, 2);
         ttEls.cohenDNote.textContent = "rank-biserial correlation";
@@ -3309,9 +3440,11 @@
     var v0term = n * (n - 1) * (2 * n + 5);
     var variance;
     if (n > 2){
-      var v1 = (sumT_t1 * sumU_u1) / (2 * n * (n - 1));
-      var v2 = (sumT_t1_t2 * sumU_u1_u2) / (9 * n * (n - 1) * (n - 2));
-      variance = (v0term - vt - vu) / 18 + v1 + v2;
+         // Kendall & Gibbons: v1 uses the (t-1)(t-2)-style products, v2 uses the t(t-1) products.
+    // (These were transposed, which gives correct variance only when at most one variable has ties.)
+    var v1 = (sumT_t1_t2 * sumU_u1_u2) / (9 * n * (n - 1) * (n - 2));
+    var v2 = (sumT_t1 * sumU_u1) / (2 * n * (n - 1));
+    variance = (v0term - vt - vu) / 18 + v1 + v2;
     } else {
       variance = v0term / 18;
     }
@@ -3350,18 +3483,74 @@
     };
   }
 
-  function quadraticFit(x, y){
-    var n = x.length, s1 = 0, s2 = 0, s3 = 0, s4 = 0, sy = 0, sxy = 0, sx2y = 0, i;
-    for (i = 0; i < n; i++){
-      var xi = x[i], yi = y[i], xi2 = xi * xi;
-      s1 += xi; s2 += xi2; s3 += xi2 * xi; s4 += xi2 * xi2;
-      sy += yi; sxy += xi * yi; sx2y += xi2 * yi;
+  // Least squares via Householder QR: solves min ||X b - y|| without ever forming X'X, so the
+  // conditioning is that of X rather than its square (the normal equations square the condition
+  // number, which silently destroys accuracy for columns like x and x^2 on large-valued x).
+  // X is n x p (array of rows). Returns { coef, sse, rank } or null if X is rank-deficient
+  // (a column is, to working precision, a linear combination of earlier ones).
+  function lstsqQR(X, y){
+    var n = X.length, p = X[0].length, i, j, k;
+    if (n < p) return null;
+    var A = X.map(function(r){ return r.slice(); });
+    var b = y.slice();
+    var rdiag = new Array(p);
+    var colNorm0 = new Array(p);
+    for (j = 0; j < p; j++){ var cs = 0; for (i = 0; i < n; i++) cs += A[i][j] * A[i][j]; colNorm0[j] = Math.sqrt(cs); }
+    for (k = 0; k < p; k++){
+      var norm = 0;
+      for (i = k; i < n; i++) norm += A[i][k] * A[i][k];
+      norm = Math.sqrt(norm);
+      // Rank check relative to the column's own original size, so a scale difference between
+      // columns (e.g. an intercept of 1s next to a column in the thousands) isn't mistaken for collinearity.
+      if (norm <= 1e-10 * Math.max(colNorm0[k], 1e-300)) return null;
+      var alpha = A[k][k] > 0 ? -norm : norm;
+      var v0 = A[k][k] - alpha;
+      A[k][k] = v0;
+      var vnorm2 = v0 * v0;
+      for (i = k + 1; i < n; i++) vnorm2 += A[i][k] * A[i][k];
+      if (vnorm2 > 0){
+        for (j = k + 1; j < p; j++){
+          var dot = 0;
+          for (i = k; i < n; i++) dot += A[i][k] * A[i][j];
+          var f = 2 * dot / vnorm2;
+          for (i = k; i < n; i++) A[i][j] -= f * A[i][k];
+        }
+        var dotb = 0;
+        for (i = k; i < n; i++) dotb += A[i][k] * b[i];
+        var fb = 2 * dotb / vnorm2;
+        for (i = k; i < n; i++) b[i] -= fb * A[i][k];
+      }
+      rdiag[k] = alpha;
     }
-    var coeffs = solveLinear([[n, s1, s2], [s1, s2, s3], [s2, s3, s4]], [sy, sxy, sx2y]);
-    if (!coeffs) return null;
+    var coef = new Array(p);
+    for (k = p - 1; k >= 0; k--){
+      var sum = b[k];
+      for (j = k + 1; j < p; j++) sum -= A[k][j] * coef[j];
+      coef[k] = sum / rdiag[k];
+      if (!isFinite(coef[k])) return null;
+    }
     var sse = 0;
-    for (i = 0; i < n; i++){ var pred = coeffs[0] + coeffs[1] * x[i] + coeffs[2] * x[i] * x[i]; var e = y[i] - pred; sse += e * e; }
-    return { coeffs: coeffs, sse: sse };
+    for (i = p; i < n; i++) sse += b[i] * b[i];
+    return { coef: coef, sse: sse, rank: p };
+  }
+
+  function quadraticFit(x, y){
+    var n = x.length, i;
+    if (n < 3) return null;
+    // Centre and scale x before building [1, z, z^2]. The fitted quadratic (and therefore the SSE the
+    // linearity test uses) is identical under any affine change of x, but raw values such as
+    // 100000.0-100001.0 make the x and x^2 columns nearly parallel to the intercept, and no solver can
+    // recover the fit accurately from that. On the standardized scale the design is well-conditioned.
+    var mx = 0; for (i = 0; i < n; i++) mx += x[i]; mx /= n;
+    var sx = 0; for (i = 0; i < n; i++) sx += (x[i] - mx) * (x[i] - mx); sx = Math.sqrt(sx / n);
+    if (!(sx > 0)) return null;
+    var X = x.map(function(xi){ var z = (xi - mx) / sx; return [1, z, z * z]; });
+    var fit = lstsqQR(X, y);
+    if (!fit) return null;
+    var a = fit.coef[0], b = fit.coef[1], c = fit.coef[2];
+    // Back-transform to coefficients on the original x scale: y = c0 + c1*x + c2*x^2.
+    var c2 = c / (sx * sx), c1 = b / sx - 2 * c * mx / (sx * sx), c0 = a - b * mx / sx + c * mx * mx / (sx * sx);
+    return { coeffs: [c0, c1, c2], sse: fit.sse };
   }
 
   function linearityTest(x, y, linearSSE){
@@ -3386,8 +3575,19 @@
     return { LM: LM, p: chiSquaredP(LM) };
   }
 
+  // One CSV cell, safe for Excel/Sheets/LibreOffice:
+  //  - quoted when it contains a comma, quote, CR or LF (RFC 4180), with inner quotes doubled;
+  //  - text that starts with = + - @ TAB or CR is prefixed with an apostrophe so a spreadsheet shows it
+  //    as text instead of running it as a formula ("CSV injection", e.g. =HYPERLINK(...) in a study
+  //    name). Genuine numbers such as -1.25 or +3e-4 are left untouched.
+  function csvCell(v){
+    var str = v == null ? "" : String(v);
+    if (/^[=+\-@\t\r]/.test(str) && !/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(str)) str = "'" + str;
+    return /[",\r\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+  }
+
   function escapeXml(s){
-    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   function renderScatter(container, x, y, slope, intercept, xLabel, yLabel){
@@ -3422,6 +3622,7 @@
 
     container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Scatter plot">' +
       axes + lineSvg + pts + xLabelSvg + yLabelSvg + '</svg>';
+    attachChartDownload(container, container.querySelector("svg"), "correlation-scatter");
   }
 
   function decideCorrelationMethod(shX, shY, linP){
@@ -3748,8 +3949,8 @@
         var L = Math.log(-Math.log(survival));
         var varL = greenwoodSum / (Math.log(survival) * Math.log(survival));
         var seL = Math.sqrt(varL);
-        ciUpper = Math.exp(-Math.exp(L - 1.96 * seL));
-        ciLower = Math.exp(-Math.exp(L + 1.96 * seL));
+        ciUpper = Math.exp(-Math.exp(L - Z975 * seL));
+        ciLower = Math.exp(-Math.exp(L + Z975 * seL));
       } else if (survival === 1){
         ciLower = 1; ciUpper = 1;
       }
@@ -3761,38 +3962,58 @@
       });
     });
 
-    var medianT = NaN, medianCiLower = NaN, medianCiUpper = NaN;
-    for (i = 0; i < table.length; i++){ if (table[i].survival <= 0.5){ medianT = table[i].time; break; } }
-    for (i = 0; i < table.length; i++){ if (!isNaN(table[i].ciLower) && table[i].ciLower <= 0.5){ medianCiLower = table[i].time; break; } }
-    for (i = 0; i < table.length; i++){ if (!isNaN(table[i].ciUpper) && table[i].ciUpper <= 0.5){ medianCiUpper = table[i].time; break; } }
+    // Median (and its CI limits) = first time the curve falls to 0.5 or below, following R's survfit
+    // rule for the tie case: if the curve sits at exactly 0.5 over an interval, report the midpoint of
+    // that interval (the time it reached 0.5 and the next event time where it drops lower). "Exactly"
+    // uses a 1e-9 tolerance, since products like (1-1/4)(1-1/3)... land a hair above or below 0.5 in
+    // floating point and would otherwise flip unpredictably between the two ends of the interval.
+    function crossHalf(key){
+      var eps = 1e-9;
+      var pts = table.filter(function(r){ return r.events > 0 && !isNaN(r[key]); });
+      for (var q = 0; q < pts.length; q++){
+        var v = pts[q][key];
+        if (v < 0.5 - eps) return pts[q].time;
+        if (Math.abs(v - 0.5) <= eps){
+          for (var q2 = q + 1; q2 < pts.length; q2++) if (pts[q2][key] < 0.5 - eps) return (pts[q].time + pts[q2].time) / 2;
+          return pts[q].time;   // curve ends at exactly 0.5: no later drop to average with
+        }
+      }
+      return NaN;
+    }
+    var medianT = crossHalf("survival"), medianCiLower = crossHalf("ciLower"), medianCiUpper = crossHalf("ciUpper");
 
     return { table: table, median: medianT, medianCiLower: medianCiLower, medianCiUpper: medianCiUpper, n: n };
   }
 
+  // Two-group log-rank (Mantel-Cox) test, hypergeometric variance. Single sweep over the pooled data
+  // sorted by time — O(n log n) — rather than re-scanning both groups at every event time, which took
+  // seconds (and froze the page) for registry-sized datasets of tens of thousands of subjects.
   function logRankTest(g1, g2){
-    var eventTimesSet = {};
-    g1.concat(g2).forEach(function(r){ if (r.event === 1) eventTimesSet[r.time] = true; });
-    var eventTimes = Object.keys(eventTimesSet).map(Number).sort(function(a, b){ return a - b; });
-    if (eventTimes.length === 0) return { O1: 0, E1: 0, V: 0, chi2: NaN, p: NaN, totalEvents: 0 };
-
-    var t1 = g1.map(function(r){ return r.time; });
-    var t2 = g2.map(function(r){ return r.time; });
-
-    var O1 = 0, E1 = 0, V = 0;
-    eventTimes.forEach(function(t){
-      var n1 = atRiskCount(t1, t), n2 = atRiskCount(t2, t);
-      var n = n1 + n2;
-      if (n <= 0) return;
-      var d1 = g1.filter(function(r){ return r.time === t && r.event === 1; }).length;
-      var d2 = g2.filter(function(r){ return r.time === t && r.event === 1; }).length;
-      var d = d1 + d2;
-      O1 += d1;
-      E1 += n1 * d / n;
-      if (n > 1) V += (n1 * n2 * d * (n - d)) / (n * n * (n - 1));
-    });
-
+    var all = [];
+    g1.forEach(function(r){ all.push({ t: r.time, e: r.event === 1 ? 1 : 0, g: 1 }); });
+    g2.forEach(function(r){ all.push({ t: r.time, e: r.event === 1 ? 1 : 0, g: 2 }); });
+    all.sort(function(a, b){ return a.t - b.t; });
+    var n1 = g1.length, n2 = g2.length, O1 = 0, E1 = 0, V = 0, eventTimes = 0, i = 0;
+    while (i < all.length){
+      var j = i, d1 = 0, d2 = 0, c1 = 0, c2 = 0;
+      while (j < all.length && all[j].t === all[i].t){
+        var r = all[j];
+        if (r.g === 1){ if (r.e) d1++; else c1++; } else { if (r.e) d2++; else c2++; }
+        j++;
+      }
+      var d = d1 + d2, n = n1 + n2;
+      if (d > 0 && n > 0){
+        eventTimes++;
+        O1 += d1;
+        E1 += n1 * d / n;
+        if (n > 1) V += (n1 * n2 * d * (n - d)) / (n * n * (n - 1));
+      }
+      n1 -= d1 + c1; n2 -= d2 + c2;   // everyone with this time leaves the risk set after it
+      i = j;
+    }
+    if (eventTimes === 0) return { O1: 0, E1: 0, V: 0, chi2: NaN, p: NaN, totalEvents: 0 };
     var chi2 = V > 0 ? (O1 - E1) * (O1 - E1) / V : NaN;
-    return { O1: O1, E1: E1, V: V, chi2: chi2, p: chiSquaredP(chi2), totalEvents: eventTimes.length };
+    return { O1: O1, E1: E1, V: V, chi2: chi2, p: chiSquaredP(chi2), totalEvents: eventTimes };
   }
 
   var survEls = {
@@ -4028,6 +4249,12 @@
     if (maxTime === 0) maxTime = 1;
 
     var W = 620, H = 340, mL = 54, mR = 20, mT = 16, mB = 40;
+    // Widen the left margin so the longest group label in the number-at-risk table (drawn from x = 4,
+    // up to 12 characters) ends before the first count, which is centred on x = mL. Previously a label
+    // like "All patients" ran into that first number.
+    var longestRiskLabel = 0;
+    groups.forEach(function(g){ longestRiskLabel = Math.max(longestRiskLabel, Math.min(String(g.name).length, 12)); });
+    mL = Math.max(mL, Math.ceil(4 + longestRiskLabel * 6.3 + 20));
     var riskRows = groups.length;
     var riskH = 18 * (riskRows + 1) + 14;
     var totalH = H + riskH;
@@ -4301,7 +4528,7 @@
     var lines = ["group,time,at_risk,censored,events,survival,se,ci_lower,ci_upper"];
     survLastGroups.forEach(function(g){
       g.km.table.forEach(function(r){
-        lines.push([g.name, r.time, r.atRisk, r.censored, r.events, r.survival.toFixed(6),
+        lines.push([csvCell(g.name), r.time, r.atRisk, r.censored, r.events, r.survival.toFixed(6),
           isNaN(r.se) ? "" : r.se.toFixed(6), isNaN(r.ciLower) ? "" : r.ciLower.toFixed(6), isNaN(r.ciUpper) ? "" : r.ciUpper.toFixed(6)
         ].join(","));
       });
@@ -4342,39 +4569,263 @@
     });
   }
 
+  /* ===================== Chart export engine (SVG / PNG) =====================
+     Every chart in the app is rendered as inline SVG whose colours reference CSS custom
+     properties (var(--ink), var(--line) ...). Those only resolve inside this page, so a raw
+     serialisation opened elsewhere loses its axes, text and colours. exportPrepareSvg() clones
+     the chart, resolves every var(--x) against the LIGHT theme palette (publication-friendly,
+     regardless of the on-screen theme), sets explicit width/height, paints a white background
+     and optionally appends an HTML legend (e.g. the KM or loss-curve legend) inside the image. */
+
+  var EXPORT_PNG_SCALE = 3;          // 3x the viewBox size ≈ print resolution for a single-column figure
+  var EXPORT_FONT_STACK = { "IBM Plex Sans": "IBM Plex Sans, Helvetica, Arial, sans-serif",
+                            "IBM Plex Mono": "IBM Plex Mono, Menlo, Consolas, monospace",
+                            "Fraunces": "Fraunces, Georgia, serif" };
+
+  function exportLightPalette(){
+    var root = document.documentElement;
+    var prev = root.getAttribute("data-theme");
+    root.setAttribute("data-theme", "light");
+    var cs = getComputedStyle(root), pal = {};
+    ["paper","surface","ink","ink-soft","line","accent","accent-soft","accent-ink","accent2","accent2-soft",
+     "accent3","accent4","good","good-soft","warn","warn-soft","neutral","neutral-soft"].forEach(function(k){
+      pal[k] = cs.getPropertyValue("--" + k).trim();
+    });
+    if (prev === null) root.removeAttribute("data-theme"); else root.setAttribute("data-theme", prev);
+    // Colours baked in at render time from the dark palette (e.g. bar-chart fills) are mapped back.
+    var dark = {};
+    if (prev !== "light"){
+      var cs2 = getComputedStyle(root);
+      Object.keys(pal).forEach(function(k){
+        var v = cs2.getPropertyValue("--" + k).trim();
+        if (v && v.toLowerCase() !== pal[k].toLowerCase()) dark[v.toLowerCase()] = pal[k];
+      });
+    }
+    return { vars: pal, darkToLight: dark };
+  }
+
+  function exportResolveString(str, palette){
+    if (!str) return str;
+    var out = str.replace(/var\(\s*--([a-z0-9-]+)\s*(?:,\s*([^)]+))?\)/gi, function(m, name, fallback){
+      return palette.vars[name] || (fallback ? fallback.trim() : "#000");
+    });
+    if (palette.darkToLight){
+      out = out.replace(/#[0-9a-f]{6}\b/gi, function(hex){ return palette.darkToLight[hex.toLowerCase()] || hex; });
+    }
+    return out;
+  }
+
+  function exportSvgDims(svg){
+    var vb = svg.viewBox && svg.viewBox.baseVal;
+    var w = (vb && vb.width) || svg.clientWidth || 480;
+    var h = (vb && vb.height) || svg.clientHeight || 320;
+    return { w: w, h: h, x: (vb && vb.x) || 0, y: (vb && vb.y) || 0 };
+  }
+
+  // legendItems: [{ color, label, dash }]
+  function exportPrepareSvg(svg, opts){
+    opts = opts || {};
+    var palette = exportLightPalette();
+    var clone = svg.cloneNode(true);
+    var d = exportSvgDims(svg);
+    var extraH = 0;
+    var legendItems = opts.legendItems || (opts.legendEl ? exportReadHtmlLegend(opts.legendEl) : []);
+
+    clone.removeAttribute("id");
+    clone.removeAttribute("style");
+    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+    [clone].concat(Array.prototype.slice.call(clone.querySelectorAll("*"))).forEach(function(el){
+      Array.prototype.slice.call(el.attributes).forEach(function(a){
+        if (a.value.indexOf("var(") !== -1 || /#[0-9a-f]{6}/i.test(a.value)){
+          el.setAttribute(a.name, exportResolveString(a.value, palette));
+        }
+      });
+      var ff = el.getAttribute("font-family");
+      if (ff){
+        var first = ff.split(",")[0].trim().replace(/["']/g, "");
+        if (EXPORT_FONT_STACK[first]) el.setAttribute("font-family", EXPORT_FONT_STACK[first]);
+      }
+    });
+
+    var ns = "http://www.w3.org/2000/svg";
+    if (legendItems.length){
+      // Lay legend entries out in rows that fit the chart width.
+      var x = 14, rowY = d.h + 18, rowH = 20, g = document.createElementNS(ns, "g");
+      legendItems.forEach(function(item){
+        var labelW = Math.min(360, item.label.length * 6.4) + 36;
+        if (x + labelW > d.w - 8 && x > 14){ x = 14; rowY += rowH; }
+        var line = document.createElementNS(ns, "line");
+        line.setAttribute("x1", x); line.setAttribute("x2", x + 18);
+        line.setAttribute("y1", rowY - 4); line.setAttribute("y2", rowY - 4);
+        line.setAttribute("stroke", exportResolveString(item.color, palette));
+        line.setAttribute("stroke-width", "3");
+        if (item.dash) line.setAttribute("stroke-dasharray", item.dash);
+        var t = document.createElementNS(ns, "text");
+        t.setAttribute("x", x + 24); t.setAttribute("y", rowY);
+        t.setAttribute("font-size", "11.5");
+        t.setAttribute("font-family", EXPORT_FONT_STACK["IBM Plex Sans"]);
+        t.setAttribute("fill", palette.vars["ink-soft"]);
+        t.textContent = item.label;
+        g.appendChild(line); g.appendChild(t);
+        x += labelW + 14;
+      });
+      clone.appendChild(g);
+      extraH = rowY - d.h + 12;
+    }
+
+    var totalH = d.h + extraH;
+    clone.setAttribute("viewBox", d.x + " " + d.y + " " + d.w + " " + totalH);
+    clone.setAttribute("width", d.w);
+    clone.setAttribute("height", totalH);
+
+    var bg = document.createElementNS(ns, "rect");
+    bg.setAttribute("x", d.x); bg.setAttribute("y", d.y);
+    bg.setAttribute("width", d.w); bg.setAttribute("height", totalH);
+    bg.setAttribute("fill", "#FFFFFF");
+    clone.insertBefore(bg, clone.firstChild);
+
+    return { svg: clone, width: d.w, height: totalH };
+  }
+
+  function exportReadHtmlLegend(legendEl){
+    if (!legendEl || legendEl.hidden) return [];
+    return Array.prototype.map.call(legendEl.querySelectorAll(".legend-item"), function(it){
+      var sw = it.querySelector(".legend-swatch");
+      var raw = sw ? (sw.getAttribute("style") || "") : "";
+      var m = raw.match(/background(?:-color)?\s*:\s*([^;]+)/i);
+      var color = m ? m[1].trim() : (sw ? getComputedStyle(sw).backgroundColor : "#555");
+      return { color: color, label: it.textContent.trim(), dash: sw && sw.getAttribute("data-dash") || null };
+    }).filter(function(x){ return x.label; });
+  }
+
+  function exportSerialize(prepared){
+    return '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' + new XMLSerializer().serializeToString(prepared.svg);
+  }
+
+  function exportResolveSource(src){ return typeof src === "function" ? src() : src; }
+
+  function downloadSvgElement(svgSrc, filename, btn, opts){
+    var svg = exportResolveSource(svgSrc);
+    if (!svg) return;
+    var prepared = exportPrepareSvg(svg, opts);
+    saveFile(filename, new Blob([exportSerialize(prepared)], { type: "image/svg+xml;charset=utf-8;" }), btn);
+  }
+
+  function downloadSvgAsPng(svgSrc, filename, btn, opts){
+    var svg = exportResolveSource(svgSrc);
+    if (!svg) return;
+    var prepared = exportPrepareSvg(svg, opts);
+    var url = URL.createObjectURL(new Blob([exportSerialize(prepared)], { type: "image/svg+xml;charset=utf-8;" }));
+    var img = new Image();
+    img.onload = function(){
+      var s = EXPORT_PNG_SCALE;
+      var canvas = document.createElement("canvas");
+      canvas.width = Math.round(prepared.width * s); canvas.height = Math.round(prepared.height * s);
+      var ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function(blob){ saveFile(filename, blob, btn); }, "image/png");
+    };
+    img.onerror = function(){
+      URL.revokeObjectURL(url);
+      if (btn){ var o = btn.textContent; btn.textContent = "Couldn't render"; setTimeout(function(){ btn.textContent = o; }, 2200); }
+    };
+    img.src = url;
+  }
+
+  // Injects a compact "Download SVG / Download PNG" control into mountEl. `svg` may be an SVG
+  // element or a function returning one (used for HTML-rendered visuals such as the confusion
+  // matrix, where a dedicated export SVG is built from the data on demand). Any control left over
+  // from a previous render is replaced, since charts are fully re-rendered on every input change.
+  function attachChartDownload(mountEl, svg, baseFilename, opts){
+    var old = mountEl.querySelector(":scope > .chart-dl-row");
+    if (old) old.remove();
+    if (!svg) return;
+    var row = document.createElement("div");
+    row.className = "chart-dl-row";
+    var svgBtn = document.createElement("button");
+    svgBtn.className = "chart-dl-btn"; svgBtn.type = "button"; svgBtn.textContent = "Download SVG";
+    var pngBtn = document.createElement("button");
+    pngBtn.className = "chart-dl-btn"; pngBtn.type = "button"; pngBtn.textContent = "Download PNG";
+    svgBtn.addEventListener("click", function(){ downloadSvgElement(svg, baseFilename + ".svg", svgBtn, opts); });
+    pngBtn.addEventListener("click", function(){ downloadSvgAsPng(svg, baseFilename + ".png", pngBtn, opts); });
+    row.appendChild(svgBtn); row.appendChild(pngBtn);
+    mountEl.appendChild(row);
+  }
+
+  /* --- Export-only SVG builders for visuals that are drawn with HTML on screen --- */
+
+  function exportSvgFromString(markup){
+    var holder = document.createElement("div");
+    holder.innerHTML = markup;
+    return holder.querySelector("svg");
+  }
+
+  // rows: [{ label, value, valueText, highlight }]
+  function buildHorizontalBarSvg(title, rows, opts){
+    opts = opts || {};
+    var W = 560, labelW = 150, valueW = 70, rowH = 22, mT = title ? 34 : 12, mB = 14;
+    var H = mT + rows.length * rowH + mB;
+    var maxV = Math.max.apply(null, rows.map(function(r){ return Math.max(0, r.value); })) || 1;
+    var trackW = W - labelW - valueW - 24;
+    var parts = [];
+    if (title) parts.push('<text x="12" y="20" font-size="12.5" font-weight="600" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(title) + '</text>');
+    rows.forEach(function(r, i){
+      var y = mT + i * rowH;
+      var lab = String(r.label); if (lab.length > 24) lab = lab.slice(0, 23) + "…";
+      var bw = Math.max(0, r.value) / maxV * trackW;
+      parts.push('<text x="' + (labelW + 4) + '" y="' + (y + 14) + '" text-anchor="end" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(lab) + '</text>');
+      parts.push('<rect x="' + (labelW + 12) + '" y="' + (y + 4) + '" width="' + trackW + '" height="13" rx="3" fill="var(--neutral-soft)"/>');
+      parts.push('<rect x="' + (labelW + 12) + '" y="' + (y + 4) + '" width="' + bw.toFixed(1) + '" height="13" rx="3" fill="' + (r.highlight ? "var(--accent2)" : (opts.color || "var(--accent)")) + '"/>');
+      parts.push('<text x="' + (labelW + 20 + trackW) + '" y="' + (y + 14) + '" font-size="11" fill="var(--ink)" font-family="IBM Plex Mono, monospace">' + escapeXml(r.valueText != null ? String(r.valueText) : String(r.value)) + '</text>');
+    });
+    return exportSvgFromString('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '">' + parts.join("") + '</svg>');
+  }
+
+  function buildConfusionMatrixSvg(cm, categories){
+    var k = categories.length, cell = Math.max(46, Math.min(80, 420 / k));
+    var labW = 120, mT = 58, mL = labW + 34;
+    var W = mL + k * cell + 20, H = mT + k * cell + 20;
+    var maxVal = Math.max.apply(null, cm.map(function(row){ return Math.max.apply(null, row); }));
+    var p = [];
+    function trunc(s){ s = String(s); return s.length > 14 ? s.slice(0, 13) + "…" : s; }
+    p.push('<text x="' + (mL + k * cell / 2) + '" y="16" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">Predicted</text>');
+    p.push('<text x="14" y="' + (mT + k * cell / 2) + '" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif" transform="rotate(-90 14 ' + (mT + k * cell / 2) + ')">Actual</text>');
+    categories.forEach(function(c, j){
+      p.push('<text x="' + (mL + j * cell + cell / 2) + '" y="' + (mT - 10) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(trunc(c)) + '</text>');
+      p.push('<text x="' + (mL - 8) + '" y="' + (mT + j * cell + cell / 2 + 4) + '" text-anchor="end" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(trunc(c)) + '</text>');
+    });
+    cm.forEach(function(row, i){
+      row.forEach(function(val, j){
+        var alpha = maxVal > 0 ? (0.12 + 0.75 * (val / maxVal)) : 0.12;
+        var rgb = i === j ? "31,110,92" : "156,107,18";
+        var x = mL + j * cell, y = mT + i * cell;
+        p.push('<rect x="' + x + '" y="' + y + '" width="' + cell + '" height="' + cell + '" fill="rgb(' + rgb + ')" fill-opacity="' + alpha.toFixed(2) + '" stroke="#FFFFFF" stroke-width="2"/>');
+        p.push('<text x="' + (x + cell / 2) + '" y="' + (y + cell / 2 + 6) + '" text-anchor="middle" font-size="16" font-weight="700" fill="' + (alpha > 0.55 ? "#FFFFFF" : "var(--ink)") + '" font-family="IBM Plex Mono, monospace">' + val + '</text>');
+      });
+    });
+    return exportSvgFromString('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '">' + p.join("") + '</svg>');
+  }
+
   survEls.exportCsvBtn.addEventListener("click", function(){
     var csv = survivalLifeTableCSV();
     if (!csv) return;
     saveFile("kaplan-meier-life-table.csv", new Blob([csv], { type: "text/csv;charset=utf-8;" }), survEls.exportCsvBtn);
   });
 
+  function kmExportFilename(ext){
+    var t = (survEls.chartTitleInput && survEls.chartTitleInput.value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    return (t ? t : "kaplan-meier-plot") + "." + ext;
+  }
   survEls.exportSvgBtn.addEventListener("click", function(){
-    var svg = survEls.plotContainer.querySelector("svg");
-    if (!svg) return;
-    var xml = new XMLSerializer().serializeToString(svg);
-    saveFile("kaplan-meier-plot.svg", new Blob([xml], { type: "image/svg+xml;charset=utf-8;" }), survEls.exportSvgBtn);
+    downloadSvgElement(survEls.plotContainer.querySelector("svg"), kmExportFilename("svg"), survEls.exportSvgBtn, { legendEl: survEls.legend });
   });
 
   survEls.exportPngBtn.addEventListener("click", function(){
-    var svg = survEls.plotContainer.querySelector("svg");
-    if (!svg) return;
-    var xml = new XMLSerializer().serializeToString(svg);
-    var svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8;" });
-    var url = URL.createObjectURL(svgBlob);
-    var img = new Image();
-    img.onload = function(){
-      var vb = svg.viewBox.baseVal;
-      var scaleFactor = 2;
-      var canvas = document.createElement("canvas");
-      canvas.width = vb.width * scaleFactor; canvas.height = vb.height * scaleFactor;
-      var ctx = canvas.getContext("2d");
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#fff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      canvas.toBlob(function(blob){ saveFile("kaplan-meier-plot.png", blob, survEls.exportPngBtn); });
-    };
-    img.src = url;
+    downloadSvgAsPng(survEls.plotContainer.querySelector("svg"), kmExportFilename("png"), survEls.exportPngBtn, { legendEl: survEls.legend });
   });
 
   survEls.exportPrintBtn.addEventListener("click", function(){ window.print(); });
@@ -4453,17 +4904,17 @@
   function gammaSeries(a, x){
     if (x <= 0) return 0;
     var ap = a, sum = 1 / a, del = sum;
-    for (var n = 1; n <= 200; n++){
+    for (var n = 1; n <= 1000; n++){
       ap += 1; del *= x / ap; sum += del;
-      if (Math.abs(del) < Math.abs(sum) * 3e-7) break;
+      if (Math.abs(del) < Math.abs(sum) * 1e-15) break;
     }
     return sum * Math.exp(-x + a * Math.log(x) - lgamma(a));
   }
 
   function gammaCF(a, x){
-    var FPMIN = 1e-30, EPS = 3e-7;
+    var FPMIN = 1e-300, EPS = 1e-15;
     var b = x + 1 - a, c = 1 / FPMIN, d = 1 / b, h = d;
-    for (var i = 1; i <= 200; i++){
+    for (var i = 1; i <= 1000; i++){
       var an = -i * (i - a);
       b += 2;
       d = an * d + b; if (Math.abs(d) < FPMIN) d = FPMIN;
@@ -4814,8 +5265,8 @@
     var lev = leveneKGroup(rawArrays);
     renderLeveneKGroup(lev, names, groups.map(function(g){ return g.arr.length; }));
 
-    renderBarChart(anovaEls.barChart, groups.map(function(g){ return { name: g.name, stats: groupMeanCI(g.arr) }; }));
-    renderHistograms(anovaEls.histograms, groups.map(function(g, i){ return { name: g.name, arr: g.arr, color: colors[i % colors.length] }; }));
+    renderBarChart(anovaEls.barChart, groups.map(function(g){ return { name: g.name, stats: groupMeanCI(g.arr) }; }), "anova-means");
+    renderHistograms(anovaEls.histograms, groups.map(function(g, i){ return { name: g.name, arr: g.arr, color: colors[i % colors.length] }; }), "anova-histogram");
 
     var warnings = [];
     groups.forEach(function(g){
@@ -4952,10 +5403,38 @@
   // intermediate value a large-but-finite number instead, so a diverging fit fails cleanly through the
   // existing convergence/divergence checks rather than through stray Infinity arithmetic.
   function safeExp(e){ return Math.exp(Math.min(e, 700)); }
+  // log(1 + e^x) without overflow for large x or loss of precision for very negative x.
+  function log1pExp(x){ return x > 0 ? x + Math.log1p(Math.exp(-x)) : Math.log1p(Math.exp(x)); }
+
+  // Log-likelihood kernel used only to accept/reject Newton steps (constant terms such as
+  // lgamma(y+1) are omitted since they cancel in the comparison).
+  function glmLogLikKernel(X, y, beta, family){
+    var n = X.length, p = beta.length, ll = 0;
+    for (var i = 0; i < n; i++){
+      var e = 0; for (var j = 0; j < p; j++) e += X[i][j] * beta[j];
+      ll += family === "logistic" ? y[i] * e - log1pExp(e) : y[i] * e - safeExp(e);
+    }
+    return ll;
+  }
+
+  // Newton-Raphson / IRLS with step-halving (the same safeguard R's glm.fit uses): every step must
+  // not decrease the log-likelihood; if a full Newton step overshoots, it is halved until it doesn't
+  // (up to 30 times). Starting values put the intercept at the null-model estimate (logit or log of the
+  // mean outcome) rather than 0, so large counts or rare events don't begin far from the solution.
+  // Neither change affects the answer when the plain iteration already converged — only whether and how
+  // quickly it gets there — and convergence is still judged on the full (un-halved) Newton step.
   function fitGLM(X, y, family){
     var n = X.length, p = X[0].length;
     var beta = new Array(p).fill(0);
     var maxIter = 100, tol = 1e-10, converged = false, iterUsed = 0, i, j, k;
+    var interceptCol = -1;
+    for (j = 0; j < p && interceptCol < 0; j++){ if (X.every(function(r){ return r[j] === 1; })) interceptCol = j; }
+    if (interceptCol >= 0){
+      var ybar0 = mean(y);
+      if (family === "logistic"){ if (ybar0 > 0 && ybar0 < 1) beta[interceptCol] = Math.log(ybar0 / (1 - ybar0)); }
+      else if (ybar0 > 0) beta[interceptCol] = Math.log(ybar0);
+    }
+    var llCur = glmLogLikKernel(X, y, beta, family);
     for (var iter = 0; iter < maxIter; iter++){
       iterUsed = iter;
       var eta = X.map(function(row){ var s = 0; for (var jj = 0; jj < p; jj++) s += row[jj] * beta[jj]; return s; });
@@ -4969,7 +5448,16 @@
       var delta = solveLinear(H, grad);
       if (!delta) break;
       var maxDelta = 0;
-      for (j = 0; j < p; j++){ beta[j] += delta[j]; maxDelta = Math.max(maxDelta, Math.abs(delta[j])); }
+      for (j = 0; j < p; j++) maxDelta = Math.max(maxDelta, Math.abs(delta[j]));
+      var step = 1, trial = null, llTrial = -Infinity, accepted = false;
+      for (var h = 0; h < 30; h++){
+        trial = beta.map(function(b, jj){ return b + step * delta[jj]; });
+        llTrial = glmLogLikKernel(X, y, trial, family);
+        if (isFinite(llTrial) && llTrial >= llCur - 1e-10 * Math.max(1, Math.abs(llCur))){ accepted = true; break; }
+        step /= 2;
+      }
+      if (!accepted){ converged = maxDelta < 1e-6; break; }
+      beta = trial; llCur = llTrial;
       if (maxDelta < tol){ converged = true; break; }
       if (beta.some(function(b){ return Math.abs(b) > 500; })) break;
     }
@@ -5133,6 +5621,7 @@
 
     container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Fitted regression curve">' +
       yTicks + axes + pts + curveSvg + xTicks + xLabelSvg + yLabelSvg + '</svg>';
+    attachChartDownload(container, container.querySelector("svg"), "glm-fitted-curve");
   }
 
   var glmEls = {
@@ -5326,7 +5815,7 @@
 
     var mismatched = predictors.filter(function(pred){ return pred.n !== n; });
     if (mismatched.length > 0){
-      glmShowError('Every predictor needs the same number of values as the outcome (n = ' + n + ') — "' + mismatched[0].name + '" has ' + mismatched[0].n + '.');
+      glmShowError('Every predictor needs the same number of values as the outcome (n = ' + n + ') — "' + escapeXml(mismatched[0].name) + '" has ' + mismatched[0].n + '.');
       return;
     }
     if (n < 8){
@@ -5336,13 +5825,13 @@
     if (isBinaryOutcome){
       var badY = yRaw.filter(function(v){ return v !== 0 && v !== 1; });
       if (badY.length > 0){
-        glmShowError('Outcome must be 0 or 1 for ' + (mode === "logistic" ? "logistic regression" : "this method") + ' — found ' + badY.length + ' other value(s) (e.g. "' + badY[0] + '").');
+        glmShowError('Outcome must be 0 or 1 for ' + (mode === "logistic" ? "logistic regression" : "this method") + ' — found ' + badY.length + ' other value(s) (e.g. "' + escapeXml(String(badY[0])) + '").');
         return;
       }
     } else {
       var badCount = yRaw.filter(function(v){ return v < 0 || !Number.isInteger(v); });
       if (badCount.length > 0){
-        glmShowError('Outcome must be a non-negative integer count for Poisson regression — found ' + badCount.length + ' other value(s) (e.g. "' + badCount[0] + '").');
+        glmShowError('Outcome must be a non-negative integer count for Poisson regression — found ' + badCount.length + ' other value(s) (e.g. "' + escapeXml(String(badCount[0])) + '").');
         return;
       }
     }
@@ -5352,7 +5841,7 @@
       return distinct.length < 2;
     });
     if (tooFewCategories.length > 0){
-      glmShowError('"' + tooFewCategories[0].name + '" needs at least 2 distinct categories to be used as an ordinal or nominal predictor.');
+      glmShowError('"' + escapeXml(tooFewCategories[0].name) + '" needs at least 2 distinct categories to be used as an ordinal or nominal predictor.');
       return;
     }
     var badOrder = predictors.filter(function(pred){
@@ -5361,7 +5850,7 @@
       return enc.values.some(function(v){ return isNaN(v); });
     });
     if (badOrder.length > 0){
-      glmShowError('The category order given for "' + badOrder[0].name + '" doesn\'t cover every category present in its data — add the missing categor' + (badOrder[0].name ? 'ies' : 'y') + ' or leave the order field blank to auto-detect.');
+      glmShowError('The category order given for "' + escapeXml(badOrder[0].name) + '" doesn\'t cover every category present in its data — add the missing categor' + (badOrder[0].name ? 'ies' : 'y') + ' or leave the order field blank to auto-detect.');
       return;
     }
 
@@ -5377,7 +5866,14 @@
     var fit = fitGLM(design.X, y, family);
 
     if (!fit.converged){
-      glmShowError('The model did not converge — this usually means the predictors separate the outcome too cleanly (perfect or near-perfect separation) for a finite estimate to exist. Results below are shown but should not be trusted.');
+      // The likely cause differs by model: separation is a logistic / binary-outcome problem, whereas a
+      // count model fails when some predictor category (or the whole outcome) has only zero counts, so
+      // its log-rate heads to minus infinity.
+      glmShowError(family === "logistic"
+        ? 'The model did not converge — this usually means the predictors separate the outcome too cleanly (perfect or near-perfect separation) for a finite estimate to exist. Results below are shown but should not be trusted.'
+        : (isBinaryOutcome
+          ? 'The model did not converge — with a 0/1 outcome this usually means a predictor category has events in every row or in none (near-perfect separation), or a fitted risk would exceed 1. Results below are shown but should not be trusted.'
+          : 'The model did not converge — for a count model this usually means the outcome is 0 for every row in some predictor category (or overall), so that category\'s rate has no finite estimate; very extreme predictor values can also cause it. Results below are shown but should not be trusted.'));
     }
 
     var singleContinuous = predictors.length === 1 && predictors[0].type === "continuous";
@@ -5429,8 +5925,8 @@
       var z = fit.beta[j] / se[j];
       var p = Math.min(1, Math.max(0, erfc(Math.abs(z) / Math.SQRT2)));
       var ratio = Math.exp(fit.beta[j]);
-      var ratioLo = Math.exp(fit.beta[j] - 1.96 * se[j]);
-      var ratioHi = Math.exp(fit.beta[j] + 1.96 * se[j]);
+      var ratioLo = Math.exp(fit.beta[j] - Z975 * se[j]);
+      var ratioHi = Math.exp(fit.beta[j] + Z975 * se[j]);
       rows.push('<tr><td>' + escapeXml(term.name) + '</td><td>' + fmtNum(fit.beta[j], 4) + '</td><td>' + fmtNum(se[j], 4) + '</td><td>' +
         fmtNum(z, 3) + '</td><td>' + fmtP(p) + '</td><td>' + fmtNum(ratio, 3) + '</td><td>' + fmtNum(ratioLo, 3) + '–' + fmtNum(ratioHi, 3) + '</td></tr>');
       termEffects.push({ name: term.name, kind: term.kind, variable: term.variable, level: term.level, reference: term.reference, ratio: ratio, ratioLo: ratioLo, ratioHi: ratioHi });
@@ -5654,19 +6150,24 @@
 
   /* --- CSV import / export --- */
 
-  function parseMetaCsvLine(line){
-    return line.split(",").map(function(s){ return s.trim().replace(/^"|"$/g, ""); });
-  }
+  // Undo the apostrophe csvCell() adds in front of formula-like text (=, +, -, @) so a study name
+  // survives an export/import round trip unchanged.
+  function metaUnprotectCell(s){ return /^'[=+\-@\t\r]/.test(s) ? s.slice(1) : s; }
 
   function parseMetaCsv(text){
-    var lines = text.split(/\r\n|\n|\r/).map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+    // Quote-aware parsing (shared with the ML tab): a study name such as "Smith, J (2019)" or one
+    // containing quotes — exactly what the app's own "Export CSV" writes — stays one field instead of
+    // being split at the comma and rejected as a wrong-column-count row.
+    var lines = mlParseCsvRaw(String(text).replace(/\r\n?/g, "\n"))
+      .map(function(r){ return r.map(function(c){ return metaUnprotectCell(c.trim()); }); })
+      .filter(function(r){ return r.some(function(c){ return c.length > 0; }); });
     if (lines.length === 0) return { rows: [], errors: ["The file is empty."] };
-    var firstCols = parseMetaCsvLine(lines[0]);
+    var firstCols = lines[0];
     var looksLikeHeader = firstCols.length < 3 || isNaN(Number(firstCols[2]));
     var startIdx = looksLikeHeader ? 1 : 0;
     var rows = [], errors = [];
     for (var i = startIdx; i < lines.length; i++){
-      var cols = parseMetaCsvLine(lines[i]);
+      var cols = lines[i];
       if (cols.length < 6){ errors.push("Row " + (i + 1) + ": expected 6 columns (Study, Year, a, b, c, d), found " + cols.length + "."); continue; }
       var a = Number(cols[2]), b = Number(cols[3]), c = Number(cols[4]), d = Number(cols[5]);
       var ok = [a, b, c, d].every(function(v){ return isFinite(v) && v >= 0 && Number.isInteger(v); });
@@ -5718,10 +6219,7 @@
   function metaStudiesToCsv(){
     var lines = ["Study,Year,a,b,c,d"];
     metaStudies.forEach(function(s){
-      lines.push([s.studyName, s.year, s.a, s.b, s.c, s.d].map(function(v){
-        var str = String(v == null ? "" : v);
-        return str.indexOf(",") >= 0 ? '"' + str.replace(/"/g, '""') + '"' : str;
-      }).join(","));
+      lines.push([s.studyName, s.year, s.a, s.b, s.c, s.d].map(csvCell).join(","));
     });
     return lines.join("\n");
   }
@@ -5747,8 +6245,17 @@
     return { yi: a / n1 - c / n2, vi: (a * b) / (n1 * n1 * n1) + (c * d) / (n2 * n2 * n2), corrected: cc.corrected };
   }
 
+  // Mantel-Haenszel uses the RAW cell counts — no 0.5 continuity correction. The MH estimator is
+  // well-defined with zero cells (that is its main advantage for sparse data), and adding 0.5 biases it
+  // towards the null; RevMan, Stata metan, R metafor::rma.mh and R meta all use raw counts. (The 0.5 is
+  // still used for each study's own OR/RR in the forest plot and for inverse-variance / random effects.)
+  function metaRawCells(s){
+    var a = Number(s.a), b = Number(s.b), c = Number(s.c), d = Number(s.d);
+    return { a: a, b: b, c: c, d: d, n1: a + b, n2: c + d };
+  }
+
   function metaMhWeight(s, measure){
-    var cc = metaCorrectCells(s);
+    var cc = metaRawCells(s);
     var n = cc.n1 + cc.n2;
     return measure === "OR" ? (cc.b * cc.c / n) : (cc.c * cc.n1 / n);
   }
@@ -5756,13 +6263,14 @@
   function metaMhOR(studies){
     var sumR = 0, sumS = 0, sumPR = 0, sumPS_QR = 0, sumQS = 0;
     studies.forEach(function(s){
-      var cc = metaCorrectCells(s);
+      var cc = metaRawCells(s);
       var n = cc.n1 + cc.n2;
       var R = cc.a * cc.d / n, S = cc.b * cc.c / n;
       var P = (cc.a + cc.d) / n, Q = (cc.b + cc.c) / n;
       sumR += R; sumS += S;
       sumPR += P * R; sumQS += Q * S; sumPS_QR += (P * S + Q * R);
     });
+    if (!(sumR > 0) || !(sumS > 0)) return { lnEstimate: NaN, varLn: NaN };
     var estimate = sumR / sumS;
     var varLn = sumPR / (2 * sumR * sumR) + sumPS_QR / (2 * sumR * sumS) + sumQS / (2 * sumS * sumS);
     return { lnEstimate: Math.log(estimate), varLn: varLn };
@@ -5771,12 +6279,13 @@
   function metaMhRR(studies){
     var sumR = 0, sumS = 0, sumVarNum = 0;
     studies.forEach(function(s){
-      var cc = metaCorrectCells(s);
+      var cc = metaRawCells(s);
       var n1 = cc.n1, n2 = cc.n2, n = n1 + n2;
       var R = cc.a * n2 / n, S = cc.c * n1 / n;
       sumR += R; sumS += S;
       sumVarNum += (n1 * n2 * (cc.a + cc.c) - cc.a * cc.c * n) / (n * n);
     });
+    if (!(sumR > 0) || !(sumS > 0)) return { lnEstimate: NaN, varLn: NaN };
     var estimate = sumR / sumS;
     return { lnEstimate: Math.log(estimate), varLn: sumVarNum / (sumR * sumS) };
   }
@@ -6027,6 +6536,14 @@
       var mh = measure === "OR" ? metaMhOR(validStudies) : metaMhRR(validStudies);
       fe = { estimate: mh.lnEstimate, variance: mh.varLn };
     }
+    if (model === "fixed" && !(isFinite(fe.estimate) && fe.variance > 0)){
+      metaEls.error.hidden = false;
+      metaEls.error.innerHTML = '<span class="dot"></span> The Mantel–Haenszel pooled ' + (measure === "OR" ? "odds" : "risk") +
+        ' ratio cannot be estimated — there are no events in one arm (or no non-events, for the odds ratio) across all studies combined. Try the risk difference, or the random-effects model (which uses the 0.5 continuity correction).';
+      metaClearResults();
+      metaEls.error.hidden = false;
+      return;
+    }
     var feForHet = metaIvFixed(effects);
     var Q = metaCochranQ(effects, feForHet.estimate);
     var dfQ = effects.length - 1;
@@ -6069,7 +6586,7 @@
       }
     }
 
-    var critMult = dfShown ? tCriticalValue(dfShown, 0.05) : 1.96;
+    var critMult = dfShown ? tCriticalValue(dfShown, 0.05) : Z975;
     var pooledCiLoScale = pooled.estimate - critMult * seScale;
     var pooledCiHiScale = pooled.estimate + critMult * seScale;
     var pooledPointDisplay = isRatio ? Math.exp(pooled.estimate) : pooled.estimate;
@@ -6102,7 +6619,7 @@
     var forestRows = validStudies.map(function(s, i){
       var e = effects[i];
       var sei = Math.sqrt(e.vi);
-      var ciLoScale = e.yi - 1.96 * sei, ciHiScale = e.yi + 1.96 * sei;
+      var ciLoScale = e.yi - Z975 * sei, ciHiScale = e.yi + Z975 * sei;
       return {
         name: s.studyName || ("Study " + (i + 1)), year: s.year,
         a: Number(s.a), n1: Number(s.a) + Number(s.b), c: Number(s.c), n2: Number(s.c) + Number(s.d),
@@ -6118,7 +6635,7 @@
       pointDisplay: pooledPointDisplay, ciLoDisplay: pooledCiLoDisplay, ciHiDisplay: pooledCiHiDisplay
     };
     renderMetaForestPlot(metaEls.forestPlot, forestRows, pooledForPlot, isRatio);
-    renderMetaFunnelPlot(metaEls.funnelPlot, effects, fe.estimate, isRatio);
+    renderMetaFunnelPlot(metaEls.funnelPlot, effects, isFinite(fe.estimate) ? fe.estimate : feForHet.estimate, isRatio);
 
     if (effects.length >= 3){
       var egger = metaEggersTest(effects);
@@ -6137,45 +6654,17 @@
   });
 
   document.getElementById("metaForestSvgBtn").addEventListener("click", function(){
-    var svg = metaEls.forestPlot.querySelector("svg");
-    if (!svg) return;
-    var xml = new XMLSerializer().serializeToString(svg);
-    saveFile("meta-analysis-forest-plot.svg", new Blob([xml], { type: "image/svg+xml;charset=utf-8;" }), document.getElementById("metaForestSvgBtn"));
+    downloadSvgElement(metaEls.forestPlot.querySelector("svg"), "meta-analysis-forest-plot.svg", document.getElementById("metaForestSvgBtn"));
   });
   document.getElementById("metaForestPngBtn").addEventListener("click", function(){
-    metaSvgToPng(metaEls.forestPlot, "meta-analysis-forest-plot.png", document.getElementById("metaForestPngBtn"));
+    downloadSvgAsPng(metaEls.forestPlot.querySelector("svg"), "meta-analysis-forest-plot.png", document.getElementById("metaForestPngBtn"));
   });
   document.getElementById("metaFunnelSvgBtn").addEventListener("click", function(){
-    var svg = metaEls.funnelPlot.querySelector("svg");
-    if (!svg) return;
-    var xml = new XMLSerializer().serializeToString(svg);
-    saveFile("meta-analysis-funnel-plot.svg", new Blob([xml], { type: "image/svg+xml;charset=utf-8;" }), document.getElementById("metaFunnelSvgBtn"));
+    downloadSvgElement(metaEls.funnelPlot.querySelector("svg"), "meta-analysis-funnel-plot.svg", document.getElementById("metaFunnelSvgBtn"));
   });
   document.getElementById("metaFunnelPngBtn").addEventListener("click", function(){
-    metaSvgToPng(metaEls.funnelPlot, "meta-analysis-funnel-plot.png", document.getElementById("metaFunnelPngBtn"));
+    downloadSvgAsPng(metaEls.funnelPlot.querySelector("svg"), "meta-analysis-funnel-plot.png", document.getElementById("metaFunnelPngBtn"));
   });
-
-  function metaSvgToPng(container, filename, btn){
-    var svg = container.querySelector("svg");
-    if (!svg) return;
-    var xml = new XMLSerializer().serializeToString(svg);
-    var svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8;" });
-    var url = URL.createObjectURL(svgBlob);
-    var img = new Image();
-    img.onload = function(){
-      var vb = svg.viewBox.baseVal;
-      var scaleFactor = 2;
-      var canvas = document.createElement("canvas");
-      canvas.width = vb.width * scaleFactor; canvas.height = vb.height * scaleFactor;
-      var ctx = canvas.getContext("2d");
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--surface").trim() || "#fff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      canvas.toBlob(function(blob){ saveFile(filename, blob, btn); });
-    };
-    img.src = url;
-  }
 
   renderMetaTable();
   updateMetaBadge();
@@ -6574,10 +7063,41 @@
     return mlState.targetMeta.categories.indexOf(rawValue);
   }
 
+  // ---- Reproducible randomness -------------------------------------------------------------
+  // Every random choice in the ML and Clustering tabs (train/test split, bootstrap samples, forest
+  // feature subsets, k-means++ seeding, GMM re-initialisation, NN validation split and weight init)
+  // goes through appRand(). With the "Random seed" box blank it is Math.random (fresh results each
+  // run); with an integer seed it is a mulberry32 stream, so the same data + settings + seed give
+  // identical results every time.
+  var appRand = Math.random;
+  var appSeedActive = null;
+  function mulberry32(a){
+    return function(){
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function appSetSeed(seed){
+    if (seed === null || seed === undefined || seed === "" || !isFinite(Number(seed))){ appRand = Math.random; appSeedActive = null; return null; }
+    var v = Math.floor(Math.abs(Number(seed))) >>> 0;
+    appRand = mulberry32(v); appSeedActive = v; return v;
+  }
+  function appSeedFromInput(id){
+    var el = document.getElementById(id);
+    var raw = el ? String(el.value).trim() : "";
+    if (raw !== "" && !/^\d{1,9}$/.test(raw)){ if (el) el.classList.add("invalid-count"); return appSetSeed(null); }
+    if (el) el.classList.remove("invalid-count");
+    return appSetSeed(raw);
+  }
+  // Integer seed for TF.js initialisers, drawn from the current stream (undefined when unseeded).
+  function appTfSeed(){ return appSeedActive === null ? undefined : Math.floor(appRand() * 2147483647); }
+
   function mlShuffle(arr){
     var shuffled = arr.slice();
     for (var i = shuffled.length - 1; i > 0; i--){
-      var j = Math.floor(Math.random() * (i + 1));
+      var j = Math.floor(appRand() * (i + 1));
       var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
     }
     return shuffled;
@@ -6624,6 +7144,28 @@
       var K1 = numClasses - 1, dim = K1 * pb;
       var beta = new Array(dim).fill(0);
       var convergedM = false, iterUsedM = 0, maxIterM = 100, tolM = 1e-10;
+      // Multinomial log-likelihood at a given parameter vector (log-sum-exp for stability); used for
+      // step-halving so a Newton step is only accepted if it doesn't make the fit worse.
+      function mnLogLik(bv){
+        var ll = 0;
+        for (var ii = 0; ii < n; ii++){
+          var sc = [0];
+          for (var kk = 0; kk < K1; kk++){ var sv = 0; for (var jj = 0; jj < pb; jj++) sv += bv[kk*pb+jj] * Xb[ii][jj]; sc.push(sv); }
+          var mx = Math.max.apply(null, sc), se = 0;
+          for (var q = 0; q < sc.length; q++) se += Math.exp(sc[q] - mx);
+          ll += sc[y[ii]] - mx - Math.log(se);
+        }
+        return ll;
+      }
+      // Start the K-1 intercepts at the log-odds of each class's frequency against the reference class
+      // (the exact MLE of the intercept-only model) rather than 0; for rare classes this starts Newton
+      // much closer to the solution.
+      var classCount = new Array(numClasses).fill(0);
+      for (i = 0; i < n; i++) if (y[i] >= 0 && y[i] < numClasses) classCount[y[i]]++;
+      for (var kc = 0; kc < K1; kc++){
+        if (classCount[0] > 0 && classCount[kc+1] > 0) beta[kc*pb] = Math.log(classCount[kc+1] / classCount[0]);
+      }
+      var llM = mnLogLik(beta);
       for (var iterM = 0; iterM < maxIterM; iterM++){
         iterUsedM = iterM;
         var probs = new Array(n);
@@ -6664,7 +7206,16 @@
         var deltaM = solveLinear(Hm, gradM);
         if (!deltaM) break;
         var maxDeltaM = 0;
-        for (var d = 0; d < dim; d++){ beta[d] += deltaM[d]; maxDeltaM = Math.max(maxDeltaM, Math.abs(deltaM[d])); }
+        for (var d = 0; d < dim; d++) maxDeltaM = Math.max(maxDeltaM, Math.abs(deltaM[d]));
+        var stepM = 1, trialM = null, llTrialM = -Infinity, okM = false;
+        for (var hm = 0; hm < 30; hm++){
+          trialM = beta.map(function(bv, dd){ return bv + stepM * deltaM[dd]; });
+          llTrialM = mnLogLik(trialM);
+          if (isFinite(llTrialM) && llTrialM >= llM - 1e-10 * Math.max(1, Math.abs(llM))){ okM = true; break; }
+          stepM /= 2;
+        }
+        if (!okM){ convergedM = maxDeltaM < 1e-6; break; }
+        beta = trialM; llM = llTrialM;
         if (maxDeltaM < tolM){ convergedM = true; break; }
         if (beta.some(function(bv){ return Math.abs(bv) > 500; })) break;
       }
@@ -6679,6 +7230,11 @@
       // settings without any indication to the user.
       var w = new Array(pb).fill(0);
       var converged2 = false, iterUsed = 0, maxIterNR = 100, tol = 1e-10;
+      // Same safeguards as fitGLM: intercept starts at the null-model log-odds, and each Newton step is
+      // halved until it doesn't decrease the log-likelihood.
+      var ybarB = mean(y);
+      if (ybarB > 0 && ybarB < 1) w[0] = Math.log(ybarB / (1 - ybarB));
+      var llB = glmLogLikKernel(Xb, y, w, "logistic");
       for (var iter = 0; iter < maxIterNR; iter++){
         iterUsed = iter;
         var eta = Xb.map(function(row){ var s = 0; for (var jj = 0; jj < pb; jj++) s += row[jj] * w[jj]; return s; });
@@ -6691,24 +7247,27 @@
         var delta = solveLinear(H, grad2);
         if (!delta) break;
         var maxDelta = 0;
-        for (j = 0; j < pb; j++){ w[j] += delta[j]; maxDelta = Math.max(maxDelta, Math.abs(delta[j])); }
+        for (j = 0; j < pb; j++) maxDelta = Math.max(maxDelta, Math.abs(delta[j]));
+        var stepB = 1, trialB = null, llTrialB = -Infinity, okB = false;
+        for (var hb = 0; hb < 30; hb++){
+          trialB = w.map(function(wv, jj){ return wv + stepB * delta[jj]; });
+          llTrialB = glmLogLikKernel(Xb, y, trialB, "logistic");
+          if (isFinite(llTrialB) && llTrialB >= llB - 1e-10 * Math.max(1, Math.abs(llB))){ okB = true; break; }
+          stepB /= 2;
+        }
+        if (!okB){ converged2 = maxDelta < 1e-6; break; }
+        w = trialB; llB = llTrialB;
         if (maxDelta < tol){ converged2 = true; break; }
         if (w.some(function(b){ return Math.abs(b) > 500; })) break;
       }
       return { type: "binary", w: w, converged: converged2, iterations: iterUsed };
     }
-    // Regression: exact closed-form ordinary least squares (normal equations) — no iteration or
-    // convergence question at all, and strictly more accurate than gradient descent for this case.
-    var XtX = []; for (j = 0; j < pb; j++) XtX.push(new Array(pb).fill(0));
-    var Xty = new Array(pb).fill(0);
-    for (i = 0; i < n; i++){
-      for (j = 0; j < pb; j++){
-        Xty[j] += Xb[i][j] * y[i];
-        for (var k2 = 0; k2 < pb; k2++) XtX[j][k2] += Xb[i][j] * Xb[i][k2];
-      }
-    }
-    var wOls = solveLinear(XtX, Xty);
-    return { type: task, w: wOls || new Array(pb).fill(0), converged: !!wOls, iterations: 0 };
+    // Regression: exact closed-form ordinary least squares, solved by Householder QR on the design
+    // matrix itself rather than the normal equations (X'X squares the condition number, costing roughly
+    // twice as many significant digits on correlated or differently-scaled features). Returns
+    // converged:false for a rank-deficient design, which the caller reports as collinearity.
+    var ols = lstsqQR(Xb, y);
+    return { type: task, w: ols ? ols.coef : new Array(pb).fill(0), converged: !!ols, iterations: 0 };
   }
 
   function mlPredictLinearRaw(model, xRow){
@@ -6749,7 +7308,7 @@
     var idx = []; for (var i = 0; i < p; i++) idx.push(i);
     if (!maxFeatures || maxFeatures >= p) return idx;
     for (var s = idx.length - 1; s > 0; s--){
-      var r = Math.floor(Math.random() * (s + 1));
+      var r = Math.floor(appRand() * (s + 1));
       var tmp = idx[s]; idx[s] = idx[r]; idx[r] = tmp;
     }
     return idx.slice(0, maxFeatures);
@@ -6797,7 +7356,7 @@
 
   function mlBootstrapSample(X, y){
     var n = X.length, Xb = [], yb = [];
-    for (var i = 0; i < n; i++){ var idx = Math.floor(Math.random() * n); Xb.push(X[idx]); yb.push(y[idx]); }
+    for (var i = 0; i < n; i++){ var idx = Math.floor(appRand() * n); Xb.push(X[idx]); yb.push(y[idx]); }
     return { X: Xb, y: yb };
   }
   function mlBuildForest(X, y, task, numClasses, numTrees, maxDepth){
@@ -6863,12 +7422,17 @@
     var model = tf.sequential();
     layers.forEach(function(units, idx){
       var config = { units: units, activation: activation };
+      var ks = appTfSeed();
+      if (ks !== undefined) config.kernelInitializer = tf.initializers.glorotUniform({ seed: ks });
       if (idx === 0) config.inputShape = [inputDim];
       model.add(tf.layers.dense(config));
     });
     var outUnits = task === "multiclass" ? numClasses : 1;
     var outActivation = task === "regression" ? "linear" : (task === "binary" ? "sigmoid" : "softmax");
-    model.add(tf.layers.dense({ units: outUnits, activation: outActivation }));
+    var outCfg = { units: outUnits, activation: outActivation };
+    var oks = appTfSeed();
+    if (oks !== undefined) outCfg.kernelInitializer = tf.initializers.glorotUniform({ seed: oks });
+    model.add(tf.layers.dense(outCfg));
     var loss = task === "regression" ? "meanSquaredError" : (task === "binary" ? "binaryCrossentropy" : "categoricalCrossentropy");
     return { model: model, loss: loss };
   }
@@ -6883,7 +7447,7 @@
       var valIdx, subIdx;
       if (task === "regression"){
         var idx = []; for (var ii = 0; ii < n; ii++) idx.push(ii);
-        for (var i = n - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)); var t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
+        for (var i = n - 1; i > 0; i--){ var j = Math.floor(appRand() * (i + 1)); var t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
         var valCount = Math.max(1, Math.round(n * 0.2));
         valIdx = idx.slice(0, valCount); subIdx = idx.slice(valCount);
       } else {
@@ -6894,7 +7458,7 @@
         valIdx = []; subIdx = [];
         Object.keys(byClass).forEach(function(key){
           var g = byClass[key].slice();
-          for (var s = g.length - 1; s > 0; s--){ var r = Math.floor(Math.random() * (s + 1)); var tmp = g[s]; g[s] = g[r]; g[r] = tmp; }
+          for (var s = g.length - 1; s > 0; s--){ var r = Math.floor(appRand() * (s + 1)); var tmp = g[s]; g[s] = g[r]; g[r] = tmp; }
           var vCount = Math.max(1, Math.round(g.length * 0.2));
           if (g.length >= 2) vCount = Math.min(g.length - 1, vCount);
           valIdx = valIdx.concat(g.slice(0, vCount));
@@ -6913,22 +7477,31 @@
         ysVal = tf.tensor2d(valY, [valY.length, 1]);
       }
 
+      var divergedAtEpoch = null;
       return nnModel.fit(xsSub, ysSub, {
         epochs: epochs,
+        shuffle: appSeedActive === null,
         validationData: [xsVal, ysVal],
         callbacks: {
           onEpochEnd: function(epoch, logs){
-            // A NaN or infinite loss means training has diverged (typically too high a learning rate, or too
-            // large a network for too little data) — stop immediately with a clear cause rather than run the
-            // remaining epochs on an already-broken model and silently show a nonsensical result at the end.
             if (!isFinite(logs.loss)){
-              throw new Error("Training diverged (loss became " + (isNaN(logs.loss) ? "NaN" : "infinite") + ") at epoch " + (epoch + 1) + " — try a lower learning rate, fewer layers/neurons, or more epochs at a gentler rate.");
+              // Signal divergence to the trainer via a flag and TF.js's own stopTraining, rather than
+              // throwing inside the callback — TF.js runs onEpochEnd inside its own async boundary, so a
+              // throw here is not reliably propagated to the promise chain and can leave the UI stuck
+              // on the spinner.
+              divergedAtEpoch = epoch + 1;
+              nnModel.stopTraining = true;
+              return;
             }
             if (onEpoch) onEpoch(epoch + 1, epochs, logs.loss, logs.val_loss);
             return tf.nextFrame();
           }
         }
       }).then(function(){
+        if (divergedAtEpoch !== null){
+          throw new Error("Training diverged (loss became NaN or infinite) at epoch " + divergedAtEpoch +
+            " — try a lower learning rate, fewer layers/neurons, or fewer epochs.");
+        }
         xsSub.dispose(); xsVal.dispose(); ysSub.dispose(); ysVal.dispose();
         return nnModel;
       }, function(err){
@@ -7088,7 +7661,7 @@
 
   /* --- Plot rendering --- */
 
-  function mlRenderLineChart(container, series, xLabel, yLabel){
+  function mlRenderLineChart(container, series, xLabel, yLabel, filenameBase){
     var W = 560, H = 260, mL = 50, mR = 16, mT = 16, mB = 38;
     var allX = [], allY = [];
     series.forEach(function(s){ s.points.forEach(function(p){ allX.push(p.x); allY.push(p.y); }); });
@@ -7119,6 +7692,8 @@
     svg.push('<text x="' + ((mL + W - mR) / 2) + '" y="' + (H - mB + 32) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(xLabel) + '</text>');
     svg.push('<text x="14" y="' + ((mT + H - mB) / 2) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" transform="rotate(-90 14 ' + ((mT + H - mB) / 2) + ')">' + escapeXml(yLabel) + '</text>');
     container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="' + escapeXml(yLabel) + ' chart">' + svg.join("") + '</svg>';
+    if (filenameBase) attachChartDownload(container, container.querySelector("svg"), filenameBase,
+      container === mlEls.lossPlot ? { legendEl: mlEls.lossLegend } : undefined);
   }
 
   function mlRenderScatterChart(container, points, xLabel, yLabel, diagonal){
@@ -7145,6 +7720,7 @@
     svg.push('<text x="' + ((mL + W - mR) / 2) + '" y="' + (H - mB + 32) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(xLabel) + '</text>');
     svg.push('<text x="14" y="' + ((mT + H - mB) / 2) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" transform="rotate(-90 14 ' + ((mT + H - mB) / 2) + ')">' + escapeXml(yLabel) + '</text>');
     container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Actual vs predicted scatter">' + svg.join("") + '</svg>';
+    attachChartDownload(container, container.querySelector("svg"), "ml-actual-vs-predicted");
   }
 
   function mlRenderConfusionMatrix(cm, categories){
@@ -7211,6 +7787,7 @@
     mlRenderTrainWarnings();
     mlHideResultCards();
 
+    appSeedFromInput("mlSeedInput");
     var trainFraction = Number(mlEls.splitSlider.value) / 100;
     var isClassificationTask = mlState.schema[targetColForSplit].type !== "numeric";
     var split = mlSplitTrainTest(usableRows, trainFraction, isClassificationTask ? targetColForSplit : null);
@@ -7258,10 +7835,10 @@
         mlRenderLineChart(mlEls.lossPlot, [
           { points: mlLossHistory.map(function(h){ return { x: h.epoch, y: h.trainLoss }; }), color: "var(--accent)" },
           { points: mlLossHistory.map(function(h){ return { x: h.epoch, y: h.valLoss }; }), color: "var(--accent2)", dash: "4,3" }
-        ], "Epoch", "Loss");
+        ], "Epoch", "Loss", "ml-training-loss");
         mlEls.lossLegend.innerHTML =
           '<span class="legend-item"><span class="legend-swatch" style="background:var(--accent);"></span>Training loss</span>' +
-          '<span class="legend-item"><span class="legend-swatch" style="background:var(--accent2);"></span>Validation loss</span>';
+          '<span class="legend-item"><span class="legend-swatch" data-dash="4,3" style="background:var(--accent2);"></span>Validation loss</span>';
       }).then(function(nnModel){ return { kind: "nn", data: nnModel }; });
     }
 
@@ -7324,6 +7901,9 @@
     mlEls.recall.textContent = fmtNum(cmetrics.recall * 100, 1) + "%";
     mlEls.f1.textContent = fmtNum(cmetrics.f1 * 100, 1) + "%";
     mlEls.confusionMatrix.innerHTML = mlRenderConfusionMatrix(cmetrics.confusionMatrix, mlState.targetMeta.categories);
+    (function(cm, cats){
+      attachChartDownload(mlEls.confusionMatrix, function(){ return buildConfusionMatrixSvg(cm, cats); }, "ml-confusion-matrix");
+    })(cmetrics.confusionMatrix, mlState.targetMeta.categories.slice());
 
     if (task === "binary"){
       mlEls.rocSection.hidden = false;
@@ -7332,7 +7912,7 @@
       mlRenderLineChart(mlEls.rocPlot, [
         { points: roc.points.map(function(p){ return { x: p.fpr, y: p.tpr }; }), color: "var(--accent)" },
         { points: [{ x: 0, y: 0 }, { x: 1, y: 1 }], color: "var(--ink-soft)", dash: "4,3" }
-      ], "False positive rate", "True positive rate");
+      ], "False positive rate", "True positive rate", "ml-roc-curve");
       mlEls.rocNote.textContent = "The dashed diagonal is a no-discrimination baseline (AUC = 0.5); AUC = 1.0 is a perfect classifier.";
     } else {
       mlEls.rocSection.hidden = true;
@@ -7450,12 +8030,9 @@
         }
         return newRow;
       });
-      var csvLines = [outColumns.join(",")];
+      var csvLines = [outColumns.map(csvCell).join(",")];
       outRows.forEach(function(row){
-        csvLines.push(outColumns.map(function(c){
-          var v = row[c] == null ? "" : String(row[c]);
-          return v.indexOf(",") >= 0 ? '"' + v.replace(/"/g, '""') + '"' : v;
-        }).join(","));
+        csvLines.push(outColumns.map(function(c){ return csvCell(row[c]); }).join(","));
       });
       mlEls.batchResult.innerHTML = '<p class="data-hint">' + outRows.length + ' rows scored.</p>' +
         (unknownCount > 0 ? '<p class="data-hint" style="color:var(--warn);margin-top:6px;">' + unknownCount + ' value(s) (e.g. ' + unknownExamples.map(escapeXml).join(", ") +
@@ -7792,7 +8369,7 @@
     return '<tr><td>' + escapeXml(label) + '</td><td>' + value + '</td></tr>';
   }
 
-  function pivotRenderMiniHistogram(container, sorted){
+  function pivotRenderMiniHistogram(container, sorted, varName){
     container.innerHTML = "";
     if (sorted.length < 2) return;
     var lo0 = sorted[0], hi0 = sorted[sorted.length - 1];
@@ -7817,9 +8394,21 @@
         '<span class="pivot-bar-value">' + count + '</span></div>';
     });
     container.innerHTML = html;
+    var exportRows = bins.map(function(count, i){
+      var binLo = lo0 + i * binWidth;
+      return { label: fmtNum(binLo, 1) + "–" + fmtNum(binLo + binWidth, 1), value: count, valueText: count };
+    });
+    attachChartDownload(container, function(){
+      return buildHorizontalBarSvg("Distribution" + (varName ? " of " + varName : ""), exportRows);
+    }, "pivot-distribution" + pivotSafeName(varName));
   }
 
-  function pivotRenderMiniBars(container, freqRows){
+  function pivotSafeName(n){
+    var s = String(n || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    return s ? "-" + s : "";
+  }
+
+  function pivotRenderMiniBars(container, freqRows, varName){
     container.innerHTML = "";
     if (freqRows.length === 0) return;
     var maxCount = Math.max.apply(null, freqRows.map(function(r){ return r.count; }));
@@ -7831,6 +8420,10 @@
         '<span class="pivot-bar-value">' + r.count + '</span></div>';
     });
     container.innerHTML = html;
+    var exportRows = freqRows.map(function(r){ return { label: r.category, value: r.count, valueText: r.count }; });
+    attachChartDownload(container, function(){
+      return buildHorizontalBarSvg("Frequency" + (varName ? " of " + varName : ""), exportRows);
+    }, "pivot-frequency" + pivotSafeName(varName));
   }
 
   function pivotRenderSingleVarSummary(){
@@ -7863,7 +8456,7 @@
       var chartDiv = document.createElement("div");
       chartDiv.className = "pivot-mini-chart";
       pivotEls.singleVarOutput.appendChild(chartDiv);
-      pivotRenderMiniHistogram(chartDiv, s.sorted);
+      pivotRenderMiniHistogram(chartDiv, s.sorted, col);
     } else {
       var f = pivotFrequencyStats(values, type === "ordinal");
       var html2 = '<div class="qc-grid">' +
@@ -7882,7 +8475,7 @@
       var chartDiv2 = document.createElement("div");
       chartDiv2.className = "pivot-mini-chart";
       pivotEls.singleVarOutput.appendChild(chartDiv2);
-      pivotRenderMiniBars(chartDiv2, f.rows);
+      pivotRenderMiniBars(chartDiv2, f.rows, col);
     }
   }
 
@@ -7979,7 +8572,9 @@
   function pivotEnumerateTables(rowSums, colSums, callback){
     var r = rowSums.length, c = colSums.length;
     var table = []; for (var i = 0; i < r; i++) table.push(new Array(c).fill(0));
-    var count = 0, MAX_TABLES = 300000, aborted = false;
+    // 300k was too slow in practice (~10-30s of frozen UI); the probability of any single table is also
+    // vanishingly small past this point, so no practical amount of accuracy is lost by bailing earlier.
+    var count = 0, MAX_TABLES = 50000, aborted = false;
     function fillRow(rowIdx, colRemaining){
       if (aborted) return;
       if (rowIdx === r - 1){
@@ -8025,19 +8620,23 @@
     return lp;
   }
 
-  function fisherFreemanHalton(table){
+   function fisherFreemanHalton(table){
     var rowSums = table.map(function(row){ return row.reduce(function(a, b){ return a + b; }, 0); });
     var colSums = new Array(table[0].length).fill(0);
     for (var i = 0; i < table.length; i++) for (var j = 0; j < table[0].length; j++) colSums[j] += table[i][j];
     var n = rowSums.reduce(function(a, b){ return a + b; }, 0);
     var logPobs = pivotLogTableProb(table, rowSums, colSums, n);
-    var pSum = 0;
+    var logSum = -Infinity;   // running log(Σ exp(lp)) over qualifying tables
     var result = pivotEnumerateTables(rowSums, colSums, function(t){
       var lp = pivotLogTableProb(t, rowSums, colSums, n);
-      if (lp <= logPobs + 1e-7) pSum += Math.exp(lp);
+      if (lp <= logPobs + 1e-7){
+        if (logSum === -Infinity) logSum = lp;
+        else if (lp > logSum) logSum = lp + Math.log1p(Math.exp(logSum - lp));
+        else logSum = logSum + Math.log1p(Math.exp(lp - logSum));
+      }
     });
     if (result.aborted) return { p: null, tooLarge: true };
-    return { p: Math.min(1, pSum), tooLarge: false };
+    return { p: Math.min(1, Math.exp(logSum)), tooLarge: false };
   }
 
   function cramersV(chi2, n, r, c){
@@ -8063,23 +8662,10 @@
     return { violated: anyBelow1 || pctBelow5 > 0.20, anyBelow1: anyBelow1, pctBelow5: pctBelow5 };
   }
 
+  // Same validated engine as the Contingency tab, so both tabs always give identical OR/RR and CIs.
   function pivotOrRr2x2(table){
-    var a = table[0][0], b = table[0][1], c = table[1][0], d = table[1][1];
-    var haszero = (a === 0 || b === 0 || c === 0 || d === 0);
-    var za = a, zb = b, zc = c, zd = d;
-    if (haszero){ za += 0.5; zb += 0.5; zc += 0.5; zd += 0.5; }
-    var orv = (za * zd) / (zb * zc);
-    var orSE = Math.sqrt(1 / za + 1 / zb + 1 / zc + 1 / zd);
-    var orLog = Math.log(orv);
-    var result = { or: orv, orLo: Math.exp(orLog - 1.96 * orSE), orHi: Math.exp(orLog + 1.96 * orSE), haszero: haszero, rr: NaN, rrLo: NaN, rrHi: NaN };
-    var r1 = za + zb, r2 = zc + zd;
-    if (r1 > 0 && r2 > 0 && za > 0 && zc > 0){
-      var p1 = za / (za + zb), p2 = zc / (zc + zd);
-      var rrv = p1 / p2, rrSE = Math.sqrt(1 / za - 1 / (za + zb) + 1 / zc - 1 / (zc + zd));
-      var rrLog = Math.log(rrv);
-      result.rr = rrv; result.rrLo = Math.exp(rrLog - 1.96 * rrSE); result.rrHi = Math.exp(rrLog + 1.96 * rrSE);
-    }
-    return result;
+    var r = contingency2x2(table[0][0], table[0][1], table[1][0], table[1][1], false);
+    return { or: r.or, orLo: r.orLo, orHi: r.orHi, haszero: r.haszero, rr: r.rr, rrLo: r.rrLo, rrHi: r.rrHi };
   }
 
   function pivotRunTest(ct){
@@ -8148,7 +8734,7 @@
       var orrr = pivotOrRr2x2(ct.table);
       pivotEls.orRrBlock.hidden = false;
       pivotEls.orRrName.textContent = "Odds ratio";
-      var ciText = "95% CI " + fmtNum(orrr.orLo, 2) + "–" + fmtNum(orrr.orHi, 2) + (orrr.haszero ? " (0.5 added)" : "");
+      var ciText = isFinite(orrr.or) ? "95% CI " + fmtNum(orrr.orLo, 2) + "–" + fmtNum(orrr.orHi, 2) + (orrr.haszero ? " (0.5 added)" : "") : "not estimable — a row or column total is 0";
       if (isFinite(orrr.rr)) ciText += " · RR " + fmtNum(orrr.rr, 2) + " (95% CI " + fmtNum(orrr.rrLo, 2) + "–" + fmtNum(orrr.rrHi, 2) + ")";
       pivotEls.orRrValue.textContent = fmtNum(orrr.or, 2);
       pivotEls.orRrCi.textContent = ciText;
@@ -8497,20 +9083,32 @@
     return s;
   }
 
+  // Greedy k-means++ (Arthur & Vassilvitskii 2007; the variant scikit-learn uses): each new centre is
+  // the best of 2 + floor(ln k) D²-weighted candidates, judged by the resulting total potential. This
+  // markedly reduces how often Lloyd iterations get stuck in a poor local optimum vs plain k-means++.
   function unsKmeansPlusPlusInit(X, k){
     var n = X.length;
-    var centroids = [X[Math.floor(Math.random() * n)].slice()];
+    var nTrials = 2 + Math.floor(Math.log(k));
+    var centroids = [X[Math.floor(appRand() * n)].slice()];
+    var closest = X.map(function(x){ return unsSquaredDist(x, centroids[0]); });
     while (centroids.length < k){
-      var distances = X.map(function(x){
-        var minDist = Infinity;
-        centroids.forEach(function(c){ var d = unsSquaredDist(x, c); if (d < minDist) minDist = d; });
-        return minDist;
-      });
-      var sum = distances.reduce(function(a, b){ return a + b; }, 0);
-      if (sum === 0){ centroids.push(X[Math.floor(Math.random() * n)].slice()); continue; }
-      var r = Math.random() * sum, cum = 0, idx = n - 1;
-      for (var i = 0; i < n; i++){ cum += distances[i]; if (cum >= r){ idx = i; break; } }
-      centroids.push(X[idx].slice());
+      var sum = 0, i;
+      for (i = 0; i < n; i++) sum += closest[i];
+      if (!(sum > 0)){
+        var ri = Math.floor(appRand() * n);
+        centroids.push(X[ri].slice());
+        continue;
+      }
+      var bestIdx = -1, bestPot = Infinity, bestDist = null;
+      for (var t = 0; t < nTrials; t++){
+        var r = appRand() * sum, cum = 0, idx = n - 1;
+        for (i = 0; i < n; i++){ cum += closest[i]; if (cum > r){ idx = i; break; } }
+        var cand = X[idx], pot = 0, dist = new Array(n);
+        for (i = 0; i < n; i++){ var d = unsSquaredDist(X[i], cand); dist[i] = d < closest[i] ? d : closest[i]; pot += dist[i]; }
+        if (pot < bestPot){ bestPot = pot; bestIdx = idx; bestDist = dist; }
+      }
+      centroids.push(X[bestIdx].slice());
+      closest = bestDist;
     }
     return centroids;
   }
@@ -8794,7 +9392,7 @@
         if (Nk[c] < 1e-6){
           // Component collapsed onto (near) zero responsibility — reinitialize it at a random data
           // point with the overall data covariance, rather than divide by ~0 and produce garbage.
-          var reinitIdx = Math.floor(Math.random() * n);
+          var reinitIdx = Math.floor(appRand() * n);
           newMeans[c] = X[reinitIdx].slice();
           var S3 = []; for (i = 0; i < p; i++){ S3.push(new Array(p).fill(0)); S3[i][i] = overallVar || 1; }
           newCovs[c] = S3;
@@ -8942,6 +9540,11 @@
         '<span class="pivot-bar-value">' + fmtNum(s.silhouette, 3) + '</span></div>';
     });
     unsEls.silhouetteChart.innerHTML = html;
+    attachChartDownload(unsEls.silhouetteChart, function(){
+      return buildHorizontalBarSvg("Silhouette score by number of groups", scores.map(function(s){
+        return { label: "k = " + s.k + (s.k === bestK ? " ★" : ""), value: s.silhouette, valueText: fmtNum(s.silhouette, 3), highlight: s.k === bestK };
+      }));
+    }, "cluster-silhouette-scores");
   }
 
   unsEls.kSlider.addEventListener("input", function(){ unsEls.kValue.textContent = unsEls.kSlider.value; });
@@ -8991,6 +9594,7 @@
     var v = unsValidateSchema();
     if (!v.ok){ unsEls.runError.hidden = false; unsEls.runError.innerHTML = '<span class="dot"></span> ' + v.message; return; }
     unsEls.runError.hidden = true;
+    appSeedFromInput("unsSeedInput");
     unsBuildPreprocessing();
     unsState.X = unsState.rows.map(unsEncodeRow);
     var n = unsState.X.length;
@@ -9169,6 +9773,7 @@
     svg.push('<text x="' + ((mL + W - mR) / 2) + '" y="' + (H - mB + 32) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(xCol) + '</text>');
     svg.push('<text x="14" y="' + ((mT + H - mB) / 2) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" transform="rotate(-90 14 ' + ((mT + H - mB) / 2) + ')">' + escapeXml(yCol) + '</text>');
     unsEls.scatterPlot.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Cluster scatter plot">' + svg.join("") + '</svg>';
+    attachChartDownload(unsEls.scatterPlot, unsEls.scatterPlot.querySelector("svg"), "cluster-scatter");
   }
 
   /* --- Playground: assign a new point --- */
@@ -9284,12 +9889,9 @@
         newRow[groupCol] = assigned === -1 ? "Noise" : "Group " + (assigned + 1);
         return newRow;
       });
-      var csvLines = [outColumns.join(",")];
+      var csvLines = [outColumns.map(csvCell).join(",")];
       outRows.forEach(function(row){
-        csvLines.push(outColumns.map(function(c){
-          var v = row[c] == null ? "" : String(row[c]);
-          return v.indexOf(",") >= 0 ? '"' + v.replace(/"/g, '""') + '"' : v;
-        }).join(","));
+        csvLines.push(outColumns.map(function(c){ return csvCell(row[c]); }).join(","));
       });
       unsEls.batchResult.innerHTML = '<p class="data-hint">' + outRows.length + ' rows grouped.</p>';
       var dlBtn = document.createElement("button");
