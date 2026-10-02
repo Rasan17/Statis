@@ -1520,7 +1520,7 @@
       </div>
       <div class="toggle-row" id="glmFirthRow" style="margin-top:12px;">
         <label class="toggle"><input type="checkbox" id="glmFirthToggle"><span class="toggle-track"></span></label>
-        <span class="toggle-label">Firth's penalized-likelihood correction — reduces small-sample bias and guarantees a finite estimate even under perfect or near-perfect separation (logit link only)</span>
+        <span class="toggle-label">Firth's penalized-likelihood correction — reduces small-sample bias and guarantees a finite estimate even under perfect or near-perfect separation (logit link only). Switched on automatically when EPV drops below 10.</span>
       </div>
     </div>
     <div id="glmBootstrapWrap" style="margin-top:16px;" hidden>
@@ -6091,6 +6091,31 @@
   var glmCurrentFit = null;
   var glmBootstrapRunning = false;
 
+  // Automatic bootstrap trigger: when the binary-outcome model has fallen back to modified Poisson AND
+  // events-per-variable is below the same Peduzzi et al. (1996) threshold already flagged elsewhere in
+  // this tab, the sandwich SE is exactly the case the percentile bootstrap is recommended for — so the
+  // toggle is checked and the bootstrap run automatically rather than waiting for a manual click.
+  // glmBootstrapUserOverrideKey remembers a fit (by its fitKey) where the user explicitly unchecked the
+  // auto-enabled toggle, so their choice sticks for that exact data/predictor combination rather than
+  // being immediately re-enabled on the next keystroke; glmAutoBootstrapDoneKey remembers a fit that has
+  // already had an automatic run attempted (successful or not), so a result that comes back unreliable
+  // (too many discarded resamples) isn't retried forever on unchanged data — a manual click on Run
+  // bootstrap is still always available to retry with a fresh random draw.
+  var glmBootstrapUserOverrideKey = null;
+  var glmAutoBootstrapDoneKey = null;
+  var glmAutoBootstrapTimer = null;
+  function clearAutoBootstrapTimer(){
+    if (glmAutoBootstrapTimer){ clearTimeout(glmAutoBootstrapTimer); glmAutoBootstrapTimer = null; }
+  }
+
+  // Automatic Firth trigger: plain logistic regression (logit link) with events-per-variable below the
+  // same Peduzzi et al. (1996) threshold is exactly the regime Firth's penalized-likelihood correction is
+  // designed for — unlike the bootstrap, a Firth fit is a single synchronous IRLS-style fit (no 2000-
+  // resample loop), so it's checked and used immediately within the same recalc, no debounce needed.
+  // glmFirthUserOverrideKey remembers a fit (by its fitKey) where the user explicitly unchecked the
+  // auto-enabled toggle, so their choice sticks for that exact data/predictor combination.
+  var glmFirthUserOverrideKey = null;
+
   function recalcGlm(){
     var mode = glmMode();
     var family = glmFitFamily(mode);
@@ -6113,8 +6138,6 @@
     glmEls.firthToggle.disabled = link === "probit";
     glmEls.firthRow.style.opacity = link === "probit" ? 0.5 : 1;
     if (link === "probit") glmEls.firthToggle.checked = false;
-    var firthActive = mode === "logistic" && link === "logit" && glmEls.firthToggle.checked;
-
     glmEls.ratioColHead.textContent = mode === "logistic" ? (link === "probit" ? "—" : "OR") : (mode === "poisson-rr" ? "RR" : "IRR");
 
     // Percentile bootstrap only applies when the binary-outcome model actually falls back to modified
@@ -6194,6 +6217,21 @@
       glmEls.bootstrapStatus.textContent = "Data or predictors changed since the last run — click Run bootstrap to refresh the percentile CIs.";
     }
 
+    // Same EPV calculation (and the same Peduzzi et al. 1996 threshold) used for the events-per-variable
+    // diagnostic below — reused here to decide whether plain logistic regression is in the regime Firth's
+    // penalized-likelihood correction is recommended for, and should therefore be switched on
+    // automatically.
+    var epvForFirth = NaN;
+    if (mode === "logistic" && link === "logit" && terms.length > 0){
+      var nEventsForFirth = y.filter(function(v){ return v === 1; }).length;
+      epvForFirth = Math.min(nEventsForFirth, y.length - nEventsForFirth) / terms.length;
+    }
+    var autoFirthRecommended = mode === "logistic" && link === "logit" && isFinite(epvForFirth) && epvForFirth < 10;
+    if (autoFirthRecommended && !glmEls.firthToggle.checked && glmFirthUserOverrideKey !== fitKey){
+      glmEls.firthToggle.checked = true;
+    }
+    var firthActive = mode === "logistic" && link === "logit" && glmEls.firthToggle.checked;
+
     // For the binary-outcome relative-risk model, try log-binomial regression first — it's the
     // "correct" likelihood for a 0/1 outcome and needs no robust-SE correction, but is notorious for
     // failing to converge (its fitted probabilities must stay below 1). When it does converge, use it;
@@ -6213,11 +6251,61 @@
       fit = firthActive ? fitGLMFirth(design.X, y) : fitGLM(design.X, y, family, link);
     }
 
+    // Only show/apply the bootstrap option once we know the fit actually fell back to modified Poisson —
+    // when log-binomial itself converges, its own likelihood-based SE is already correct and there's no
+    // robust-SE reliability question for the bootstrap to address.
+    var bootstrapApplicable = mode === "poisson-rr" && usedModel === "poisson";
+
+    // Same EPV calculation (and the same Peduzzi et al. 1996 threshold) used for the events-per-variable
+    // diagnostic below — reused here to decide whether the sandwich SE is in the regime it's recommended
+    // against, and the bootstrap should therefore run automatically. Gated to a fit that itself converged
+    // — auto-running (and announcing) a bootstrap around an already-unreliable fit isn't useful, and that
+    // case gets its own "neither method converged" warning below instead.
+    var epvForBootstrap = NaN;
+    if (bootstrapApplicable && terms.length > 0){
+      var nEventsForBootstrap = y.filter(function(v){ return v === 1; }).length;
+      epvForBootstrap = Math.min(nEventsForBootstrap, y.length - nEventsForBootstrap) / terms.length;
+    }
+    var autoBootstrapRecommended = bootstrapApplicable && fit.converged && isFinite(epvForBootstrap) && epvForBootstrap < 10;
+    var autoBootstrapJustEnabled = false;
+    if (autoBootstrapRecommended && !glmEls.bootstrapToggle.checked && glmBootstrapUserOverrideKey !== fitKey){
+      glmEls.bootstrapToggle.checked = true;
+      autoBootstrapJustEnabled = true;
+    }
+
+    glmEls.bootstrapWrap.hidden = !bootstrapApplicable;
+    glmEls.bootstrapControls.hidden = !(bootstrapApplicable && glmEls.bootstrapToggle.checked);
+    bootstrapActive = bootstrapApplicable && glmEls.bootstrapToggle.checked;
+    if (!bootstrapActive && glmBootstrapResult) glmBootstrapResult = null;
+    var bootstrapReady = bootstrapActive && glmBootstrapResult && glmBootstrapResult.key === fitKey;
+
+    if (autoBootstrapJustEnabled){
+      glmEls.bootstrapStatus.textContent = "Automatically enabled — EPV = " + fmtNum(epvForBootstrap, 1) + " is below the recommended minimum of 10 (Peduzzi et al., 1996), so the robust sandwich SE may be unreliable here. Running the percentile bootstrap instead…";
+    }
+    if (autoBootstrapRecommended && bootstrapActive && !bootstrapReady && !glmBootstrapRunning && glmAutoBootstrapDoneKey !== fitKey){
+      (function(key){
+        clearAutoBootstrapTimer();
+        glmAutoBootstrapTimer = setTimeout(function(){
+          glmAutoBootstrapTimer = null;
+          if (glmAutoBootstrapDoneKey === key) return;
+          glmAutoBootstrapDoneKey = key;
+          if (glmCurrentFit && glmCurrentFit.key === key && glmEls.bootstrapToggle.checked && !glmBootstrapRunning) runGlmBootstrap();
+        }, 500);
+      })(fitKey);
+    } else if (!autoBootstrapRecommended || !bootstrapActive){
+      clearAutoBootstrapTimer();
+    }
+
+    // A single, visually prominent banner (the same colored "assumption" box used for every other
+    // convergence/method message in this tab) carries the full chain of reasoning behind any automatic
+    // choice made above — which model actually fit, and why an automatic safeguard (bootstrap or Firth)
+    // did or didn't kick in — rather than leaving it to a smaller note buried in the diagnostics panel.
     if (mode === "poisson-rr" && usedModel === "poisson"){
       if (fit.converged){
         glmEls.error.hidden = false;
         glmEls.error.className = "assumption good";
-        glmEls.error.innerHTML = '<span class="dot"></span> Log-binomial regression did not converge on this data (common — its fitted probabilities must stay strictly below 1) — automatically using modified Poisson regression instead, which converges far more reliably and gives a very similar relative-risk estimate.';
+        glmEls.error.innerHTML = '<span class="dot"></span> Log-binomial regression did not converge on this data (common — its fitted probabilities must stay strictly below 1) — automatically using modified Poisson regression instead, which converges far more reliably and gives a very similar relative-risk estimate.' +
+          (autoBootstrapRecommended && bootstrapActive ? ' <b>Also —</b> EPV = ' + fmtNum(epvForBootstrap, 1) + ' is below the recommended minimum of 10 (Peduzzi et al., 1996), so the robust sandwich SE above may itself be unreliable — the percentile bootstrap has been switched on automatically in the panel below.' : '');
       } else {
         glmShowError('Neither log-binomial nor modified Poisson regression converged — this usually means a predictor category has events in every row or in none (near-perfect separation), or some other degeneracy in the design matrix. Results below are shown but should not be trusted.');
       }
@@ -6232,6 +6320,10 @@
         : (family === "logistic"
           ? 'The model did not converge — this usually means the predictors separate the outcome too cleanly (perfect or near-perfect separation) for a finite estimate to exist. Try the Firth correction above, which is designed to handle exactly this case. Results below are shown but should not be trusted.'
           : 'The model did not converge — for a count model this usually means the outcome is 0 for every row in some predictor category (or overall), so that category\'s rate has no finite estimate; very extreme predictor values can also cause it. Results below are shown but should not be trusted.'));
+    } else if (autoFirthRecommended && firthActive){
+      glmEls.error.hidden = false;
+      glmEls.error.className = "assumption good";
+      glmEls.error.innerHTML = '<span class="dot"></span> EPV = ' + fmtNum(epvForFirth, 1) + ' is below the recommended minimum of 10 (Peduzzi et al., 1996), where ordinary maximum likelihood\'s standard errors can be unstable — Firth\'s penalized-likelihood correction has been switched on automatically for the estimate below.';
     }
 
     var singleContinuous = predictors.length === 1 && predictors[0].type === "continuous";
@@ -6265,16 +6357,6 @@
     var lrP = chiSquaredPGeneral(lr, df);
     var pseudoR2 = 1 - llFull / llNull;
 
-    // Only show/apply the bootstrap option once we know the fit actually fell back to modified Poisson —
-    // when log-binomial itself converges, its own likelihood-based SE is already correct and there's no
-    // robust-SE reliability question for the bootstrap to address.
-    var bootstrapApplicable = mode === "poisson-rr" && usedModel === "poisson";
-    glmEls.bootstrapWrap.hidden = !bootstrapApplicable;
-    glmEls.bootstrapControls.hidden = !(bootstrapApplicable && glmEls.bootstrapToggle.checked);
-    bootstrapActive = bootstrapApplicable && glmEls.bootstrapToggle.checked;
-    if (!bootstrapActive && glmBootstrapResult) glmBootstrapResult = null;
-    var bootstrapReady = bootstrapActive && glmBootstrapResult && glmBootstrapResult.key === fitKey;
-
     var se = fit.se.slice();
     var dispersion = NaN;
     if (mode === "poisson"){
@@ -6292,6 +6374,10 @@
       if (mode === "poisson-rr" && usedModel === "poisson" && fit.mu.some(function(m){ return m > 1; })){
         glmEls.diagNote.innerHTML += ' <b style="color:var(--ink);">Note —</b> the fitted model implies a probability above 1 for at least one observation — a known quirk of fitting a Poisson (log) link to a bounded 0/1 outcome. It doesn\'t invalidate the coefficients or the robust standard errors, but treat fitted probabilities near the extremes of your predictors with caution.';
       }
+      // The automatic-trigger rationale itself is now stated up front in the prominent banner above
+      // (see the "assumption good" block right after the fit) rather than duplicated down here; this
+      // note stays as general context on why Firth is the right tool whenever it's active, auto-enabled
+      // or not.
       if (mode === "logistic" && firthActive){
         glmEls.diagNote.innerHTML += ' <b style="color:var(--ink);">Note —</b> Firth\'s correction is specifically aimed at exactly this low-EPV situation — it remains well-behaved (and still gives a finite estimate) even when the rule of thumb above isn\'t met.';
       }
@@ -6444,8 +6530,17 @@
   glmEls.loadExampleBtn.addEventListener("click", function(){ loadGlmExample(glmMode() === "poisson" ? "poisson" : "logistic"); });
   glmEls.linkLogitRadio.addEventListener("change", recalcGlm);
   glmEls.linkProbitRadio.addEventListener("change", recalcGlm);
-  glmEls.firthToggle.addEventListener("change", recalcGlm);
+  glmEls.firthToggle.addEventListener("change", function(){
+    if (glmCurrentFit){
+      glmFirthUserOverrideKey = glmEls.firthToggle.checked ? null : glmCurrentFit.key;
+    }
+    recalcGlm();
+  });
   glmEls.bootstrapToggle.addEventListener("change", function(){
+    if (glmCurrentFit){
+      glmBootstrapUserOverrideKey = glmEls.bootstrapToggle.checked ? null : glmCurrentFit.key;
+    }
+    clearAutoBootstrapTimer();
     glmBootstrapResult = null;
     glmEls.bootstrapStatus.textContent = "Not yet run — the table below still shows the robust (sandwich) SE until you run it.";
     recalcGlm();
