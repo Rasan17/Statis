@@ -1523,6 +1523,20 @@
         <span class="toggle-label">Firth's penalized-likelihood correction — reduces small-sample bias and guarantees a finite estimate even under perfect or near-perfect separation (logit link only)</span>
       </div>
     </div>
+    <div id="glmBootstrapWrap" style="margin-top:16px;" hidden>
+      <div class="toggle-row" id="glmBootstrapRow">
+        <label class="toggle"><input type="checkbox" id="glmBootstrapToggle"><span class="toggle-track"></span></label>
+        <span class="toggle-label">Use percentile bootstrap instead of the robust (sandwich) standard errors — resamples the data with replacement and refits, recommended when N is small and the sandwich estimator may behave erratically</span>
+      </div>
+      <div id="glmBootstrapControls" style="margin-top:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;" hidden>
+        <div class="ml-hp-field" style="margin:0;">
+          <label for="glmBootstrapSeedInput">Random seed (optional)</label>
+          <input type="text" inputmode="numeric" class="cell-input" id="glmBootstrapSeedInput" placeholder="blank = random each run" style="width:100%;max-width:200px;">
+        </div>
+        <button class="ghost-btn" id="glmBootstrapRunBtn" type="button">Run bootstrap (2000 resamples)</button>
+        <span class="data-hint" id="glmBootstrapStatus">Not yet run — the table below still shows the robust (sandwich) SE until you run it.</span>
+      </div>
+    </div>
   </section>
 
   <section class="card">
@@ -5807,6 +5821,12 @@
     probitCard: document.getElementById("glmProbitCard"),
     firthToggle: document.getElementById("glmFirthToggle"),
     firthRow: document.getElementById("glmFirthRow"),
+    bootstrapWrap: document.getElementById("glmBootstrapWrap"),
+    bootstrapToggle: document.getElementById("glmBootstrapToggle"),
+    bootstrapControls: document.getElementById("glmBootstrapControls"),
+    bootstrapSeedInput: document.getElementById("glmBootstrapSeedInput"),
+    bootstrapRunBtn: document.getElementById("glmBootstrapRunBtn"),
+    bootstrapStatus: document.getElementById("glmBootstrapStatus"),
     loadExampleBtn: document.getElementById("glmLoadExampleBtn"),
     addPredictorBtn: document.getElementById("glmAddPredictorBtn"),
     predictorsContainer: document.getElementById("glmPredictorsContainer"),
@@ -5969,6 +5989,14 @@
     glmEls.error.innerHTML = '<span class="dot"></span> ' + msg;
   }
 
+  // Cache of the most recently completed percentile-bootstrap run for the modified Poisson (relative
+  // risk) model, keyed to the exact design matrix / outcome it was computed from (glmCurrentFit) so a
+  // stale result is never shown for different data — cleared whenever the toggle is off or the
+  // underlying data/predictors change (see recalcGlm and runGlmBootstrap).
+  var glmBootstrapResult = null;
+  var glmCurrentFit = null;
+  var glmBootstrapRunning = false;
+
   function recalcGlm(){
     var mode = glmMode();
     var family = glmFitFamily(mode);
@@ -5994,6 +6022,13 @@
     var firthActive = mode === "logistic" && link === "logit" && glmEls.firthToggle.checked;
 
     glmEls.ratioColHead.textContent = mode === "logistic" ? (link === "probit" ? "—" : "OR") : (mode === "poisson-rr" ? "RR" : "IRR");
+
+    // Percentile bootstrap only applies to modified Poisson (relative-risk) regression — it's an
+    // alternative to that mode's robust sandwich SE, not something the other two modes use.
+    glmEls.bootstrapWrap.hidden = mode !== "poisson-rr";
+    glmEls.bootstrapControls.hidden = !glmEls.bootstrapToggle.checked;
+    var bootstrapActive = mode === "poisson-rr" && glmEls.bootstrapToggle.checked;
+    if (!bootstrapActive && glmBootstrapResult) glmBootstrapResult = null;
 
     var yRaw = parseNumbers(glmEls.yData.value);
     var yLabel = glmEls.yLabel.value || "Y";
@@ -6052,6 +6087,18 @@
       return;
     }
 
+    // A cheap signature of everything the fit depends on, so a previously computed bootstrap result is
+    // discarded the moment the underlying data, predictor set, or mode changes, rather than silently
+    // shown next to numbers it no longer matches.
+    var fitKey = mode + "|" + yRaw.join(",") + "|" + predictors.map(function(p){
+      return p.name + ":" + p.type + ":" + (p.type === "continuous" ? p.values.join(",") : (p.tokens.join(",") + ":" + (p.orderText || "")));
+    }).join("|");
+    glmCurrentFit = { X: design.X, y: y, terms: terms, n: n, key: fitKey };
+    if (glmBootstrapResult && glmBootstrapResult.key !== fitKey){
+      glmBootstrapResult = null;
+      glmEls.bootstrapStatus.textContent = "Data or predictors changed since the last run — click Run bootstrap to refresh the percentile CIs.";
+    }
+
     var fit = firthActive ? fitGLMFirth(design.X, y) : fitGLM(design.X, y, family, link);
 
     if (!fit.converged){
@@ -6100,6 +6147,8 @@
     var lrP = chiSquaredPGeneral(lr, df);
     var pseudoR2 = 1 - llFull / llNull;
 
+    var bootstrapReady = bootstrapActive && glmBootstrapResult && glmBootstrapResult.key === fitKey;
+
     var se = fit.se.slice();
     var dispersion = NaN;
     if (mode === "poisson"){
@@ -6109,7 +6158,7 @@
       }
       renderGlmDiagnosticsPoisson(dispersion);
     } else {
-      se = mode === "poisson-rr" ? fit.seRobust.slice() : se;
+      se = mode === "poisson-rr" ? (bootstrapReady ? glmBootstrapResult.se.slice() : fit.seRobust.slice()) : se;
       var nEvents = y.filter(function(v){ return v === 1; }).length;
       renderGlmDiagnosticsLogistic(nEvents, y.length - nEvents, terms.length);
       if (mode === "poisson-rr" && fit.mu.some(function(m){ return m > 1; })){
@@ -6123,9 +6172,10 @@
     var quasiAdjusted = mode === "poisson" && isFinite(dispersion) && dispersion > 1.5;
     var linkSuffix = mode === "logistic" && link === "probit" ? " (probit link)" : "";
     var firthSuffix = firthActive ? " (Firth correction)" : "";
+    var bootstrapSuffix = mode === "poisson-rr" ? (bootstrapReady ? " (bootstrap SE)" : (bootstrapActive ? " (robust SEs — bootstrap not yet run)" : " (robust SEs)")) : "";
     glmEls.title.textContent = (mode === "logistic" ? "Logistic regression" : (mode === "poisson-rr" ? "Poisson regression for binary outcomes" : "Poisson regression")) +
       linkSuffix + firthSuffix +
-      (quasiAdjusted ? " (quasi-Poisson SEs)" : (mode === "poisson-rr" ? " (robust SEs)" : ""));
+      (quasiAdjusted ? " (quasi-Poisson SEs)" : bootstrapSuffix);
 
     var showRatio = !(mode === "logistic" && link === "probit");
     var rows = ['<tr><td>Intercept</td><td>' + fmtNum(fit.beta[0], 4) + '</td><td>' + fmtNum(se[0], 4) + '</td><td>' +
@@ -6135,9 +6185,14 @@
       var j = idx + 1;
       var z = fit.beta[j] / se[j];
       var p = Math.min(1, Math.max(0, erfc(Math.abs(z) / Math.SQRT2)));
+      // With the percentile bootstrap, the CI comes directly from the 2.5th/97.5th percentile of the
+      // bootstrap RR distribution (not a symmetric-on-log-scale Wald interval built from the bootstrap
+      // SE) — that's the actual point of the percentile method: it doesn't assume the sampling
+      // distribution of the ratio is log-normal, which matters most in exactly the small-N case this
+      // option is for.
       var ratio = showRatio ? Math.exp(fit.beta[j]) : NaN;
-      var ratioLo = showRatio ? Math.exp(fit.beta[j] - Z975 * se[j]) : NaN;
-      var ratioHi = showRatio ? Math.exp(fit.beta[j] + Z975 * se[j]) : NaN;
+      var ratioLo = showRatio ? (bootstrapReady ? glmBootstrapResult.ciLo[j] : Math.exp(fit.beta[j] - Z975 * se[j])) : NaN;
+      var ratioHi = showRatio ? (bootstrapReady ? glmBootstrapResult.ciHi[j] : Math.exp(fit.beta[j] + Z975 * se[j])) : NaN;
       rows.push('<tr><td>' + escapeXml(term.name) + '</td><td>' + fmtNum(fit.beta[j], 4) + '</td><td>' + fmtNum(se[j], 4) + '</td><td>' +
         fmtNum(z, 3) + '</td><td>' + fmtP(p) + '</td><td>' + (showRatio ? fmtNum(ratio, 3) : "—") + '</td><td>' + (showRatio ? fmtNum(ratioLo, 3) + '–' + fmtNum(ratioHi, 3) : "—") + '</td></tr>');
       termEffects.push({ name: term.name, kind: term.kind, variable: term.variable, level: term.level, reference: term.reference, beta: fit.beta[j], ratio: ratio, ratioLo: ratioLo, ratioHi: ratioHi });
@@ -6180,6 +6235,69 @@
     }
   }
 
+  // Non-parametric percentile bootstrap for modified Poisson (relative-risk) regression: resample the
+  // rows with replacement, refit on each resample, and take the 2.5th/97.5th percentiles of the
+  // resulting relative-risk distribution directly as the CI — rather than a symmetric Wald interval
+  // built from an asymptotic (sandwich) SE, which can behave poorly at small N. Runs in chunks via
+  // setTimeout so the tab stays responsive (benchmarked at well under a second for a few hundred rows,
+  // a few seconds for a few thousand). A resample that fails to converge (e.g. it happens to contain no
+  // events) is discarded rather than contaminating the percentiles with a divergent coefficient.
+  function runGlmBootstrap(){
+    if (glmBootstrapRunning) return;
+    if (!glmCurrentFit){
+      glmEls.bootstrapStatus.textContent = "Fix the data/predictor errors above before running the bootstrap.";
+      return;
+    }
+    var X = glmCurrentFit.X, y = glmCurrentFit.y, n = glmCurrentFit.n, key = glmCurrentFit.key, p = X[0].length;
+    appSeedFromInput("glmBootstrapSeedInput");
+    glmBootstrapRunning = true;
+    glmEls.bootstrapRunBtn.disabled = true;
+    glmEls.bootstrapRunBtn.textContent = "Running…";
+    var B = 2000, chunkSize = 100, done = 0, discarded = 0;
+    var betaSamples = [];
+    function step(){
+      var end = Math.min(B, done + chunkSize);
+      for (; done < end; done++){
+        var Xb = new Array(n), yb = new Array(n);
+        for (var k = 0; k < n; k++){ var idx = Math.floor(appRand() * n); Xb[k] = X[idx]; yb[k] = y[idx]; }
+        var bfit = fitGLM(Xb, yb, "poisson");
+        if (bfit.converged && bfit.beta.every(isFinite)) betaSamples.push(bfit.beta);
+        else discarded++;
+      }
+      glmEls.bootstrapStatus.textContent = "Running bootstrap… " + done + " / " + B + (discarded ? " (" + discarded + " discarded so far)" : "");
+      if (done < B) setTimeout(step, 0); else finish();
+    }
+    function finish(){
+      glmBootstrapRunning = false;
+      glmEls.bootstrapRunBtn.disabled = false;
+      glmEls.bootstrapRunBtn.textContent = "Run bootstrap (2000 resamples)";
+      var validCount = betaSamples.length;
+      if (validCount < B * 0.5){
+        glmBootstrapResult = null;
+        glmEls.bootstrapStatus.textContent = "Bootstrap unreliable — only " + validCount + " of " + B + " resamples converged (too many resamples were degenerate, usually from very few events). Percentile CIs are not shown; the table below keeps the robust (sandwich) SE instead.";
+        recalcGlm();
+        return;
+      }
+      var se = new Array(p), ciLo = new Array(p), ciHi = new Array(p);
+      for (var j = 0; j < p; j++){
+        var vals = betaSamples.map(function(b){ return b[j]; });
+        var m = mean(vals), variance = 0;
+        vals.forEach(function(v){ variance += (v - m) * (v - m); });
+        variance /= Math.max(1, vals.length - 1);
+        se[j] = Math.sqrt(variance);
+        var ratios = betaSamples.map(function(b){ return Math.exp(b[j]); }).sort(function(a, b){ return a - b; });
+        ciLo[j] = quantile(ratios, 0.025);
+        ciHi[j] = quantile(ratios, 0.975);
+      }
+      glmBootstrapResult = { key: key, se: se, ciLo: ciLo, ciHi: ciHi, validCount: validCount, discarded: discarded, B: B };
+      var pctDiscarded = discarded / B * 100;
+      var warn = pctDiscarded > 10 ? " Note: " + discarded + " resamples (" + fmtNum(pctDiscarded, 1) + "%) failed to converge and were excluded — with this much discarding, treat the percentile CIs with some caution." : "";
+      glmEls.bootstrapStatus.textContent = "Bootstrap complete — " + validCount + " of " + B + " resamples converged." + warn;
+      recalcGlm();
+    }
+    step();
+  }
+
   function loadGlmExample(family){
     var ex = glmExampleText(family);
     glmEls.yLabel.value = ex.yLabel;
@@ -6198,6 +6316,12 @@
   glmEls.linkLogitRadio.addEventListener("change", recalcGlm);
   glmEls.linkProbitRadio.addEventListener("change", recalcGlm);
   glmEls.firthToggle.addEventListener("change", recalcGlm);
+  glmEls.bootstrapToggle.addEventListener("change", function(){
+    glmBootstrapResult = null;
+    glmEls.bootstrapStatus.textContent = "Not yet run — the table below still shows the robust (sandwich) SE until you run it.";
+    recalcGlm();
+  });
+  glmEls.bootstrapRunBtn.addEventListener("click", runGlmBootstrap);
   glmEls.addPredictorBtn.addEventListener("click", function(){
     addGlmPredictor("Predictor " + (glmEls.predictorsContainer.querySelectorAll(".glm-predictor-block").length + 1), "continuous", "");
     recalcGlm();
