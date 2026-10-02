@@ -5675,6 +5675,99 @@
     return { beta: beta, se: se, seRobust: se.slice(), mu: cur.mu, logLik: cur.ll, penalizedLogLik: cur.penalized, converged: converged, iterations: iterUsed, n: n, p: p };
   }
 
+  function logBinomialLogLik(X, y, beta){
+    var n = X.length, p = beta.length, ll = 0;
+    for (var i = 0; i < n; i++){
+      var eta = 0; for (var j = 0; j < p; j++) eta += X[i][j] * beta[j];
+      if (eta >= 0) return -Infinity; // infeasible: a probability of 1 or above
+      var prob = Math.exp(eta);
+      var probC = Math.min(1 - 1e-12, Math.max(1e-15, prob));
+      ll += y[i] * Math.log(probC) + (1 - y[i]) * Math.log(1 - probC);
+    }
+    return ll;
+  }
+
+  // Log-binomial regression: binomial family with a log link, mu = p = exp(eta), directly estimating
+  // relative risk (e^beta) from the correct Bernoulli likelihood — no robust/sandwich correction needed,
+  // unlike modified Poisson, since the variance assumption is exactly right by construction. Its
+  // long-documented problem is that p must stay strictly below 1 (eta < 0) for the log-likelihood to be
+  // defined at all, and an unconstrained Newton step routinely overshoots that boundary, which is why
+  // log-binomial models are notorious for failing to converge in practice (Zou 2004; this is precisely
+  // the problem modified Poisson regression was devised to sidestep). This fit handles the boundary
+  // explicitly: at every proposed Newton step, the step size is first shrunk just enough that no fitted
+  // probability would reach 1, before the usual step-halving-on-non-improving-likelihood check is
+  // applied on top. When it still fails to converge (a real possibility this safeguard cannot eliminate,
+  // e.g. when the covariate pattern implies a true risk at or above 1), the caller falls back to modified
+  // Poisson regression, which converges far more reliably on the same data.
+  // Validated: reaches a genuine likelihood maximum (confirmed by random-search, 0 improvement found) on
+  // data truly generated from a log-binomial model; its relative-risk point estimate is close to modified
+  // Poisson's on the same data, as the literature reports; and on a constructed worst-case dataset where
+  // the implied risk has to exceed 1, it correctly fails to converge (cleanly, no NaN/Infinity) rather
+  // than silently returning a wrong answer, giving the fallback a reliable trigger.
+  function fitLogBinomial(X, y){
+    var n = X.length, p = X[0].length;
+    var beta = new Array(p).fill(0);
+    var interceptCol = -1;
+    for (var j = 0; j < p && interceptCol < 0; j++){ if (X.every(function(r){ return r[j] === 1; })) interceptCol = j; }
+    var ybar = mean(y);
+    if (interceptCol >= 0 && ybar > 0 && ybar < 1) beta[interceptCol] = Math.log(ybar);
+    var maxIter = 100, tol = 1e-10, converged = false, iterUsed = 0, i, k;
+    var llCur = logBinomialLogLik(X, y, beta);
+    for (var iter = 0; iter < maxIter; iter++){
+      iterUsed = iter;
+      var eta = X.map(function(row){ var s = 0; for (var jj = 0; jj < p; jj++) s += row[jj] * beta[jj]; return s; });
+      var prob = eta.map(function(e){ return Math.exp(e); });
+      var w = prob.map(function(pr){ var prC = Math.min(1 - 1e-12, pr); return prC / (1 - prC); });
+      var grad = new Array(p).fill(0);
+      for (i = 0; i < n; i++){
+        var probC = Math.min(1 - 1e-12, prob[i]);
+        var resid = (y[i] - probC) / (1 - probC);
+        for (j = 0; j < p; j++) grad[j] += resid * X[i][j];
+      }
+      var H = [];
+      for (j = 0; j < p; j++) H.push(new Array(p).fill(0));
+      for (i = 0; i < n; i++) for (j = 0; j < p; j++) for (k = 0; k < p; k++) H[j][k] += w[i] * X[i][j] * X[i][k];
+      var delta = solveLinear(H, grad);
+      if (!delta) break;
+      var maxDelta = 0;
+      for (j = 0; j < p; j++) maxDelta = Math.max(maxDelta, Math.abs(delta[j]));
+
+      // Boundary-safe step: find the largest alpha in (0,1] that keeps every trial eta_i strictly below
+      // the p<1 boundary, before even checking whether the step improves the likelihood.
+      var alphaMax = 1;
+      for (i = 0; i < n; i++){
+        var deltaEta = 0; for (j = 0; j < p; j++) deltaEta += X[i][j] * delta[j];
+        var trialEta = eta[i] + deltaEta;
+        if (trialEta >= -1e-10 && deltaEta > 0){
+          var a = (-1e-10 - eta[i]) / deltaEta;
+          if (a < alphaMax) alphaMax = a;
+        }
+      }
+      alphaMax = Math.max(alphaMax, 1e-6);
+
+      var step = alphaMax, trial = null, llTrial = -Infinity, accepted = false;
+      for (var h = 0; h < 40; h++){
+        trial = beta.map(function(b, jj){ return b + step * delta[jj]; });
+        llTrial = logBinomialLogLik(X, y, trial);
+        if (isFinite(llTrial) && llTrial >= llCur - 1e-10 * Math.max(1, Math.abs(llCur))){ accepted = true; break; }
+        step /= 2;
+      }
+      if (!accepted){ converged = maxDelta < 1e-6; break; }
+      beta = trial; llCur = llTrial;
+      if (maxDelta < tol && step === alphaMax){ converged = true; break; }
+      if (beta.some(function(b){ return Math.abs(b) > 500; })) break;
+    }
+    var etaF = X.map(function(row){ var s = 0; for (var jj = 0; jj < p; jj++) s += row[jj] * beta[jj]; return s; });
+    var probF = etaF.map(function(e){ return Math.exp(e); });
+    var wF = probF.map(function(pr){ var prC = Math.min(1 - 1e-12, pr); return prC / (1 - prC); });
+    var Hf = [];
+    for (j = 0; j < p; j++) Hf.push(new Array(p).fill(0));
+    for (i = 0; i < n; i++) for (j = 0; j < p; j++) for (k = 0; k < p; k++) Hf[j][k] += wF[i] * X[i][j] * X[i][k];
+    var invHf = invertMatrix(Hf);
+    var se = invHf ? invHf.map(function(row, jj){ return Math.sqrt(Math.max(0, row[jj])); }) : new Array(p).fill(NaN);
+    return { beta: beta, se: se, seRobust: se.slice(), mu: probF, logLik: llCur, converged: converged, iterations: iterUsed, n: n, p: p };
+  }
+
   function glmNullLogLik(y, family){
     var n = y.length, ybar = mean(y);
     if (family === "logistic"){
@@ -5986,6 +6079,7 @@
 
   function glmShowError(msg){
     glmEls.error.hidden = false;
+    glmEls.error.className = "assumption warn";
     glmEls.error.innerHTML = '<span class="dot"></span> ' + msg;
   }
 
@@ -6023,10 +6117,11 @@
 
     glmEls.ratioColHead.textContent = mode === "logistic" ? (link === "probit" ? "—" : "OR") : (mode === "poisson-rr" ? "RR" : "IRR");
 
-    // Percentile bootstrap only applies to modified Poisson (relative-risk) regression — it's an
-    // alternative to that mode's robust sandwich SE, not something the other two modes use.
-    glmEls.bootstrapWrap.hidden = mode !== "poisson-rr";
-    glmEls.bootstrapControls.hidden = !glmEls.bootstrapToggle.checked;
+    // Percentile bootstrap only applies when the binary-outcome model actually falls back to modified
+    // Poisson — it's an alternative to that fallback's robust sandwich SE specifically. Whether that
+    // fallback happens isn't known until after the fit is attempted below, so final visibility of this
+    // panel is set there; this flag is only used here to decide whether to keep or discard a cached
+    // bootstrap result while the data is re-validated.
     var bootstrapActive = mode === "poisson-rr" && glmEls.bootstrapToggle.checked;
     if (!bootstrapActive && glmBootstrapResult) glmBootstrapResult = null;
 
@@ -6099,9 +6194,34 @@
       glmEls.bootstrapStatus.textContent = "Data or predictors changed since the last run — click Run bootstrap to refresh the percentile CIs.";
     }
 
-    var fit = firthActive ? fitGLMFirth(design.X, y) : fitGLM(design.X, y, family, link);
+    // For the binary-outcome relative-risk model, try log-binomial regression first — it's the
+    // "correct" likelihood for a 0/1 outcome and needs no robust-SE correction, but is notorious for
+    // failing to converge (its fitted probabilities must stay below 1). When it does converge, use it;
+    // when it doesn't (common), fall back to modified Poisson regression, which converges far more
+    // reliably and gives a very similar relative-risk estimate (Zou 2004) — exactly the reason modified
+    // Poisson was devised in the first place.
+    var usedModel = null, logBinomialFit = null;
+    var fit;
+    if (mode === "poisson-rr"){
+      logBinomialFit = fitLogBinomial(design.X, y);
+      if (logBinomialFit.converged){
+        fit = logBinomialFit; usedModel = "log-binomial";
+      } else {
+        fit = fitGLM(design.X, y, family, link); usedModel = "poisson";
+      }
+    } else {
+      fit = firthActive ? fitGLMFirth(design.X, y) : fitGLM(design.X, y, family, link);
+    }
 
-    if (!fit.converged){
+    if (mode === "poisson-rr" && usedModel === "poisson"){
+      if (fit.converged){
+        glmEls.error.hidden = false;
+        glmEls.error.className = "assumption good";
+        glmEls.error.innerHTML = '<span class="dot"></span> Log-binomial regression did not converge on this data (common — its fitted probabilities must stay strictly below 1) — automatically using modified Poisson regression instead, which converges far more reliably and gives a very similar relative-risk estimate.';
+      } else {
+        glmShowError('Neither log-binomial nor modified Poisson regression converged — this usually means a predictor category has events in every row or in none (near-perfect separation), or some other degeneracy in the design matrix. Results below are shown but should not be trusted.');
+      }
+    } else if (!fit.converged){
       // The likely cause differs by model: separation is a logistic / binary-outcome problem, whereas a
       // count model fails when some predictor category (or the whole outcome) has only zero counts, so
       // its log-rate heads to minus infinity. Firth is specifically designed to still converge under
@@ -6111,9 +6231,7 @@
         ? 'The Firth-corrected fit did not converge — this is unusual, since Firth\'s correction is specifically designed to stay finite even under separation; check for a near-collinear or degenerate predictor. Results below are shown but should not be trusted.'
         : (family === "logistic"
           ? 'The model did not converge — this usually means the predictors separate the outcome too cleanly (perfect or near-perfect separation) for a finite estimate to exist. Try the Firth correction above, which is designed to handle exactly this case. Results below are shown but should not be trusted.'
-          : (isBinaryOutcome
-            ? 'The model did not converge — with a 0/1 outcome this usually means a predictor category has events in every row or in none (near-perfect separation), or a fitted risk would exceed 1. Results below are shown but should not be trusted.'
-            : 'The model did not converge — for a count model this usually means the outcome is 0 for every row in some predictor category (or overall), so that category\'s rate has no finite estimate; very extreme predictor values can also cause it. Results below are shown but should not be trusted.')));
+          : 'The model did not converge — for a count model this usually means the outcome is 0 for every row in some predictor category (or overall), so that category\'s rate has no finite estimate; very extreme predictor values can also cause it. Results below are shown but should not be trusted.'));
     }
 
     var singleContinuous = predictors.length === 1 && predictors[0].type === "continuous";
@@ -6147,6 +6265,14 @@
     var lrP = chiSquaredPGeneral(lr, df);
     var pseudoR2 = 1 - llFull / llNull;
 
+    // Only show/apply the bootstrap option once we know the fit actually fell back to modified Poisson —
+    // when log-binomial itself converges, its own likelihood-based SE is already correct and there's no
+    // robust-SE reliability question for the bootstrap to address.
+    var bootstrapApplicable = mode === "poisson-rr" && usedModel === "poisson";
+    glmEls.bootstrapWrap.hidden = !bootstrapApplicable;
+    glmEls.bootstrapControls.hidden = !(bootstrapApplicable && glmEls.bootstrapToggle.checked);
+    bootstrapActive = bootstrapApplicable && glmEls.bootstrapToggle.checked;
+    if (!bootstrapActive && glmBootstrapResult) glmBootstrapResult = null;
     var bootstrapReady = bootstrapActive && glmBootstrapResult && glmBootstrapResult.key === fitKey;
 
     var se = fit.se.slice();
@@ -6158,10 +6284,12 @@
       }
       renderGlmDiagnosticsPoisson(dispersion);
     } else {
-      se = mode === "poisson-rr" ? (bootstrapReady ? glmBootstrapResult.se.slice() : fit.seRobust.slice()) : se;
+      if (mode === "poisson-rr"){
+        se = usedModel === "log-binomial" ? fit.se.slice() : (bootstrapReady ? glmBootstrapResult.se.slice() : fit.seRobust.slice());
+      }
       var nEvents = y.filter(function(v){ return v === 1; }).length;
       renderGlmDiagnosticsLogistic(nEvents, y.length - nEvents, terms.length);
-      if (mode === "poisson-rr" && fit.mu.some(function(m){ return m > 1; })){
+      if (mode === "poisson-rr" && usedModel === "poisson" && fit.mu.some(function(m){ return m > 1; })){
         glmEls.diagNote.innerHTML += ' <b style="color:var(--ink);">Note —</b> the fitted model implies a probability above 1 for at least one observation — a known quirk of fitting a Poisson (log) link to a bounded 0/1 outcome. It doesn\'t invalidate the coefficients or the robust standard errors, but treat fitted probabilities near the extremes of your predictors with caution.';
       }
       if (mode === "logistic" && firthActive){
@@ -6172,10 +6300,11 @@
     var quasiAdjusted = mode === "poisson" && isFinite(dispersion) && dispersion > 1.5;
     var linkSuffix = mode === "logistic" && link === "probit" ? " (probit link)" : "";
     var firthSuffix = firthActive ? " (Firth correction)" : "";
-    var bootstrapSuffix = mode === "poisson-rr" ? (bootstrapReady ? " (bootstrap SE)" : (bootstrapActive ? " (robust SEs — bootstrap not yet run)" : " (robust SEs)")) : "";
+    var bootstrapSuffix = usedModel === "poisson" ? (bootstrapReady ? " (modified Poisson, bootstrap SE)" : (bootstrapActive ? " (modified Poisson, robust SEs — bootstrap not yet run)" : " (modified Poisson, robust SEs)")) : "";
+    var modelSuffix = mode === "poisson-rr" ? (usedModel === "log-binomial" ? " (log-binomial)" : bootstrapSuffix) : "";
     glmEls.title.textContent = (mode === "logistic" ? "Logistic regression" : (mode === "poisson-rr" ? "Poisson regression for binary outcomes" : "Poisson regression")) +
       linkSuffix + firthSuffix +
-      (quasiAdjusted ? " (quasi-Poisson SEs)" : bootstrapSuffix);
+      (quasiAdjusted ? " (quasi-Poisson SEs)" : modelSuffix);
 
     var showRatio = !(mode === "logistic" && link === "probit");
     var rows = ['<tr><td>Intercept</td><td>' + fmtNum(fit.beta[0], 4) + '</td><td>' + fmtNum(se[0], 4) + '</td><td>' +
@@ -6214,7 +6343,7 @@
         ? change + " is associated with the " + ratioWord + " changing by a factor of " + fmtNum(te.ratio, 2) + " (95% CI " + fmtNum(te.ratioLo, 2) + "–" + fmtNum(te.ratioHi, 2) + ")"
         : change + " is associated with the probit index (z-score of the event probability) changing by " + fmtNum(te.beta, 3) + " — probit coefficients aren't odds ratios, so no exponentiated effect size is given";
     });
-    var modelWord = mode === "logistic" ? (link === "probit" ? "A probit" : "A logistic") : (mode === "poisson-rr" ? "A modified Poisson (relative risk)" : "A Poisson");
+    var modelWord = mode === "logistic" ? (link === "probit" ? "A probit" : "A logistic") : (mode === "poisson-rr" ? (usedModel === "log-binomial" ? "A log-binomial (relative risk)" : "A modified Poisson (relative risk)") : "A Poisson");
     glmEls.interpretation.textContent = modelWord + " regression" + (firthActive ? " (with Firth's penalized-likelihood correction)" : "") + " of " + yLabel + " on " + predictorNames + " found " +
       (lrP < 0.05 ? "evidence" : "no evidence") + " that these predictors jointly improve on a model with none of them (likelihood ratio χ² = " + fmtNum(lr, 2) + ", df = " + df + ", p = " + fmtP(lrP) + (firthActive ? ", from penalized log-likelihoods" : "") + "). " +
       (termSentences.length > 0 ? termSentences.join("; ") + "." : "") +
