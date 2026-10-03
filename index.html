@@ -318,7 +318,7 @@
   }
   footer.notes b{color:var(--ink);}
 
-  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);}
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--line);}
   .tab-btn{
     font-family:"IBM Plex Sans",sans-serif;
     font-size:13.5px;
@@ -330,6 +330,7 @@
     cursor:pointer;
     border-bottom:2px solid transparent;
     margin-bottom:-1px;
+    white-space:nowrap;
   }
   .tab-btn.active{color:var(--accent-ink);border-bottom-color:var(--accent);}
   .tab-btn:hover{color:var(--accent-ink);}
@@ -679,9 +680,10 @@
 
   <nav class="tabs" role="tablist">
     <button class="tab-btn active" id="tabBtnContingency" type="button" role="tab" aria-selected="true">Contingency table</button>
-    <button class="tab-btn" id="tabBtnPivot" type="button" role="tab" aria-selected="false">Pivot</button>
+    <button class="tab-btn" id="tabBtnPivot" type="button" role="tab" aria-selected="false">Descriptive/Pivot</button>
     <button class="tab-btn" id="tabBtnTtest" type="button" role="tab" aria-selected="false">T-test</button>
     <button class="tab-btn" id="tabBtnAnova" type="button" role="tab" aria-selected="false">ANOVA</button>
+    <button class="tab-btn" id="tabBtnManova" type="button" role="tab" aria-selected="false">MANOVA/ANCOVA</button>
     <button class="tab-btn" id="tabBtnRegression" type="button" role="tab" aria-selected="false">Correlation</button>
     <button class="tab-btn" id="tabBtnSurvival" type="button" role="tab" aria-selected="false">Survival</button>
     <button class="tab-btn" id="tabBtnGlm" type="button" role="tab" aria-selected="false">GLM</button>
@@ -1468,6 +1470,188 @@
   <footer class="notes">
     <b>How it's computed —</b> One-way ANOVA partitions total variance into between-group and within-group sums of squares; F = MS<sub>between</sub>⁄MS<sub>within</sub> with df = (k−1, N−k), assuming normal groups with equal variance. Welch's ANOVA (1951) reweights each group by n<sub>i</sub>⁄s<sub>i</sub>², with an adjusted denominator and a non-integer df₂ — it doesn't assume equal variances, only normality. Kruskal–Wallis ranks all observations across groups and compares mean ranks (H, tie-corrected), needing neither assumption. All p-values use the exact regularized incomplete beta (F-distribution) or incomplete gamma (chi-squared) relations, not approximations. <b>Auto</b> picks standard ANOVA when every group is normal and Levene's test finds equal variances; Welch's ANOVA when every group is normal but variances differ; a Box–Cox transform followed by Welch's ANOVA when a group is non-normal but a transform fixes it; and Kruskal–Wallis when nothing else applies. Eta-squared (η² = SS<sub>between</sub>⁄SS<sub>total</sub>) is shown for standard ANOVA only — Welch's adjusted denominator doesn't partition sums of squares the same way, so its effect size is left unreported rather than shown as a misleading number; Kruskal–Wallis instead reports an analogous rank-based epsilon-squared.
   </footer>
+
+  </div>
+
+  <div class="tab-panel" id="panel-manova" hidden>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 1</p><h2>Analysis type</h2></div>
+    </div>
+    <div class="radio-group" role="radiogroup">
+      <label class="radio-card active" id="ancovaModeCard">
+        <input type="radio" name="manovaAnalysisType" id="manovaModeAncova" value="ancova" checked>
+        <div>
+          <div class="radio-card-title">ANCOVA</div>
+          <div class="radio-card-sub">One continuous outcome, one group factor, and one or more continuous covariates — tests whether groups differ after adjusting for the covariate(s).</div>
+        </div>
+      </label>
+      <label class="radio-card" id="manovaModeCard">
+        <input type="radio" name="manovaAnalysisType" id="manovaModeManova" value="manova">
+        <div>
+          <div class="radio-card-title">MANOVA</div>
+          <div class="radio-card-sub">One group factor and two or more continuous dependent variables, tested jointly — tests whether groups differ on the combination of outcomes, not just one at a time.</div>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  <div id="ancovaWrap">
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 2</p><h2>Outcome and group</h2></div>
+      <button class="ghost-btn" id="ancovaLoadExampleBtn" type="button">Load example</button>
+    </div>
+    <div class="data-grid">
+      <div class="data-field">
+        <label for="ancovaYLabel">Outcome name</label>
+        <input type="text" id="ancovaYLabel" class="label-input" value="Outcome">
+        <label for="ancovaYData" style="margin-top:8px;">Outcome values</label>
+        <textarea id="ancovaYData" rows="5" aria-label="Outcome values"></textarea>
+        <p class="data-hint">One continuous value per line, or comma-separated.</p>
+      </div>
+      <div class="data-field">
+        <label for="ancovaGroupLabel">Group factor name</label>
+        <input type="text" id="ancovaGroupLabel" class="label-input" value="Group">
+        <label for="ancovaGroupData" style="margin-top:8px;">Group labels</label>
+        <textarea id="ancovaGroupData" rows="5" aria-label="Group labels"></textarea>
+        <p class="data-hint">One group label per line, or comma-separated — matched by position with the outcome above. At least 2 distinct groups.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 3</p><h2>Covariates</h2></div>
+      <button class="ghost-btn" id="ancovaAddCovariateBtn" type="button">+ Add covariate</button>
+    </div>
+    <div class="groups-grid" id="ancovaCovariatesContainer"></div>
+    <p class="data-hint" style="margin-top:10px;">Continuous covariate(s) to adjust for, one value per line matched by position with the outcome and group above. At least one covariate.</p>
+    <div class="assumption warn" id="ancovaError" hidden style="margin-top:14px;"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Visual check</p><h2>Adjusted group means</h2></div>
+    </div>
+    <div id="ancovaBarChart"></div>
+    <p class="norm-note" style="margin-top:8px;">Bars show each group's mean <b>after adjusting for the covariate(s)</b> (holding them at their overall average) — not the raw group means; error bars show the 95% CI.</p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 4</p><h2>Homogeneity of regression slopes</h2></div>
+    </div>
+    <div id="ancovaSlopesRow"></div>
+    <p class="norm-note" style="margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);">
+      <b style="color:var(--ink);">Why this matters —</b> ANCOVA assumes the covariate's relationship with the outcome is the same slope in every group — if the groups' slopes genuinely differ, a single "adjusted" comparison at the covariate's average value can be misleading at other values of the covariate. This is tested by adding a group × covariate interaction term and checking whether it significantly improves the fit.
+    </p>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">Test result</p>
+    <h2 id="ancovaTitle">ANCOVA</h2>
+    <div class="table-wrap">
+      <table class="life-table" id="ancovaTable" style="min-width:460px;">
+        <thead><tr><th>Source</th><th>SS</th><th>df</th><th>MS</th><th>F</th><th>p</th></tr></thead>
+        <tbody id="ancovaTableBody"></tbody>
+      </table>
+    </div>
+    <div id="ancovaVerdict" style="margin-top:12px;"></div>
+    <div class="effect-grid" style="grid-template-columns:1fr;margin-top:14px;">
+      <div>
+        <div class="effect-name">Partial eta-squared (group, adjusted for covariates)</div>
+        <div class="effect-value" id="ancovaEffectValue">—</div>
+      </div>
+    </div>
+    <p class="eyebrow" style="margin-top:18px;">Adjusted means</p>
+    <div class="table-wrap">
+      <table class="life-table" id="ancovaMeansTable" style="min-width:420px;">
+        <thead><tr><th>Group</th><th>Adjusted mean</th><th>SE</th><th>95% CI</th></tr></thead>
+        <tbody id="ancovaMeansTableBody"></tbody>
+      </table>
+    </div>
+    <p class="eyebrow" style="margin-top:18px;">Coefficients (full model)</p>
+    <div class="table-wrap">
+      <table class="life-table" id="ancovaCoefTable" style="min-width:460px;">
+        <thead><tr><th>Term</th><th>Estimate</th><th>SE</th><th>t</th><th>p</th></tr></thead>
+        <tbody id="ancovaCoefTableBody"></tbody>
+      </table>
+    </div>
+    <p class="norm-note" id="ancovaInterpretation" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);"></p>
+  </section>
+
+  <footer class="notes">
+    <b>How it's computed —</b> ANCOVA is fit as ordinary least squares multiple regression: the outcome on an intercept, k−1 dummy-coded group indicators (reference coding), and the covariate(s), solved by the same Householder QR least-squares engine used elsewhere in this tool. The group factor's test (adjusting for the covariate(s)) compares this full model's residual sum of squares against a reduced model with the covariate(s) only but no group term — an F-test on the resulting difference in SS (Type II sum of squares), with df = (k−1, N−p). With zero covariates this reduces exactly to a standard one-way ANOVA. The homogeneity-of-slopes check compares the full model against one that also includes every group × covariate interaction term. Adjusted means are each group's predicted outcome with the covariate(s) held at their overall (grand) mean, with a standard error from the full model's coefficient covariance matrix — for a single covariate this is algebraically identical to the classical textbook adjusted-mean formula. Partial eta-squared for the group effect is SS<sub>group</sub>⁄(SS<sub>group</sub>+SS<sub>residual</sub>). Only one between-subjects factor is supported (a full factorial ANCOVA with multiple factors isn't implemented), and normality/homoscedasticity of residuals aren't separately checked yet — review the coefficient table's residual behavior with care on small or unusual samples.
+  </footer>
+
+  </div>
+
+  <div id="manovaWrap" hidden>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 2</p><h2>Group</h2></div>
+      <button class="ghost-btn" id="manovaLoadExampleBtn" type="button">Load example</button>
+    </div>
+    <div class="data-field">
+      <label for="manovaGroupLabel">Group factor name</label>
+      <input type="text" id="manovaGroupLabel" class="label-input" value="Group">
+      <label for="manovaGroupData" style="margin-top:8px;">Group labels</label>
+      <textarea id="manovaGroupData" rows="5" aria-label="Group labels"></textarea>
+      <p class="data-hint">One group label per line, or comma-separated. At least 2 distinct groups.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 3</p><h2>Dependent variables</h2></div>
+      <button class="ghost-btn" id="manovaAddDvBtn" type="button">+ Add dependent variable</button>
+    </div>
+    <div class="groups-grid" id="manovaDvsContainer"></div>
+    <p class="data-hint" style="margin-top:10px;">Continuous dependent variables, one value per line matched by position with the group above. At least 2 dependent variables.</p>
+    <div class="assumption warn" id="manovaError" hidden style="margin-top:14px;"></div>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">Test result</p>
+    <h2>Multivariate test (Wilks' Λ)</h2>
+    <div class="table-wrap">
+      <table class="life-table" id="manovaTable" style="min-width:420px;">
+        <thead><tr><th>Wilks' Λ</th><th>F</th><th>df1</th><th>df2</th><th>p</th></tr></thead>
+        <tbody id="manovaTableBody"></tbody>
+      </table>
+    </div>
+    <div id="manovaVerdict" style="margin-top:12px;"></div>
+    <div class="effect-grid" style="grid-template-columns:1fr;margin-top:14px;">
+      <div>
+        <div class="effect-name">Multivariate effect size (1 − Λ)</div>
+        <div class="effect-value" id="manovaEffectValue">—</div>
+      </div>
+    </div>
+    <p class="norm-note" id="manovaInterpretation" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);"></p>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Follow-up</p><h2>Univariate ANOVA per dependent variable</h2></div>
+    </div>
+    <div class="table-wrap">
+      <table class="life-table" id="manovaUnivariateTable" style="min-width:420px;">
+        <thead><tr><th>Dependent variable</th><th>F</th><th>df</th><th>p</th><th>η²</th></tr></thead>
+        <tbody id="manovaUnivariateTableBody"></tbody>
+      </table>
+    </div>
+    <p class="norm-note" style="margin-top:8px;">Follow-up univariate tests are only meaningful after a significant multivariate result above, and don't themselves correct for running one test per dependent variable (consider a Bonferroni correction — divide 0.05 by the number of dependent variables — if treating each as a separate confirmatory test).</p>
+  </section>
+
+  <footer class="notes">
+    <b>How it's computed —</b> One-way MANOVA partitions the total sums-of-squares-and-cross-products (SSCP) matrix across all dependent variables jointly into a between-groups matrix H and a within-groups (error) matrix E, exactly generalizing one-way ANOVA's SS partition to multiple correlated outcomes at once. Wilks' Λ = det(E)⁄det(E+H) is converted to an approximate F via Rao's (1951) transformation — validated in this tool to be numerically exact (not merely approximate) in the two special cases where an exact F exists: with a single dependent variable it reduces to the ordinary one-way ANOVA F, and with exactly two groups it matches an independently-computed Hotelling's T² test to within floating-point precision. The multivariate effect size shown (1 − Λ) also reduces exactly to eta-squared when there's only one dependent variable. Box's M test for homogeneity of the groups' covariance matrices and formal multivariate normality checks aren't implemented yet — with very unequal group sizes or markedly different group covariance structures, treat Wilks' Λ with more caution. Only one between-subjects factor is supported (factorial MANOVA isn't implemented), and post-hoc discriminant-function or pairwise multivariate comparisons aren't implemented either.
+  </footer>
+
+  </div>
 
   </div>
 
@@ -2472,6 +2656,7 @@
     pivot:       { btn: document.getElementById("tabBtnPivot"),       panel: document.getElementById("panel-pivot") },
     ttest:       { btn: document.getElementById("tabBtnTtest"),       panel: document.getElementById("panel-ttest") },
     anova:       { btn: document.getElementById("tabBtnAnova"),       panel: document.getElementById("panel-anova") },
+    manova:      { btn: document.getElementById("tabBtnManova"),      panel: document.getElementById("panel-manova") },
     regression:  { btn: document.getElementById("tabBtnRegression"),  panel: document.getElementById("panel-regression") },
     survival:    { btn: document.getElementById("tabBtnSurvival"),    panel: document.getElementById("panel-survival") },
     glm:         { btn: document.getElementById("tabBtnGlm"),         panel: document.getElementById("panel-glm") },
@@ -5421,6 +5606,470 @@
 
   anovaExampleGroups().forEach(function(g){ addAnovaGroup(g.name, g.data); });
   recalcAnova();
+
+  /* ===================== MANOVA / ANCOVA ===================== */
+
+  var mvEls = {
+    modeAncovaRadio: document.getElementById("manovaModeAncova"),
+    modeManovaRadio: document.getElementById("manovaModeManova"),
+    ancovaModeCard: document.getElementById("ancovaModeCard"),
+    manovaModeCard: document.getElementById("manovaModeCard"),
+    ancovaWrap: document.getElementById("ancovaWrap"),
+    manovaWrap: document.getElementById("manovaWrap"),
+
+    ancovaYLabel: document.getElementById("ancovaYLabel"),
+    ancovaYData: document.getElementById("ancovaYData"),
+    ancovaGroupLabel: document.getElementById("ancovaGroupLabel"),
+    ancovaGroupData: document.getElementById("ancovaGroupData"),
+    ancovaCovariatesContainer: document.getElementById("ancovaCovariatesContainer"),
+    ancovaAddCovariateBtn: document.getElementById("ancovaAddCovariateBtn"),
+    ancovaLoadExampleBtn: document.getElementById("ancovaLoadExampleBtn"),
+    ancovaError: document.getElementById("ancovaError"),
+    ancovaBarChart: document.getElementById("ancovaBarChart"),
+    ancovaSlopesRow: document.getElementById("ancovaSlopesRow"),
+    ancovaTitle: document.getElementById("ancovaTitle"),
+    ancovaTableBody: document.getElementById("ancovaTableBody"),
+    ancovaVerdict: document.getElementById("ancovaVerdict"),
+    ancovaEffectValue: document.getElementById("ancovaEffectValue"),
+    ancovaMeansTableBody: document.getElementById("ancovaMeansTableBody"),
+    ancovaCoefTableBody: document.getElementById("ancovaCoefTableBody"),
+    ancovaInterpretation: document.getElementById("ancovaInterpretation"),
+
+    manovaGroupLabel: document.getElementById("manovaGroupLabel"),
+    manovaGroupData: document.getElementById("manovaGroupData"),
+    manovaDvsContainer: document.getElementById("manovaDvsContainer"),
+    manovaAddDvBtn: document.getElementById("manovaAddDvBtn"),
+    manovaLoadExampleBtn: document.getElementById("manovaLoadExampleBtn"),
+    manovaError: document.getElementById("manovaError"),
+    manovaTableBody: document.getElementById("manovaTableBody"),
+    manovaVerdict: document.getElementById("manovaVerdict"),
+    manovaEffectValue: document.getElementById("manovaEffectValue"),
+    manovaInterpretation: document.getElementById("manovaInterpretation"),
+    manovaUnivariateTableBody: document.getElementById("manovaUnivariateTableBody")
+  };
+
+  function manovaMode(){ return mvEls.modeManovaRadio.checked ? "manova" : "ancova"; }
+
+  // ---- Covariate blocks (ANCOVA) — same group-block UI/behavior as the ANOVA tab's groups, minimum 1. ----
+  function createMvBlock(container, label, data, ariaLabel, minCount, onChange){
+    var block = document.createElement("div");
+    block.className = "data-field group-block";
+    block.innerHTML =
+      '<div class="group-block-head">' +
+        '<input class="group-name-input" value="' + escapeXml(label) + '" aria-label="' + escapeXml(ariaLabel) + ' name">' +
+        '<button class="remove-group-btn" type="button">Remove</button>' +
+      '</div>' +
+      '<textarea aria-label="' + escapeXml(ariaLabel) + ' values" rows="4"></textarea>' +
+      '<p class="data-hint">One value per line, or comma-separated.</p>';
+    block.querySelector("textarea").value = data || "";
+    block.querySelector(".remove-group-btn").addEventListener("click", function(){
+      if (container.querySelectorAll(".group-block").length <= minCount) return;
+      block.remove();
+      updateMvRemoveButtons(container, minCount);
+      onChange();
+    });
+    block.querySelector(".group-name-input").addEventListener("input", onChange);
+    block.querySelector("textarea").addEventListener("input", onChange);
+    return block;
+  }
+  function updateMvRemoveButtons(container, minCount){
+    var blocks = container.querySelectorAll(".group-block");
+    var show = blocks.length > minCount;
+    blocks.forEach(function(b){ b.querySelector(".remove-group-btn").style.visibility = show ? "visible" : "hidden"; });
+  }
+  function readMvBlocks(container, defaultPrefix){
+    var blocks = Array.prototype.slice.call(container.querySelectorAll(".group-block"));
+    return blocks.map(function(b, i){
+      return { name: b.querySelector(".group-name-input").value || (defaultPrefix + " " + (i + 1)), values: parseNumbers(b.querySelector("textarea").value) };
+    });
+  }
+
+  function addCovariate(label, data){
+    mvEls.ancovaCovariatesContainer.appendChild(createMvBlock(mvEls.ancovaCovariatesContainer, label, data, "Covariate", 1, recalcManovaAncova));
+    updateMvRemoveButtons(mvEls.ancovaCovariatesContainer, 1);
+  }
+  function addDv(label, data){
+    mvEls.manovaDvsContainer.appendChild(createMvBlock(mvEls.manovaDvsContainer, label, data, "Dependent variable", 2, recalcManovaAncova));
+    updateMvRemoveButtons(mvEls.manovaDvsContainer, 2);
+  }
+
+  // ---- Core stats ----
+
+  // One-way ANCOVA: outcome ~ intercept + (k-1) group dummies (reference coding) + covariate(s), fit by the
+  // same Householder QR least-squares engine used elsewhere in this tool. The group factor's test compares
+  // this full model against a reduced model with the covariate(s) but no group term (Type II sum of
+  // squares) — with zero covariates this is mathematically identical to a plain one-way ANOVA, and for a
+  // single covariate the adjusted means below reduce exactly to the classical textbook formula
+  // ybar_i - b*(xbar_i - xbar_grand) — both cross-checked numerically before this shipped.
+  function fitAncova(groupTokens, groupLabel, y, covariates){
+    var n = y.length;
+    var enc = encodeNominal(groupTokens);
+    var k = enc.distinct.length;
+    var m = covariates.length;
+
+    function buildX(includeGroup, includeInteraction){
+      var X = [];
+      for (var i = 0; i < n; i++){
+        var row = [1];
+        if (includeGroup) enc.columns.forEach(function(col){ row.push(col[i]); });
+        covariates.forEach(function(cov){ row.push(cov.values[i]); });
+        if (includeInteraction){
+          enc.columns.forEach(function(col){
+            covariates.forEach(function(cov){ row.push(col[i] * cov.values[i]); });
+          });
+        }
+        X.push(row);
+      }
+      return X;
+    }
+
+    var Xfull = buildX(true, false);
+    var Xreduced = buildX(false, false);
+    var fitFull = lstsqQR(Xfull, y);
+    var fitReduced = lstsqQR(Xreduced, y);
+    if (!fitFull || !fitReduced) return null;
+
+    var pFull = Xfull[0].length, pReduced = Xreduced[0].length;
+    var dfFull = n - pFull;
+    if (dfFull <= 0) return null;
+
+    var ybar = mean(y);
+    var sst = y.reduce(function(s, v){ return s + (v - ybar) * (v - ybar); }, 0);
+    var ssCov = sst - fitReduced.sse;
+    var dfCov = pReduced - 1;
+
+    var ssGroup = fitReduced.sse - fitFull.sse;
+    var df1 = pFull - pReduced;
+    var df2 = dfFull;
+    var mseFull = fitFull.sse / dfFull;
+    var msGroup = ssGroup / df1;
+    var msCov = dfCov > 0 ? ssCov / dfCov : NaN;
+    var Fgroup = mseFull > 0 ? msGroup / mseFull : NaN;
+    var Fcov = (dfCov > 0 && mseFull > 0) ? msCov / mseFull : NaN;
+    var pGroup = fPValue(Fgroup, df1, df2);
+    var pCov = fPValue(Fcov, dfCov, df2);
+    var partialEta2 = fitReduced.sse > 0 ? ssGroup / fitReduced.sse : NaN;
+
+    var slopes = null;
+    if (m > 0){
+      var Xinteract = buildX(true, true);
+      var fitInteract = lstsqQR(Xinteract, y);
+      if (fitInteract){
+        var pInteract = Xinteract[0].length;
+        var dfInteract = n - pInteract;
+        var df1b = pInteract - pFull;
+        if (dfInteract > 0 && df1b > 0){
+          var ssInteract = fitFull.sse - fitInteract.sse;
+          var FInteract = fitInteract.sse > 0 ? (ssInteract / df1b) / (fitInteract.sse / dfInteract) : NaN;
+          slopes = { F: FInteract, df1: df1b, df2: dfInteract, p: fPValue(FInteract, df1b, dfInteract) };
+        }
+      }
+    }
+
+    var XtX = [];
+    for (var a = 0; a < pFull; a++) XtX.push(new Array(pFull).fill(0));
+    for (var r = 0; r < n; r++){
+      for (a = 0; a < pFull; a++){
+        for (var b = 0; b < pFull; b++) XtX[a][b] += Xfull[r][a] * Xfull[r][b];
+      }
+    }
+    var invXtX = invertMatrix(XtX);
+    var se = invXtX ? invXtX.map(function(row, j){ return Math.sqrt(Math.max(0, mseFull * row[j])); }) : new Array(pFull).fill(NaN);
+
+    var grandCovMeans = covariates.map(function(cov){ return mean(cov.values); });
+    var adjMeans = enc.distinct.map(function(levelName){
+      var c = [1];
+      enc.levels.forEach(function(lv){ c.push(lv === levelName ? 1 : 0); });
+      grandCovMeans.forEach(function(gm){ c.push(gm); });
+      var estVal = 0; for (var j = 0; j < c.length; j++) estVal += c[j] * fitFull.coef[j];
+      var varVal = NaN;
+      if (invXtX){
+        var Ac = invXtX.map(function(row){ var s = 0; for (var j2 = 0; j2 < c.length; j2++) s += row[j2] * c[j2]; return s; });
+        var v = 0; for (var j3 = 0; j3 < c.length; j3++) v += Ac[j3] * c[j3];
+        varVal = v * mseFull;
+      }
+      var seVal = Math.sqrt(Math.max(0, varVal));
+      var tCrit = tCriticalValue(dfFull, 0.05);
+      return { level: levelName, mean: estVal, se: seVal, ciLower: estVal - tCrit * seVal, ciUpper: estVal + tCrit * seVal };
+    });
+
+    var termNames = ["Intercept"];
+    enc.levels.forEach(function(lv){ termNames.push(groupLabel + " = " + lv + " (ref: " + enc.reference + ")"); });
+    covariates.forEach(function(cov){ termNames.push(cov.name); });
+    var terms = termNames.map(function(name, j){
+      var t = fitFull.coef[j] / se[j];
+      return { name: name, coef: fitFull.coef[j], se: se[j], t: t, p: tTestPValue(t, dfFull) };
+    });
+
+    return {
+      k: k, m: m, n: n, enc: enc, dfFull: dfFull,
+      ssCov: ssCov, dfCov: dfCov, msCov: msCov, Fcov: Fcov, pCov: pCov,
+      ssGroup: ssGroup, df1: df1, df2: df2, msGroup: msGroup, Fgroup: Fgroup, pGroup: pGroup,
+      mseFull: mseFull, sst: sst, partialEta2: partialEta2,
+      slopes: slopes, adjMeans: adjMeans, terms: terms
+    };
+  }
+
+  // One-way MANOVA via SSCP matrices (H = between-groups, E = within-groups), Wilks' Lambda = det(E)/det(E+H),
+  // converted to an approximate F via Rao's (1951) transformation. Validated numerically before shipping: with
+  // a single dependent variable this F is bit-identical to the plain one-way ANOVA F (and Lambda to SSW/SST);
+  // with exactly two groups the transformation is exact (not merely approximate) and matches an independently
+  // computed Hotelling's T-squared F-test to floating-point precision.
+  function fitManova(groupTokens, dvs){
+    var n = groupTokens.length;
+    var p = dvs.length;
+    var distinctGroups = [];
+    groupTokens.forEach(function(t){ if (distinctGroups.indexOf(t) < 0) distinctGroups.push(t); });
+    var k = distinctGroups.length;
+    var groupIdx = {};
+    distinctGroups.forEach(function(g, i){ groupIdx[g] = i; });
+    var groupRows = distinctGroups.map(function(){ return []; });
+    for (var i = 0; i < n; i++) groupRows[groupIdx[groupTokens[i]]].push(i);
+
+    var grandMeans = dvs.map(function(dv){ return mean(dv.values); });
+    var groupMeans = groupRows.map(function(idxs){
+      return dvs.map(function(dv){ return mean(idxs.map(function(i){ return dv.values[i]; })); });
+    });
+
+    var H = [], E = [];
+    for (var a = 0; a < p; a++){ H.push(new Array(p).fill(0)); E.push(new Array(p).fill(0)); }
+    for (var g = 0; g < k; g++){
+      var ng = groupRows[g].length;
+      for (a = 0; a < p; a++){
+        for (var b = 0; b < p; b++) H[a][b] += ng * (groupMeans[g][a] - grandMeans[a]) * (groupMeans[g][b] - grandMeans[b]);
+      }
+      groupRows[g].forEach(function(i){
+        for (a = 0; a < p; a++){
+          for (var b2 = 0; b2 < p; b2++) E[a][b2] += (dvs[a].values[i] - groupMeans[g][a]) * (dvs[b2].values[i] - groupMeans[g][b2]);
+        }
+      });
+    }
+    var EH = E.map(function(row, a){ return row.map(function(v, b){ return v + H[a][b]; }); });
+    var detE = determinant(E), detEH = determinant(EH);
+    if (!(detEH > 0) || !isFinite(detE) || !isFinite(detEH)) return null;
+    var lambda = detE / detEH;
+
+    var dfH = k - 1, dfE = n - k;
+    if (dfE <= 0) return null;
+    var denomT = p * p + dfH * dfH - 5;
+    var t = denomT > 1e-9 ? Math.sqrt((p * p * dfH * dfH - 4) / denomT) : 1;
+    var w = dfE + dfH - (p + dfH + 1) / 2;
+    var df1 = p * dfH;
+    var df2 = w * t - (p * dfH) / 2 + 1;
+    var lam1t = Math.pow(lambda, 1 / t);
+    var F = lam1t > 0 ? (1 - lam1t) / lam1t * (df2 / df1) : NaN;
+    var pVal = fPValue(F, df1, df2);
+
+    var univariate = dvs.map(function(dv){
+      var groups = groupRows.map(function(idxs){ return idxs.map(function(i){ return dv.values[i]; }); });
+      var aov = oneWayAnova(groups);
+      return { name: dv.name, F: aov.F, df1: aov.df1, df2: aov.df2, p: aov.p, eta2: aov.eta2 };
+    });
+
+    return { lambda: lambda, F: F, df1: df1, df2: df2, p: pVal, k: k, dfH: dfH, dfE: dfE, numDV: p, univariate: univariate };
+  }
+
+  // ---- Rendering ----
+
+  function clearMvErrors(){ mvEls.ancovaError.hidden = true; mvEls.manovaError.hidden = true; }
+  function showMvError(el, msg){ el.hidden = false; el.innerHTML = '<span class="dot"></span> ' + msg; }
+
+  function recalcAncova(){
+    var yLabel = mvEls.ancovaYLabel.value || "Outcome";
+    var groupLabel = mvEls.ancovaGroupLabel.value || "Group";
+    var y = parseNumbers(mvEls.ancovaYData.value);
+    var groupTokens = parseTokens(mvEls.ancovaGroupData.value);
+    var covariates = readMvBlocks(mvEls.ancovaCovariatesContainer, "Covariate");
+    var n = y.length;
+
+    if (n === 0 || groupTokens.length === 0 || covariates.length === 0 || covariates.some(function(c){ return c.values.length === 0; })){
+      showMvError(mvEls.ancovaError, "Enter the outcome, group labels, and at least one covariate.");
+      return;
+    }
+    if (groupTokens.length !== n || covariates.some(function(c){ return c.values.length !== n; })){
+      showMvError(mvEls.ancovaError, "The outcome (n = " + n + "), group labels (n = " + groupTokens.length + "), and every covariate need the same number of values.");
+      return;
+    }
+    var distinct = []; groupTokens.forEach(function(t){ if (distinct.indexOf(t) < 0) distinct.push(t); });
+    if (distinct.length < 2){
+      showMvError(mvEls.ancovaError, "Need at least 2 distinct groups.");
+      return;
+    }
+    var pFullNeeded = 1 + (distinct.length - 1) + covariates.length;
+    if (n <= pFullNeeded){
+      showMvError(mvEls.ancovaError, "Too few observations (" + n + ") for " + distinct.length + " groups and " + covariates.length + " covariate(s) — need more than " + pFullNeeded + ".");
+      return;
+    }
+    clearMvErrors();
+
+    var fit = fitAncova(groupTokens, groupLabel, y, covariates);
+    if (!fit){
+      showMvError(mvEls.ancovaError, "The model couldn't be fit — check for a covariate that's collinear with another, or with the group factor (e.g. constant within a group).");
+      return;
+    }
+
+    mvEls.ancovaTitle.textContent = "ANCOVA";
+    var rows = "";
+    rows += '<tr><td>' + escapeXml(covariates.length === 1 ? covariates[0].name : "Covariates (combined)") + '</td><td>' + fmtNum(fit.ssCov, 2) + '</td><td>' + fit.dfCov + '</td><td>' + fmtNum(fit.msCov, 3) + '</td><td>' + fmtNum(fit.Fcov, 3) + '</td><td>' + fmtP(fit.pCov) + '</td></tr>';
+    rows += '<tr><td>' + escapeXml(groupLabel) + ' (adjusted)</td><td>' + fmtNum(fit.ssGroup, 2) + '</td><td>' + fit.df1 + '</td><td>' + fmtNum(fit.msGroup, 3) + '</td><td>' + fmtNum(fit.Fgroup, 3) + '</td><td>' + fmtP(fit.pGroup) + '</td></tr>';
+    rows += '<tr><td>Residual</td><td>' + fmtNum(fit.mseFull * fit.dfFull, 2) + '</td><td>' + fit.dfFull + '</td><td>' + fmtNum(fit.mseFull, 3) + '</td><td>—</td><td>—</td></tr>';
+    rows += '<tr><td>Total</td><td>' + fmtNum(fit.sst, 2) + '</td><td>' + (fit.n - 1) + '</td><td>—</td><td>—</td><td>—</td></tr>';
+    mvEls.ancovaTableBody.innerHTML = rows;
+    mvEls.ancovaVerdict.innerHTML = ""; mvEls.ancovaVerdict.appendChild(verdictPill(fit.pGroup));
+    mvEls.ancovaEffectValue.textContent = fmtNum(fit.partialEta2, 3);
+
+    renderBarChart(mvEls.ancovaBarChart, fit.adjMeans.map(function(am){
+      return { name: am.level, stats: { mean: am.mean, ciLower: am.ciLower, ciUpper: am.ciUpper } };
+    }), "ancova-adjusted-means");
+
+    mvEls.ancovaMeansTableBody.innerHTML = fit.adjMeans.map(function(am){
+      return '<tr><td>' + escapeXml(am.level) + '</td><td>' + fmtNum(am.mean, 3) + '</td><td>' + fmtNum(am.se, 3) + '</td><td>' + fmtNum(am.ciLower, 3) + '–' + fmtNum(am.ciUpper, 3) + '</td></tr>';
+    }).join("");
+
+    mvEls.ancovaCoefTableBody.innerHTML = fit.terms.map(function(term){
+      return '<tr><td>' + escapeXml(term.name) + '</td><td>' + fmtNum(term.coef, 4) + '</td><td>' + fmtNum(term.se, 4) + '</td><td>' + fmtNum(term.t, 3) + '</td><td>' + fmtP(term.p) + '</td></tr>';
+    }).join("");
+
+    if (fit.slopes){
+      var slopesSig = fit.slopes.p < 0.05;
+      mvEls.ancovaSlopesRow.innerHTML =
+        '<div class="norm-row"><div class="norm-row-head"><span class="norm-name">Group × covariate interaction</span><span class="norm-n"></span></div>' +
+        '<div class="norm-stats"><span class="norm-stat">F = <b>' + fmtNum(fit.slopes.F, 3) + '</b></span><span class="norm-stat">df = <b>' + fmtNum(fit.slopes.df1, 2) + ', ' + fmtNum(fit.slopes.df2, 2) + '</b></span><span class="norm-stat">p = <b>' + fmtP(fit.slopes.p) + '</b></span>' +
+        '<span class="verdict ' + (slopesSig ? "border" : "sig") + '">' + (slopesSig ? "Slopes differ across groups" : "Slopes consistent with equal") + '</span></div></div>';
+    } else {
+      mvEls.ancovaSlopesRow.innerHTML = '<p class="norm-note">Not enough degrees of freedom to test this with the current data.</p>';
+    }
+
+    var slopesWarning = fit.slopes && fit.slopes.p < 0.05
+      ? " Note: the homogeneity-of-regression-slopes check above is significant (p = " + fmtP(fit.slopes.p) + "), so the covariate's relationship with the outcome differs across groups — treat this single adjusted comparison with caution."
+      : "";
+    mvEls.ancovaInterpretation.textContent = "An ANCOVA on " + yLabel + " by " + groupLabel + ", adjusting for " + covariates.map(function(c){ return c.name; }).join(", ") + ", found " +
+      (fit.pGroup < 0.05 ? "evidence" : "no evidence") + " of a difference among the adjusted group means (F(" + fit.df1 + ", " + fit.df2 + ") = " + fmtNum(fit.Fgroup, 2) + ", p = " + fmtP(fit.pGroup) + ", partial η² = " + fmtNum(fit.partialEta2, 3) + ")." + slopesWarning;
+  }
+
+  function recalcManova(){
+    var groupLabel = mvEls.manovaGroupLabel.value || "Group";
+    var groupTokens = parseTokens(mvEls.manovaGroupData.value);
+    var dvs = readMvBlocks(mvEls.manovaDvsContainer, "DV");
+    var n = groupTokens.length;
+
+    if (n === 0 || dvs.length < 2 || dvs.some(function(d){ return d.values.length === 0; })){
+      showMvError(mvEls.manovaError, "Enter group labels and at least 2 dependent variables.");
+      return;
+    }
+    if (dvs.some(function(d){ return d.values.length !== n; })){
+      showMvError(mvEls.manovaError, "The group labels (n = " + n + ") and every dependent variable need the same number of values.");
+      return;
+    }
+    var distinct = []; groupTokens.forEach(function(t){ if (distinct.indexOf(t) < 0) distinct.push(t); });
+    if (distinct.length < 2){
+      showMvError(mvEls.manovaError, "Need at least 2 distinct groups.");
+      return;
+    }
+    if (n - distinct.length < dvs.length){
+      showMvError(mvEls.manovaError, "Too few observations (" + n + ") for " + distinct.length + " groups and " + dvs.length + " dependent variables — the error degrees of freedom (" + (n - distinct.length) + ") must be at least " + dvs.length + ".");
+      return;
+    }
+    clearMvErrors();
+
+    var fit = fitManova(groupTokens, dvs);
+    if (!fit){
+      showMvError(mvEls.manovaError, "The model couldn't be fit — the within-groups covariance matrix is degenerate (e.g. two dependent variables are perfectly correlated, or a group has too few observations relative to the number of dependent variables).");
+      return;
+    }
+
+    mvEls.manovaTableBody.innerHTML = '<tr><td>' + fmtNum(fit.lambda, 4) + '</td><td>' + fmtNum(fit.F, 3) + '</td><td>' + fmtNum(fit.df1, 2) + '</td><td>' + fmtNum(fit.df2, 2) + '</td><td>' + fmtP(fit.p) + '</td></tr>';
+    mvEls.manovaVerdict.innerHTML = ""; mvEls.manovaVerdict.appendChild(verdictPill(fit.p));
+    mvEls.manovaEffectValue.textContent = fmtNum(1 - fit.lambda, 3);
+
+    mvEls.manovaUnivariateTableBody.innerHTML = fit.univariate.map(function(u){
+      return '<tr><td>' + escapeXml(u.name) + '</td><td>' + fmtNum(u.F, 3) + '</td><td>' + u.df1 + ', ' + u.df2 + '</td><td>' + fmtP(u.p) + '</td><td>' + fmtNum(u.eta2, 3) + '</td></tr>';
+    }).join("");
+
+    mvEls.manovaInterpretation.textContent = "A one-way MANOVA on " + fit.numDV + " dependent variables (" + dvs.map(function(d){ return d.name; }).join(", ") + ") by " + groupLabel + " (" + fit.k + " groups) found " +
+      (fit.p < 0.05 ? "evidence" : "no evidence") + " that the groups differ on the combination of dependent variables (Wilks' Λ = " + fmtNum(fit.lambda, 3) + ", F(" + fmtNum(fit.df1, 2) + ", " + fmtNum(fit.df2, 2) + ") = " + fmtNum(fit.F, 2) + ", p = " + fmtP(fit.p) + ")." +
+      (fit.p < 0.05 ? " The univariate follow-up tests below show which dependent variable(s) that difference shows up in most strongly, though they don't individually correct for testing each one." : "");
+  }
+
+  function recalcManovaAncova(){
+    var mode = manovaMode();
+    mvEls.ancovaModeCard.classList.toggle("active", mode === "ancova");
+    mvEls.manovaModeCard.classList.toggle("active", mode === "manova");
+    mvEls.ancovaWrap.hidden = mode !== "ancova";
+    mvEls.manovaWrap.hidden = mode !== "manova";
+    if (mode === "ancova") recalcAncova(); else recalcManova();
+  }
+
+  function manovaAncovaExampleAncova(){
+    return {
+      yLabel: "Post-treatment score", groupLabel: "Treatment",
+      y: "49, 55, 62, 53, 65, 55, 60, 49, 51, 37, 77, 72, 65, 83, 66, 74, 84, 73, 83, 78",
+      group: "Control,Control,Control,Control,Control,Control,Control,Control,Control,Control,Drug,Drug,Drug,Drug,Drug,Drug,Drug,Drug,Drug,Drug",
+      covariates: [{ name: "Baseline score", data: "44, 48, 52, 48, 60, 49, 54, 45, 51, 32, 58, 52, 54, 64, 48, 52, 64, 59, 69, 62" }]
+    };
+  }
+  function manovaAncovaExampleManova(){
+    return {
+      groupLabel: "Treatment",
+      group: "A,A,A,A,A,A,A,A,B,B,B,B,B,B,B,B,C,C,C,C,C,C,C,C",
+      dvs: [
+        { name: "Pain score", data: "7,6,8,7,6,7,8,6,4,3,5,4,3,4,5,4,2,1,3,2,1,2,3,2" },
+        { name: "Mobility score", data: "3,4,2,3,4,3,2,4,5,6,5,6,7,6,5,6,8,9,7,8,9,8,7,9" }
+      ]
+    };
+  }
+
+  mvEls.modeAncovaRadio.addEventListener("change", recalcManovaAncova);
+  mvEls.modeManovaRadio.addEventListener("change", recalcManovaAncova);
+  mvEls.ancovaYLabel.addEventListener("input", recalcManovaAncova);
+  mvEls.ancovaYData.addEventListener("input", recalcManovaAncova);
+  mvEls.ancovaGroupLabel.addEventListener("input", recalcManovaAncova);
+  mvEls.ancovaGroupData.addEventListener("input", recalcManovaAncova);
+  mvEls.ancovaAddCovariateBtn.addEventListener("click", function(){
+    addCovariate("Covariate " + (mvEls.ancovaCovariatesContainer.querySelectorAll(".group-block").length + 1), "");
+    recalcManovaAncova();
+  });
+  mvEls.ancovaLoadExampleBtn.addEventListener("click", function(){
+    var ex = manovaAncovaExampleAncova();
+    mvEls.ancovaYLabel.value = ex.yLabel;
+    mvEls.ancovaYData.value = ex.y;
+    mvEls.ancovaGroupLabel.value = ex.groupLabel;
+    mvEls.ancovaGroupData.value = ex.group;
+    mvEls.ancovaCovariatesContainer.innerHTML = "";
+    ex.covariates.forEach(function(c){ addCovariate(c.name, c.data); });
+    recalcManovaAncova();
+  });
+
+  mvEls.manovaGroupLabel.addEventListener("input", recalcManovaAncova);
+  mvEls.manovaGroupData.addEventListener("input", recalcManovaAncova);
+  mvEls.manovaAddDvBtn.addEventListener("click", function(){
+    addDv("DV " + (mvEls.manovaDvsContainer.querySelectorAll(".group-block").length + 1), "");
+    recalcManovaAncova();
+  });
+  mvEls.manovaLoadExampleBtn.addEventListener("click", function(){
+    var ex = manovaAncovaExampleManova();
+    mvEls.manovaGroupLabel.value = ex.groupLabel;
+    mvEls.manovaGroupData.value = ex.group;
+    mvEls.manovaDvsContainer.innerHTML = "";
+    ex.dvs.forEach(function(d){ addDv(d.name, d.data); });
+    recalcManovaAncova();
+  });
+
+  (function initManovaAncova(){
+    var exA = manovaAncovaExampleAncova();
+    mvEls.ancovaYLabel.value = exA.yLabel;
+    mvEls.ancovaYData.value = exA.y;
+    mvEls.ancovaGroupLabel.value = exA.groupLabel;
+    mvEls.ancovaGroupData.value = exA.group;
+    exA.covariates.forEach(function(c){ addCovariate(c.name, c.data); });
+
+    var exM = manovaAncovaExampleManova();
+    mvEls.manovaGroupLabel.value = exM.groupLabel;
+    mvEls.manovaGroupData.value = exM.group;
+    exM.dvs.forEach(function(d){ addDv(d.name, d.data); });
+
+    recalcManovaAncova();
+  })();
 
   /* ===================== Logistic / Poisson regression (GLM) ===================== */
 
