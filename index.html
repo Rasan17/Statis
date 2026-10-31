@@ -686,6 +686,7 @@
     <button class="tab-btn" id="tabBtnManova" type="button" role="tab" aria-selected="false">MANOVA/ANCOVA</button>
     <button class="tab-btn" id="tabBtnRegression" type="button" role="tab" aria-selected="false">Correlation</button>
     <button class="tab-btn" id="tabBtnSurvival" type="button" role="tab" aria-selected="false">Survival</button>
+    <button class="tab-btn" id="tabBtnSurvSub" type="button" role="tab" aria-selected="false">Survival subgroups</button>
     <button class="tab-btn" id="tabBtnGlm" type="button" role="tab" aria-selected="false">GLM</button>
     <button class="tab-btn" id="tabBtnMeta" type="button" role="tab" aria-selected="false">Meta-Analysis<span class="tab-badge" id="metaTabBadge" hidden>0</span></button>
     <button class="tab-btn" id="tabBtnMl" type="button" role="tab" aria-selected="false">ML/NN</button>
@@ -1413,6 +1414,74 @@
 
   <footer class="notes">
     <b>How it's computed —</b> The Kaplan–Meier estimator is Ŝ(t) = Π(1−dᵢ⁄nᵢ) over each distinct time with an event, ties handled by counting dᵢ and nᵢ as totals at that time rather than breaking them apart. Variance uses Greenwood's formula, Σdᵢ⁄(nᵢ(nᵢ−dᵢ)), transformed via complementary log-log for the 95% bands. Median survival and its CI are read directly off the step function and its confidence bands — never approximated from the last observed time or interpolated. The log-rank test is the Mantel–Haenszel form: at each pooled event time it compares observed vs. expected events in one group under the shared-survival null, weighted by the hypergeometric variance, summed and squared against that total variance (χ², df = 1). Hazard ratios come only from the Cox model, never from the curves or medians: Newton–Raphson maximisation of the partial likelihood with Efron's method for tied times (as R's <code>coxph()</code>), Wald 95% CIs, likelihood ratio, Wald and score tests, Harrell's C, and the Grambsch–Therneau proportional-hazards test — validated to match R's <code>survival</code> package.
+  </footer>
+
+  </div>
+
+  <div class="tab-panel" id="panel-survsub" hidden>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 1</p><h2>Patient-level data</h2></div>
+      <div class="btn-row">
+        <span class="ghost-btn file-btn">Upload CSV or Excel<input type="file" id="sgFileInput" accept=".csv,.tsv,.txt,.xlsx"></span>
+        <button class="ghost-btn" id="sgLoadExampleBtn" type="button">Load example</button>
+      </div>
+    </div>
+    <textarea id="sgPasteArea" aria-label="Patient-level survival data" rows="8" style="width:100%;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font:13px/1.5 'IBM Plex Mono',monospace;padding:10px 12px;resize:vertical;"></textarea>
+    <p class="data-hint">One row per patient, first row the column names. Comma-, tab- or space-separated text, or an Excel .xlsx file (its first worksheet). Blank cells, NA and "." count as missing. The data stay in your browser.</p>
+    <div class="assumption warn" id="sgError" hidden style="margin-top:14px;"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 2</p><h2>Variables</h2></div>
+    </div>
+    <div class="col-map-grid">
+      <div class="col-map-field"><label for="sgColTime">Time-to-event column</label><select id="sgColTime"></select></div>
+      <div class="col-map-field"><label for="sgColEvent">Event column (1 = event, 0 = censored)</label><select id="sgColEvent"></select></div>
+      <div class="col-map-field"><label for="sgColTrt">Treatment column</label><select id="sgColTrt"></select></div>
+      <div class="col-map-field"><label for="sgRefArm">Reference treatment</label><select id="sgRefArm"></select></div>
+      <div class="col-map-field"><label for="sgTimeUnit">Time units</label>
+        <select id="sgTimeUnit"><option value="days">Days</option><option value="weeks">Weeks</option><option value="months" selected>Months</option><option value="years">Years</option></select>
+      </div>
+    </div>
+    <p class="norm-note" id="sgQc" style="margin-top:12px;"></p>
+    <h3 style="font-family:'Fraunces',serif;font-size:15px;margin:18px 0 6px;">Subgroup and prognostic variables</h3>
+    <p class="data-hint">Tick each variable to analyse; it is analysed on its own (one variable at a time), so you can tick several and compare them in the summary. <b style="color:var(--ink);">Categorical</b> — every category is kept (a 4-category variable gives four curves and three hazard ratios against the reference). <b style="color:var(--ink);">Continuous</b> — used as it is in the Cox models (hazard ratio per unit); Kaplan–Meier curves only if you enter your own cut-off(s), e.g. <code>65</code> or <code>50, 70</code>. Tick <b style="color:var(--ink);">Pre-specified</b> only for variables named in the protocol or analysis plan before the data were seen; the rest are reported as exploratory.</p>
+    <div id="sgVariables" style="margin-top:10px;"></div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <div><p class="eyebrow">Step 3</p><h2>Analyses</h2></div>
+    </div>
+    <div id="sgAnalysisChoices"></div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="ghost-btn" id="sgRunSelectedBtn" type="button">Run selected analyses</button>
+      <button class="ghost-btn" id="sgRunAllBtn" type="button">Run all analyses</button>
+      <button class="ghost-btn" id="sgCopyBtn" type="button" hidden>Copy results</button>
+    </div>
+    <p class="data-hint" id="sgRunStatus"></p>
+  </section>
+
+  <div id="sgResults"></div>
+
+  <section class="card">
+    <details class="info-box">
+      <summary>About subgroup and interaction analyses</summary>
+      <div class="info-body">
+        <p><b>Within-arm analyses (2 and 3) are not tests of whether the treatment works differently —</b> they compare the categories of a variable (for example grades) among patients who all had the same treatment, so they show prognosis within that arm. A variable can be strongly prognostic in both arms while the treatment works equally well in every category.</p>
+        <p><b>The interaction analysis (4) is the test of effect modification —</b> one Cox model, treatment + subgroup + treatment × subgroup, fitted to everyone. Its joint test asks whether the treatment hazard ratio differs across the categories at all. For a variable with more than two categories, read the joint test, not the individual interaction p-values: with several of them, one will often fall below 0.05 by chance. The joint test uses the likelihood ratio (this model against the same model without interaction terms); the Wald test of all interaction coefficients is shown alongside and is less reliable when events are few. Do not conclude that a treatment works in one subgroup and not another because one subgroup's hazard ratio is "significant" and the other's is not — only the interaction test addresses that.</p>
+        <p><b>Treatment effect within each category —</b> taken from the interaction model: the treatment coefficient plus that category's interaction coefficient, with a confidence interval from the model's covariance matrix. For a continuous variable the treatment hazard ratio is given at the variable's mean, and the interaction hazard ratio is the change in the treatment hazard ratio per unit of the variable.</p>
+        <p><b>Multiplicity —</b> each additional subgroup variable tested adds another chance of a false-positive interaction. With m independent tests and no true differences, the chance of at least one p &lt; 0.05 is 1 − 0.95<sup>m</sup> (40% for 10 variables). The summary gives Holm-adjusted p-values. Credible subgroup effects are pre-specified with an expected direction, few in number, biologically plausible, supported by a significant interaction test and replicated in other studies.</p>
+        <p><b>Not estimable —</b> a combination with no patients (for example a category that only occurs in one arm) cannot be estimated and is left out of the model, as R does; the interaction test then has fewer degrees of freedom. A category with patients but no events gives a hazard ratio that tends to 0 or infinity; it is shown as not estimable rather than as a meaningless number.</p>
+      </div>
+    </details>
+  </section>
+
+  <footer class="notes">
+    <b>How it's computed —</b> Kaplan–Meier curves, Greenwood log-log confidence bands and medians are those of the Survival tab. The log-rank test for k categories is the Mantel–Haenszel form with the multivariate hypergeometric covariance, χ² on k − 1 df (as R's <code>survdiff()</code>). Cox models use the Survival tab's validated engine (Efron's method for ties, as R's <code>coxph()</code>), with indicator variables for every non-reference category and products of the treatment and subgroup indicators for the interaction; columns that the data cannot estimate are dropped, as R reports them NA. The joint interaction tests are the likelihood ratio test of the models with and without the interaction terms and the Wald test bᵀV⁻¹b on the interaction coefficients, each with df = the number of estimable interaction coefficients; treatment hazard ratios within categories are linear combinations of coefficients with variances from the full covariance matrix. Rows missing the subgroup variable are left out of that variable's analyses only. All of these — hazard ratios, confidence intervals, p-values, log-rank tests and joint interaction tests — were validated against R's <code>survival</code> package (3.8) for binary and multi-category variables, a category absent from one arm, a category with no events, missing data, tied times, three treatment arms and a continuous variable.
   </footer>
 
   </div>
@@ -2709,6 +2778,7 @@
     manova:      { btn: document.getElementById("tabBtnManova"),      panel: document.getElementById("panel-manova") },
     regression:  { btn: document.getElementById("tabBtnRegression"),  panel: document.getElementById("panel-regression") },
     survival:    { btn: document.getElementById("tabBtnSurvival"),    panel: document.getElementById("panel-survival") },
+    survsub:     { btn: document.getElementById("tabBtnSurvSub"),     panel: document.getElementById("panel-survsub") },
     glm:         { btn: document.getElementById("tabBtnGlm"),         panel: document.getElementById("panel-glm") },
     meta:        { btn: document.getElementById("tabBtnMeta"),        panel: document.getElementById("panel-meta") },
     ml:          { btn: document.getElementById("tabBtnMl"),          panel: document.getElementById("panel-ml") }
@@ -4177,9 +4247,12 @@
   /* ===================== Kaplan–Meier survival analysis ===================== */
 
   function parseDelimitedText(text){
-    var lines = text.split(/\r\n|\r|\n/).map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
+    var lines = text.split(/\r\n|\r|\n/).filter(function(l){ return l.trim().length > 0; });
     if (lines.length === 0) return { headers: [], rows: [] };
     var delim = lines[0].indexOf("\t") >= 0 ? "\t" : (lines[0].indexOf(",") >= 0 ? "," : null);
+    // Tab-separated lines keep their leading and trailing tabs — trimming them would drop a blank first cell
+    // (common in data pasted from Excel) and shift every later column one place to the left.
+    if (delim !== "\t") lines = lines.map(function(l){ return l.trim(); });
     function splitLine(l){
       return delim ? l.split(delim).map(function(s){ return s.trim(); }) : l.trim().split(/\s+/);
     }
@@ -4739,8 +4812,10 @@
   }
 
   function renderKMPlot(container, legendEl, groups, options){
-    var colors = [getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
-                  getComputedStyle(document.documentElement).getPropertyValue("--accent2").trim()];
+    // The first two colours are the Survival tab's; further curves (three or more categories) continue the palette.
+    var colors = ["--accent", "--accent2", "--accent3", "--accent4", "--warn", "--good", "--neutral"].map(function(v){
+      return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    });
     var maxTime = 0;
     groups.forEach(function(g){ g.raw.forEach(function(r){ if (r.time > maxTime) maxTime = r.time; }); });
     if (maxTime === 0) maxTime = 1;
@@ -4821,7 +4896,7 @@
     var yLabelSvg = '<text x="14" y="' + ((mT + H - mB) / 2) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" font-family="IBM Plex Sans, sans-serif" transform="rotate(-90 14 ' + ((mT + H - mB) / 2) + ')">' + escapeXml(options.yLabel) + '</text>';
     var riskDivider = '<line x1="0" y1="' + (H + 6) + '" x2="' + W + '" y2="' + (H + 6) + '" stroke="var(--line)"/>';
 
-    container.innerHTML = '<svg id="kmSvgRoot" viewBox="0 0 ' + W + ' ' + totalH + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Kaplan-Meier survival curve">' +
+    container.innerHTML = '<svg id="' + (options.svgId || "kmSvgRoot") + '" viewBox="0 0 ' + W + ' ' + totalH + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Kaplan-Meier survival curve">' +
       '<rect x="0" y="0" width="' + W + '" height="' + totalH + '" fill="var(--surface)"/>' +
       titleSvg + yTicks + axes + bands + curves + ticks + xTicks + xLabelSvg + yLabelSvg + riskDivider + riskLabelSvg + riskRowsSvg + '</svg>';
 
@@ -5252,6 +5327,799 @@
       "The proportional-hazards assumption was assessed with the Grambsch–Therneau test (global " + coxP(m.zph.global.p) + "). " +
       "Model discrimination: Harrell's C = " + fmtNum(m.concordance, 2) + ".";
   }
+
+  /* --- Survival subgroups: k-group log-rank, Cox designs with aliased terms, joint tests --- */
+
+  // Log-rank test for k ≥ 2 groups (R's survdiff): at each distinct event time, observed minus expected events
+  // per group and the multivariate hypergeometric covariance; χ² = (O−E)ᵀ V⁻¹ (O−E) on the first k−1 groups,
+  // df = k − 1. groups: arrays of { time, event }. For two groups this equals logRankTest().
+  function logRankK(groups){
+    var k = groups.length, all = [];
+    groups.forEach(function(g, gi){ g.forEach(function(r){ all.push({ time: r.time, event: r.event, g: gi }); }); });
+    all.sort(function(a, b){ return a.time - b.time; });
+    var atRisk = groups.map(function(g){ return g.length; }), n = all.length;
+    var O = new Array(k).fill(0), E = new Array(k).fill(0), V = [], i, j;
+    for (i = 0; i < k; i++) V.push(new Array(k).fill(0));
+    var pos = 0;
+    while (pos < all.length){
+      var end = pos, d = 0, dg = new Array(k).fill(0), leaving = new Array(k).fill(0);
+      while (end < all.length && all[end].time === all[pos].time){
+        leaving[all[end].g]++;
+        if (all[end].event === 1){ d++; dg[all[end].g]++; }
+        end++;
+      }
+      if (d > 0){
+        for (i = 0; i < k; i++){
+          O[i] += dg[i];
+          E[i] += d * atRisk[i] / n;
+          if (n > 1){
+            var f = d * (n - d) / (n * n * (n - 1));
+            for (j = 0; j < k; j++) V[i][j] += f * atRisk[i] * ((i === j ? n : 0) - atRisk[j]);
+          }
+        }
+      }
+      for (i = 0; i < k; i++) atRisk[i] -= leaving[i];
+      n -= end - pos;
+      pos = end;
+    }
+    var diff = [], sub = [];
+    for (i = 0; i < k - 1; i++){ diff.push(O[i] - E[i]); sub.push(V[i].slice(0, k - 1)); }
+    var sol = solveLinear(sub.map(function(r){ return r.slice(); }), diff);
+    var chi2 = sol ? coxDot(sol, diff) : NaN;
+    return { O: O, E: E, chi2: chi2, df: k - 1, p: chiSquaredPGeneral(chi2, k - 1), events: O.reduce(function(s, v){ return s + v; }, 0) };
+  }
+
+  // Drops columns the data cannot estimate — all-constant columns, and any column that is an exact linear
+  // combination of earlier ones (e.g. a subgroup × treatment term when that subgroup has no patients in one
+  // arm). R's coxph() reports such coefficients as NA; here they are listed as not estimable. Gram–Schmidt
+  // on the centred columns, in the order given, so main effects are kept ahead of interactions.
+  function coxEstimableColumns(X){
+    var n = X.length, p = X.length ? X[0].length : 0, basis = [], keep = [];
+    for (var j = 0; j < p; j++){
+      var mean = 0, i;
+      for (i = 0; i < n; i++) mean += X[i][j] / n;
+      var v = X.map(function(row){ return row[j] - mean; });
+      var norm0 = Math.sqrt(coxDot(v, v));
+      if (norm0 < 1e-12) continue;
+      basis.forEach(function(b){ var c = coxDot(v, b); for (i = 0; i < n; i++) v[i] -= c * b[i]; });
+      var norm = Math.sqrt(coxDot(v, v));
+      if (norm <= 1e-7 * norm0) continue;
+      basis.push(v.map(function(x){ return x / norm; }));
+      keep.push(j);
+    }
+    return keep;
+  }
+
+  // Fits a Cox model on named columns, leaving out those that cannot be estimated. columns: [{ label, ... }],
+  // X: n × columns.length. Returns the fit plus, per column, est (index into the fit, or −1 if dropped).
+  function coxFitColumns(times, events, X, columns){
+    var keep = coxEstimableColumns(X);
+    var info = columns.map(function(c, j){ var at = keep.indexOf(j); return Object.assign({}, c, { est: at }); });
+    if (!keep.length) return { ok: false, error: "nothing estimable", columns: info };
+    var fit = coxFit(times, events, X.map(function(row){ return keep.map(function(j){ return row[j]; }); }));
+    fit.columns = info;
+    return fit;
+  }
+
+  // One row per column: β, SE, z, p, HR and Wald 95% CI (or a not-estimable / infinite marker).
+  function coxRows(fit){
+    var z975 = stdNormalInvCdf(0.975);
+    return fit.columns.map(function(c){
+      if (c.est < 0) return Object.assign({ dropped: true }, c);
+      var b = fit.beta[c.est], se = fit.se[c.est], zv = b / se;
+      return Object.assign({ beta: b, se: se, z: zv, p: Math.min(1, erfc(Math.abs(zv) / Math.SQRT2)), hr: Math.exp(b),
+        lo: Math.exp(b - z975 * se), hi: Math.exp(b + z975 * se), infinite: fit.infinite[c.est] }, c);
+    });
+  }
+
+  // Joint Wald test that a set of fitted coefficients are all zero: bᵀ V⁻¹ b on that sub-block.
+  function coxJointWald(fit, estIdx){
+    if (!estIdx.length) return { chi2: NaN, df: 0, p: NaN };
+    var b = estIdx.map(function(i){ return fit.beta[i]; });
+    var V = estIdx.map(function(i){ return estIdx.map(function(j){ return fit.cov[i][j]; }); });
+    var sol = solveLinear(V, b);
+    var chi2 = sol ? coxDot(sol, b) : NaN;
+    return { chi2: chi2, df: estIdx.length, p: chiSquaredPGeneral(chi2, estIdx.length) };
+  }
+
+  // A linear combination of coefficients (weights per fitted index) as a hazard ratio with a Wald 95% CI.
+  function coxCombination(fit, weights){
+    var b = 0, v = 0, z975 = stdNormalInvCdf(0.975);
+    Object.keys(weights).forEach(function(i){
+      b += weights[i] * fit.beta[i];
+      Object.keys(weights).forEach(function(j){ v += weights[i] * weights[j] * fit.cov[i][j]; });
+    });
+    var se = Math.sqrt(v), zv = b / se;
+    return { beta: b, se: se, hr: Math.exp(b), lo: Math.exp(b - z975 * se), hi: Math.exp(b + z975 * se), p: Math.min(1, erfc(Math.abs(zv) / Math.SQRT2)) };
+  }
+
+  // Holm's step-down adjustment of a list of p-values (NaN entries are left as NaN).
+  function holmAdjust(ps){
+    var idx = ps.map(function(p, i){ return i; }).filter(function(i){ return !isNaN(ps[i]); });
+    idx.sort(function(a, b){ return ps[a] - ps[b]; });
+    var m = idx.length, out = ps.map(function(){ return NaN; }), running = 0;
+    idx.forEach(function(i, r){ running = Math.max(running, Math.min(1, (m - r) * ps[i])); out[i] = running; });
+    return out;
+  }
+
+  // rows: [{ time, event, trt, value }] — value is the subgroup variable's raw text ("" when missing).
+  // spec: { name, type: "categorical" | "continuous", ref, cuts: [numbers] (continuous, optional, for curves) }.
+  function sgIsMissing(v){ return v === undefined || v === null || coxIsMissing(String(v).trim()); }
+
+  // The categories a subgroup variable divides patients into: its own levels, or, for a continuous variable,
+  // only the user's cut-offs ("< 65", "≥ 65") — never an automatic split.
+  function sgCategoryOf(spec, value){
+    if (spec.type === "categorical") return String(value).trim();
+    if (!spec.cuts || !spec.cuts.length) return null;
+    var x = Number(value), cuts = spec.cuts;
+    if (x < cuts[0]) return "< " + cuts[0];
+    for (var i = 1; i < cuts.length; i++) if (x < cuts[i]) return cuts[i - 1] + " to < " + cuts[i];
+    return "≥ " + cuts[cuts.length - 1];
+  }
+  function sgCutLabels(cuts){
+    var out = ["< " + cuts[0]];
+    for (var i = 1; i < cuts.length; i++) out.push(cuts[i - 1] + " to < " + cuts[i]);
+    out.push("≥ " + cuts[cuts.length - 1]);
+    return out;
+  }
+
+  // Kaplan–Meier per category, the k-group log-rank test, and medians — the shared core of analyses 1–3.
+  function sgCurves(rows, categoryOf, order){
+    var groups = order.map(function(name){
+      var raw = rows.filter(function(r){ return categoryOf(r) === name; });
+      return { name: name, raw: raw, km: raw.length ? kaplanMeier(raw.map(function(r){ return r.time; }), raw.map(function(r){ return r.event; })) : null };
+    });
+    var present = groups.filter(function(g){ return g.raw.length > 0; });
+    var lr = present.length >= 2 ? logRankK(present.map(function(g){ return g.raw; })) : null;
+    return { groups: groups, present: present, logRank: lr };
+  }
+
+  // Indicator columns for the non-reference levels of a categorical variable.
+  function sgDummyColumns(levels, ref, term, keyOf){
+    return levels.filter(function(l){ return l !== ref; }).map(function(l){
+      return { label: term + ": " + l + " vs " + ref, term: term, level: l, ref: ref, value: function(r){ return keyOf(r) === l ? 1 : 0; } };
+    });
+  }
+
+  function sgFit(rows, columns){
+    var X = rows.map(function(r){ return columns.map(function(c){ return c.value(r); }); });
+    return coxFitColumns(rows.map(function(r){ return r.time; }), rows.map(function(r){ return r.event; }), X, columns);
+  }
+
+  // Analysis 1: arms compared with KM, log-rank and a Cox model (each arm vs the reference arm).
+  function sgOverall(rows, arms, refArm, trtName){
+    var curves = sgCurves(rows, function(r){ return r.trt; }, arms);
+    var fit = sgFit(rows, sgDummyColumns(arms, refArm, trtName, function(r){ return r.trt; }));
+    return { n: rows.length, events: rows.filter(function(r){ return r.event === 1; }).length, curves: curves, fit: fit, rows: fit.ok ? coxRows(fit) : null };
+  }
+
+  // Analyses 2 and 3: within one arm, the subgroup variable's categories compared (or, continuous, per unit).
+  function sgWithinArm(rows, arm, spec){
+    var inArm = rows.filter(function(r){ return r.trt === arm; });
+    var used = inArm.filter(function(r){ return !sgIsMissing(r.value); });
+    var out = { arm: arm, n: used.length, missing: inArm.length - used.length, events: used.filter(function(r){ return r.event === 1; }).length };
+    var columns;
+    if (spec.type === "categorical"){
+      var levels = spec.levels;
+      out.curves = sgCurves(used, function(r){ return String(r.value).trim(); }, levels);
+      var presentLevels = out.curves.present.map(function(g){ return g.name; });
+      var ref = presentLevels.indexOf(spec.ref) >= 0 ? spec.ref : presentLevels[0];
+      out.ref = ref;
+      columns = sgDummyColumns(presentLevels, ref, spec.name, function(r){ return String(r.value).trim(); });
+    } else {
+      if (spec.cuts && spec.cuts.length) out.curves = sgCurves(used, function(r){ return sgCategoryOf(spec, r.value); }, sgCutLabels(spec.cuts));
+      columns = [{ label: spec.name + " (per unit)", term: spec.name, continuous: true, value: function(r){ return Number(r.value); } }];
+    }
+    if (out.events === 0 || !columns.length){ out.fit = { ok: false, error: out.events === 0 ? "no events" : "one category" }; return out; }
+    out.fit = sgFit(used, columns);
+    out.rows = out.fit.ok ? coxRows(out.fit) : null;
+    if (out.fit.ok && out.fit.columns.length > 0){
+      var est = out.fit.columns.filter(function(c){ return c.est >= 0; }).length;
+      out.lrTest = { chi2: out.fit.lr, df: est, p: chiSquaredPGeneral(out.fit.lr, est) };
+    }
+    return out;
+  }
+
+  // Analysis 4: Cox model with treatment + subgroup + treatment × subgroup. The interaction is tested jointly
+  // (likelihood ratio: this model against the one without interaction terms; and Wald on all interaction
+  // coefficients), with df = the number of estimable interaction coefficients. Also gives the treatment
+  // hazard ratio within each subgroup category (continuous: at the variable's mean), from the same model.
+  function sgInteraction(rows, arms, refArm, trtName, spec){
+    var used = rows.filter(function(r){ return !sgIsMissing(r.value); });
+    var out = { n: used.length, missing: rows.length - used.length, events: used.filter(function(r){ return r.event === 1; }).length };
+    var trtCols = sgDummyColumns(arms, refArm, trtName, function(r){ return r.trt; });
+    var varCols, levels, ref, mean;
+    if (spec.type === "categorical"){
+      levels = spec.levels.filter(function(l){ return used.some(function(r){ return String(r.value).trim() === l; }); });
+      ref = levels.indexOf(spec.ref) >= 0 ? spec.ref : levels[0];
+      varCols = sgDummyColumns(levels, ref, spec.name, function(r){ return String(r.value).trim(); });
+    } else {
+      mean = used.reduce(function(s, r){ return s + Number(r.value); }, 0) / (used.length || 1);
+      varCols = [{ label: spec.name + " (per unit)", term: spec.name, continuous: true, value: function(r){ return Number(r.value); } }];
+    }
+    var intCols = [];
+    trtCols.forEach(function(t){
+      varCols.forEach(function(v){
+        intCols.push({ label: trtName + " " + t.level + " × " + (v.continuous ? spec.name : spec.name + " " + v.level), interaction: true, arm: t.level, level: v.continuous ? null : v.level,
+          value: function(r){ return t.value(r) * v.value(r); } });
+      });
+    });
+    out.ref = ref; out.levels = levels; out.mean = mean;
+    if (out.events === 0){ out.fit = { ok: false, error: "no events" }; return out; }
+    var full = sgFit(used, trtCols.concat(varCols, intCols));
+    var reduced = sgFit(used, trtCols.concat(varCols));
+    out.fit = full;
+    if (!full.ok || !reduced.ok) return out;
+    out.rows = coxRows(full);
+    var intEst = full.columns.filter(function(c){ return c.interaction && c.est >= 0; }).map(function(c){ return c.est; });
+    out.notEstimable = full.columns.filter(function(c){ return c.est < 0; }).map(function(c){ return c.label; });
+    out.lrTest = { chi2: 2 * (full.loglik - reduced.loglik), df: intEst.length };
+    out.lrTest.p = intEst.length ? chiSquaredPGeneral(Math.max(0, out.lrTest.chi2), intEst.length) : NaN;
+    out.waldTest = coxJointWald(full, intEst);
+
+    // Treatment effect within each category: β(arm) + β(arm × category); the reference category is β(arm) alone.
+    function estOf(pred){ var c = full.columns.find(pred); return c ? c.est : -1; }
+    out.effects = [];
+    trtCols.forEach(function(t){
+      var tEst = estOf(function(c){ return !c.interaction && c.term === trtName && c.level === t.level; });
+      var cats = spec.type === "categorical" ? levels : [null];
+      cats.forEach(function(l){
+        var w = {}, ok = tEst >= 0;
+        if (ok) w[tEst] = 1;
+        if (spec.type === "categorical" && l !== ref){
+          var iEst = estOf(function(c){ return c.interaction && c.arm === t.level && c.level === l; });
+          if (iEst < 0) ok = false; else w[iEst] = 1;
+        } else if (spec.type !== "categorical"){
+          var cEst = estOf(function(c){ return c.interaction && c.arm === t.level; });
+          if (cEst < 0) ok = false; else w[cEst] = mean;
+        }
+        var infinite = Object.keys(w).some(function(i){ return full.infinite[i]; });
+        out.effects.push(Object.assign({ arm: t.level, refArm: refArm, level: l, estimable: ok && !infinite,
+          n: used.filter(function(r){ return l === null || String(r.value).trim() === l; }).length }, ok ? coxCombination(full, w) : {}));
+      });
+    });
+    return out;
+  }
+
+  // Fictional example trial (fixed seed, so it is identical every time): two arms, gender, race with four
+  // categories (one rare, only in arm A), tumour grade I–IV, age; times in whole months (many ties); a few
+  // missing values. Treatment B works better in grade III–IV than in grade I–II, so there is an interaction to find.
+  function sgExampleText(){
+    var rand = mulberry32(20261031);
+    var lines = ["patient,months,died,treatment,gender,race,grade,age"];
+    for (var i = 1; i <= 240; i++){
+      var trt = i % 2 ? "A" : "B";
+      var gender = rand() < 0.5 ? "Female" : "Male";
+      var u = rand(), race = u < 0.55 ? "White" : (u < 0.8 ? "Black" : "Asian");
+      if (trt === "A" && i % 47 === 1) race = "Other";
+      var grade = ["I", "II", "III", "IV"][Math.floor(rand() * 4)];
+      var age = Math.round(45 + rand() * 35);
+      var logHaz = Math.log(0.02) + 0.35 * ["I", "II", "III", "IV"].indexOf(grade) + 0.02 * (age - 60) + (gender === "Male" ? 0.2 : 0);
+      if (trt === "B") logHaz += (grade === "III" || grade === "IV") ? -0.9 : -0.1;
+      var eventTime = -Math.log(1 - rand()) / Math.exp(logHaz), censorTime = 12 + rand() * 48;
+      var months = Math.max(1, Math.ceil(Math.min(eventTime, censorTime)));
+      var died = eventTime <= censorTime ? 1 : 0;
+      if (i % 37 === 5) race = "";
+      if (i % 29 === 7) grade = "";
+      if (i % 41 === 3) age = "";
+      lines.push(["P" + (1000 + i), months, died, trt, gender, race, grade, age].join(","));
+    }
+    return lines.join("\n");
+  }
+
+  // Reads the first worksheet of an .xlsx file into rows of text, without any library: an .xlsx is a ZIP of
+  // XML files, unpacked here with the browser's own DecompressionStream. Shared strings, inline strings,
+  // numbers and booleans are read; formulas give their last calculated value; dates arrive as Excel serial
+  // numbers (days since 1900), which is fine for durations but not for calendar dates.
+  function readXlsxRows(buffer){
+    var bytes = new Uint8Array(buffer), view = new DataView(buffer);
+    var eocd = -1;
+    for (var i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--){ if (view.getUint32(i, true) === 0x06054b50){ eocd = i; break; } }
+    if (eocd < 0) return Promise.reject(new Error("This is not an .xlsx file (no ZIP directory found)."));
+    var count = view.getUint16(eocd + 10, true), at = view.getUint32(eocd + 16, true), entries = {};
+    var decoder = new TextDecoder("utf-8");
+    for (var e = 0; e < count; e++){
+      var nameLen = view.getUint16(at + 28, true), extraLen = view.getUint16(at + 30, true), commentLen = view.getUint16(at + 32, true);
+      var name = decoder.decode(bytes.subarray(at + 46, at + 46 + nameLen));
+      entries[name] = { method: view.getUint16(at + 10, true), size: view.getUint32(at + 20, true), offset: view.getUint32(at + 42, true) };
+      at += 46 + nameLen + extraLen + commentLen;
+    }
+    function text(name){
+      var entry = entries[name];
+      if (!entry) return Promise.resolve(null);
+      var local = entry.offset, start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+      var data = bytes.subarray(start, start + entry.size);
+      if (entry.method === 0) return Promise.resolve(decoder.decode(data));
+      if (entry.method !== 8 || typeof DecompressionStream === "undefined") return Promise.reject(new Error("This browser can't unpack this .xlsx file — save it as CSV instead."));
+      var stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      return new Response(stream).text();
+    }
+    function xml(s){ return new DOMParser().parseFromString(s, "application/xml"); }
+    function byTag(node, tag){ return Array.prototype.slice.call(node.getElementsByTagNameNS("*", tag)); }
+    return Promise.all([text("xl/workbook.xml"), text("xl/_rels/workbook.xml.rels"), text("xl/sharedStrings.xml")]).then(function(parts){
+      if (!parts[0]) throw new Error("No workbook found in this file.");
+      var sheet = byTag(xml(parts[0]), "sheet")[0];
+      var rid = sheet && (sheet.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id") || sheet.getAttribute("r:id"));
+      var target = "worksheets/sheet1.xml";
+      if (parts[1] && rid) byTag(xml(parts[1]), "Relationship").forEach(function(r){ if (r.getAttribute("Id") === rid) target = r.getAttribute("Target"); });
+      var path = target.charAt(0) === "/" ? target.slice(1) : "xl/" + target;
+      var shared = parts[2] ? byTag(xml(parts[2]), "si").map(function(si){ return byTag(si, "t").map(function(t){ return t.textContent; }).join(""); }) : [];
+      return text(path).then(function(sheetXml){
+        if (!sheetXml) throw new Error("The first worksheet could not be found in this file.");
+        var rows = [];
+        byTag(xml(sheetXml), "row").forEach(function(rowNode){
+          var r = parseInt(rowNode.getAttribute("r"), 10) - 1, cells = [];
+          byTag(rowNode, "c").forEach(function(c, k){
+            var ref = c.getAttribute("r"), col = k;
+            if (ref){ col = 0; var letters = ref.match(/^[A-Z]+/)[0]; for (var q = 0; q < letters.length; q++) col = col * 26 + letters.charCodeAt(q) - 64; col--; }
+            var type = c.getAttribute("t"), v = byTag(c, "v")[0], value = v ? v.textContent : "";
+            if (type === "s") value = shared[parseInt(value, 10)] || "";
+            else if (type === "inlineStr") value = byTag(c, "t").map(function(t){ return t.textContent; }).join("");
+            else if (type === "b") value = value === "1" ? "TRUE" : "FALSE";
+            cells[col] = value;
+          });
+          rows[isNaN(r) ? rows.length : r] = cells;
+        });
+        var width = rows.reduce(function(m, row){ return Math.max(m, row ? row.length : 0); }, 0);
+        return rows.filter(function(row){ return row; }).map(function(row){
+          var out = [];
+          for (var q = 0; q < width; q++) out.push(row[q] === undefined ? "" : String(row[q]).replace(/[\t\r\n]+/g, " ").trim());
+          return out;
+        });
+      });
+    });
+  }
+
+  /* --- Survival subgroups: data, variable roles, running and showing the four analyses --- */
+
+  var sgEls = {
+    fileInput: document.getElementById("sgFileInput"),
+    loadExampleBtn: document.getElementById("sgLoadExampleBtn"),
+    pasteArea: document.getElementById("sgPasteArea"),
+    error: document.getElementById("sgError"),
+    colTime: document.getElementById("sgColTime"),
+    colEvent: document.getElementById("sgColEvent"),
+    colTrt: document.getElementById("sgColTrt"),
+    refArm: document.getElementById("sgRefArm"),
+    timeUnit: document.getElementById("sgTimeUnit"),
+    qc: document.getElementById("sgQc"),
+    variables: document.getElementById("sgVariables"),
+    analysisChoices: document.getElementById("sgAnalysisChoices"),
+    runSelectedBtn: document.getElementById("sgRunSelectedBtn"),
+    runAllBtn: document.getElementById("sgRunAllBtn"),
+    copyBtn: document.getElementById("sgCopyBtn"),
+    runStatus: document.getElementById("sgRunStatus"),
+    results: document.getElementById("sgResults")
+  };
+
+  var SG_MAX_ARMS = 6;
+  var sgState = { headerKey: null, headers: [], data: null, vars: [], choices: { overall: true, within: {}, interaction: true }, lastText: "", ran: false };
+
+  function sgFindColumn(headers, patterns, avoid){
+    for (var p = 0; p < patterns.length; p++)
+      for (var i = 0; i < headers.length; i++)
+        if (avoid.indexOf(i) < 0 && headers[i].toLowerCase().indexOf(patterns[p]) >= 0) return i;
+    for (var j = 0; j < headers.length; j++) if (avoid.indexOf(j) < 0) return j;
+    return 0;
+  }
+
+  function sgFillSelect(sel, options, value){
+    sel.innerHTML = options.map(function(o){ return '<option value="' + escapeXml(String(o.value)) + '">' + escapeXml(o.label) + '</option>'; }).join("");
+    if (value !== undefined && options.some(function(o){ return String(o.value) === String(value); })) sel.value = String(value);
+  }
+
+  // Parses the text, (re)assigns roles when the columns change, and validates time, event and treatment.
+  function sgPrepare(){
+    var parsed = parseDelimitedText(sgEls.pasteArea.value);
+    if (!parsed.headers.length || !parsed.rows.length){ sgState.data = null; return "Paste or upload patient-level data first — a header row plus one row per patient."; }
+    var headers = parsed.headers, key = headers.join("|");
+    if (key !== sgState.headerKey){
+      sgState.headerKey = key; sgState.headers = headers; sgState.vars = [];
+      var opts = headers.map(function(h, i){ return { value: i, label: h }; });
+      var t = sgFindColumn(headers, ["time", "month", "day", "week", "year", "duration", "follow", "surv", "fu"], []);
+      var e = sgFindColumn(headers, ["event", "status", "death", "died", "dead", "relapse", "outcome"], [t]);
+      var a = sgFindColumn(headers, ["treat", "arm", "trt", "random", "group", "therapy"], [t, e]);
+      sgFillSelect(sgEls.colTime, opts, t); sgFillSelect(sgEls.colEvent, opts, e); sgFillSelect(sgEls.colTrt, opts, a);
+    }
+    var ti = +sgEls.colTime.value, ei = +sgEls.colEvent.value, ai = +sgEls.colTrt.value;
+    if (ti === ei || ti === ai || ei === ai){ sgState.data = null; return "Time, event and treatment must be three different columns."; }
+    var rows = [], reasons = {}, excluded = 0;
+    parsed.rows.forEach(function(row){
+      var why = null, tv = (row[ti] || "").trim(), ev = (row[ei] || "").trim(), av = (row[ai] || "").trim();
+      if (coxIsMissing(tv)) why = "missing time";
+      else if (!isFinite(Number(tv)) || Number(tv) < 0) why = "time not a number ≥ 0";
+      else if (ev !== "0" && ev !== "1") why = coxIsMissing(ev) ? "missing event" : "event not 0 or 1";
+      else if (coxIsMissing(av)) why = "missing treatment";
+      if (why){ excluded++; reasons[why] = (reasons[why] || 0) + 1; return; }
+      rows.push({ time: Number(tv), event: Number(ev), trt: av, row: row });
+    });
+    var arms = coxSortLevels(rows.map(function(r){ return r.trt; }).filter(function(v, k, arr){ return arr.indexOf(v) === k; }));
+    sgState.data = { rows: rows, arms: arms, timeIdx: ti, eventIdx: ei, trtIdx: ai, trtName: headers[ai], total: parsed.rows.length, excluded: excluded, reasons: reasons };
+    sgEls.qc.textContent = parsed.rows.length + " rows read; " + rows.length + " included" + (excluded ? "; " + excluded + " left out (" +
+      Object.keys(reasons).map(function(r){ return reasons[r] + "× " + r; }).join(", ") + ")" : "") + ". Treatment arms: " + arms.map(function(x){ return x + " (n = " + rows.filter(function(r){ return r.trt === x; }).length + ")"; }).join(", ") + ".";
+    var keepRef = sgEls.refArm.value;
+    sgFillSelect(sgEls.refArm, arms.map(function(x){ return { value: x, label: x }; }), arms.indexOf(keepRef) >= 0 ? keepRef : arms[0]);
+    if (arms.length < 2) return "The treatment column has " + arms.length + " value" + (arms.length === 1 ? "" : "s") + " among the included rows — at least two treatment arms are needed.";
+    if (arms.length > SG_MAX_ARMS) return "The treatment column has " + arms.length + " different values — choose the column that holds the treatment arm (at most " + SG_MAX_ARMS + " arms).";
+    if (!rows.some(function(r){ return r.event === 1; })) return "No events among the included rows, so there is nothing to analyse.";
+    sgSyncVariables();
+    return null;
+  }
+
+  // Every other column can be a subgroup or prognostic variable: categorical unless all its values are numbers
+  // with more than six distinct values (so grades or performance status coded 0–4 start as categorical).
+  function sgSyncVariables(){
+    var d = sgState.data, old = {};
+    sgState.vars.forEach(function(v){ old[v.idx] = v; });
+    sgState.vars = [];
+    sgState.headers.forEach(function(name, idx){
+      if (idx === d.timeIdx || idx === d.eventIdx || idx === d.trtIdx) return;
+      var values = d.rows.map(function(r){ return (r.row[idx] || "").trim(); }).filter(function(v){ return !coxIsMissing(v); });
+      var levels = coxSortLevels(values.filter(function(v, k){ return values.indexOf(v) === k; }));
+      var numeric = values.length > 0 && values.every(function(v){ return isFinite(Number(v)); });
+      var v = { idx: idx, name: name, levels: levels, numeric: numeric, missing: d.rows.length - values.length,
+        type: numeric && levels.length > 6 ? "continuous" : "categorical", ref: levels[0], cuts: "", use: false, prespec: false };
+      var prev = old[idx];
+      if (prev && prev.name === name){
+        v.use = prev.use; v.prespec = prev.prespec; v.cuts = prev.cuts;
+        if (prev.type !== "continuous" || numeric) v.type = prev.type;
+        if (levels.indexOf(prev.ref) >= 0) v.ref = prev.ref;
+      }
+      sgState.vars.push(v);
+    });
+  }
+
+  function sgRenderVariables(){
+    if (!sgState.data || !sgState.vars.length){ sgEls.variables.innerHTML = sgState.data ? '<p class="data-hint">There are no other columns to use as subgroup variables.</p>' : ""; return; }
+    var rows = sgState.vars.map(function(v, k){
+      var many = v.type === "categorical" && v.levels.length > COX_MAX_LEVELS;
+      var ref = v.type === "categorical" ? (many ? '<span class="data-hint">' + v.levels.length + ' categories — too many</span>' :
+        '<select data-sg="ref" data-k="' + k + '" aria-label="Reference category for ' + escapeXml(v.name) + '">' + v.levels.map(function(l){
+          return '<option value="' + escapeXml(l) + '"' + (l === v.ref ? " selected" : "") + '>' + escapeXml(l) + '</option>'; }).join("") + '</select>') : '<span class="data-hint">—</span>';
+      var cuts = v.type === "continuous" ? '<input type="text" class="cell-input" data-sg="cuts" data-k="' + k + '" value="' + escapeXml(v.cuts) + '" placeholder="none" style="width:110px;" aria-label="Cut-offs for curves for ' + escapeXml(v.name) + '">' : '<span class="data-hint">—</span>';
+      return '<tr><td style="text-align:center;"><input type="checkbox" data-sg="use" data-k="' + k + '"' + (v.use ? " checked" : "") + ' aria-label="Analyse ' + escapeXml(v.name) + '"></td>' +
+        '<td style="text-align:left;">' + escapeXml(v.name) + (v.missing ? ' <span class="data-hint">(' + v.missing + ' missing)</span>' : "") + '</td>' +
+        '<td style="text-align:left;"><select data-sg="type" data-k="' + k + '" aria-label="Type of ' + escapeXml(v.name) + '"><option value="categorical"' + (v.type === "categorical" ? " selected" : "") + '>Categorical</option>' +
+          (v.numeric ? '<option value="continuous"' + (v.type === "continuous" ? " selected" : "") + '>Continuous</option>' : "") + '</select></td>' +
+        '<td style="text-align:left;">' + ref + '</td><td style="text-align:left;">' + cuts + '</td>' +
+        '<td style="text-align:center;"><input type="checkbox" data-sg="prespec" data-k="' + k + '"' + (v.prespec ? " checked" : "") + ' aria-label="' + escapeXml(v.name) + ' is pre-specified"></td></tr>';
+    }).join("");
+    sgEls.variables.innerHTML = '<div class="table-wrap"><table class="life-table" style="min-width:640px;"><thead><tr><th style="text-align:center;">Analyse</th><th style="text-align:left;">Column</th><th style="text-align:left;">Type</th><th style="text-align:left;">Reference category</th><th style="text-align:left;">Cut-offs for curves</th><th style="text-align:center;">Pre-specified</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  function sgRenderChoices(){
+    if (!sgState.data){ sgEls.analysisChoices.innerHTML = ""; return; }
+    var d = sgState.data, c = sgState.choices, ref = sgEls.refArm.value;
+    function row(key, checked, title, sub){
+      return '<div class="toggle-row" style="border-top:none;padding-top:4px;margin-top:0;"><label class="toggle"><input type="checkbox" data-choice="' + escapeXml(key) + '"' + (checked ? " checked" : "") + '><span class="toggle-track"></span></label>' +
+        '<span class="toggle-label"><b style="color:var(--ink);">' + escapeXml(title) + '</b> — ' + escapeXml(sub) + '</span></div>';
+    }
+    var html = row("overall", c.overall, "1. Overall treatment comparison", "Kaplan–Meier curves, log-rank test, medians and the Cox hazard ratio of each arm against " + ref + ".");
+    d.arms.forEach(function(arm, i){
+      if (c.within[arm] === undefined) c.within[arm] = true;
+      html += row("within:" + arm, c.within[arm], (i + 2) + ". Subgroups within treatment " + arm, "patients given " + arm + " only, divided by each ticked variable: curves, log-rank test across all categories, medians and Cox hazard ratios against the reference category.");
+    });
+    html += row("interaction", c.interaction, (d.arms.length + 2) + ". Treatment × subgroup interaction", "one Cox model per variable with treatment + variable + treatment × variable, and a joint test of whether the treatment effect differs across its categories.");
+    sgEls.analysisChoices.innerHTML = html;
+  }
+
+  function sgRefresh(){
+    var problem = sgPrepare();
+    sgEls.error.hidden = !problem;
+    sgEls.error.innerHTML = problem ? '<span class="dot"></span> ' + escapeXml(problem) : "";
+    if (!sgState.data){ sgEls.qc.textContent = ""; }
+    sgRenderVariables();
+    sgRenderChoices();
+    sgEls.runSelectedBtn.disabled = sgEls.runAllBtn.disabled = !!problem;
+    if (sgState.ran) sgEls.runStatus.textContent = "Settings have changed since the results below were produced — press Run to update them.";
+  }
+
+  sgEls.variables.addEventListener("change", function(e){
+    var el = e.target, what = el.getAttribute("data-sg");
+    if (!what) return;
+    var v = sgState.vars[+el.getAttribute("data-k")];
+    if (what === "use") v.use = el.checked;
+    else if (what === "prespec") v.prespec = el.checked;
+    else if (what === "ref") v.ref = el.value;
+    else if (what === "cuts") v.cuts = el.value;
+    else if (what === "type"){ v.type = el.value; sgRenderVariables(); }
+    if (sgState.ran) sgEls.runStatus.textContent = "Settings have changed since the results below were produced — press Run to update them.";
+  });
+  sgEls.analysisChoices.addEventListener("change", function(e){
+    var key = e.target.getAttribute("data-choice");
+    if (!key) return;
+    if (key.indexOf("within:") === 0) sgState.choices.within[key.slice(7)] = e.target.checked;
+    else sgState.choices[key] = e.target.checked;
+  });
+  [sgEls.pasteArea, sgEls.colTime, sgEls.colEvent, sgEls.colTrt, sgEls.refArm].forEach(function(el){
+    el.addEventListener(el.tagName === "TEXTAREA" ? "input" : "change", sgRefresh);
+  });
+  sgEls.loadExampleBtn.addEventListener("click", function(){
+    sgState.headerKey = null;
+    sgEls.pasteArea.value = sgExampleText();
+    sgRefresh();
+    sgState.vars.forEach(function(v){ if (v.name !== "patient") v.use = true; if (v.name === "grade") v.prespec = true; if (v.name === "age") v.cuts = "65"; if (v.name === "race") v.ref = "White"; });
+    sgRenderVariables();
+  });
+  sgEls.fileInput.addEventListener("change", function(e){
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    sgState.headerKey = null;
+    function done(text){ sgEls.pasteArea.value = text; sgRefresh(); }
+    function fail(msg){ sgEls.error.hidden = false; sgEls.error.innerHTML = '<span class="dot"></span> ' + escapeXml(msg); }
+    if (/\.xls$/i.test(file.name)) return fail("Old-style .xls files can't be read — open it in Excel and save it as .xlsx or CSV.");
+    if (/\.xlsx$/i.test(file.name)){
+      file.arrayBuffer().then(readXlsxRows).then(function(rows){
+        if (!rows.length) throw new Error("The first worksheet is empty.");
+        done(rows.map(function(r){ return r.join("\t"); }).join("\n"));
+      }).catch(function(err){ fail("Couldn't read this Excel file: " + err.message); });
+    } else {
+      var reader = new FileReader();
+      reader.onload = function(evt){ done(String(evt.target.result || "")); };
+      reader.readAsText(file);
+    }
+    e.target.value = "";
+  });
+
+  /* Running the analyses */
+
+  function sgUnit(){ return sgEls.timeUnit.value; }
+  function sgMedian(km){ return km && isFinite(km.median) ? fmtNum(km.median, 1) : "Not reached"; }
+  function sgMedianCi(km){
+    if (!km || isNaN(km.median)) return "—";
+    return (isFinite(km.medianCiLower) ? fmtNum(km.medianCiLower, 1) : "NR") + "–" + (isFinite(km.medianCiUpper) ? fmtNum(km.medianCiUpper, 1) : "NR");
+  }
+  function sgHr(r){
+    if (!r) return "—";
+    if (r.dropped) return "Not estimable";
+    if (r.infinite) return "Not estimable (no events)";
+    return fmtNum(r.hr, 2) + " (" + fmtNum(r.lo, 2) + "–" + fmtNum(r.hi, 2) + ")";
+  }
+  function sgTest(t){ return t && isFinite(t.chi2) ? "χ² = " + fmtNum(t.chi2, 2) + ", df = " + t.df + ", " + coxP(t.p) : "not computable"; }
+  function sgWarn(list){ return list.map(function(w){ return '<div class="assumption warn" style="margin-top:10px;"><span class="dot"></span> ' + escapeXml(w) + '</div>'; }).join(""); }
+
+  // Cautions shared by every model: small categories, infinite or dropped coefficients, non-convergence.
+  function sgModelWarnings(groups, fit, rows){
+    var w = [];
+    if (groups){
+      var small = groups.filter(function(g){ var e = g.raw.filter(function(r){ return r.event === 1; }).length; return g.raw.length > 0 && (g.raw.length < 10 || e < 5); });
+      if (small.length) w.push("Small categories (" + small.map(function(g){ return g.name + ": n = " + g.raw.length + ", " + g.raw.filter(function(r){ return r.event === 1; }).length + " events"; }).join("; ") + ") — their curves, medians and hazard ratios are imprecise.");
+    }
+    if (rows){
+      var inf = rows.filter(function(r){ return r.infinite; }), dropped = rows.filter(function(r){ return r.dropped; });
+      if (inf.length) w.push("No finite hazard ratio for " + inf.map(function(r){ return "“" + r.label + "”"; }).join(", ") + ": a category with patients but no events (or only events), so the estimate tends to 0 or infinity.");
+      if (dropped.length) w.push("Not estimable and left out of the model: " + dropped.map(function(r){ return "“" + r.label + "”"; }).join(", ") + " — no patients in that combination.");
+    }
+    if (fit && fit.ok && !fit.converged) w.push("The Cox model did not converge within 20 iterations; its estimates may be inaccurate.");
+    return w;
+  }
+
+  function sgCard(parent, eyebrow, title, html){
+    var sec = document.createElement("section");
+    sec.className = "card";
+    sec.innerHTML = '<p class="eyebrow">' + escapeXml(eyebrow) + '</p><h2>' + escapeXml(title) + '</h2>' + html;
+    parent.appendChild(sec);
+    return sec;
+  }
+
+  var sgPlotCount = 0;
+  function sgPlot(sec, groups, fileBase){
+    var present = groups.filter(function(g){ return g.raw.length > 0; });
+    var holder = document.createElement("div"), plot = document.createElement("div"), legend = document.createElement("div");
+    holder.style.marginTop = "14px"; legend.className = "legend-row";
+    holder.appendChild(plot); holder.appendChild(legend); sec.appendChild(holder);
+    renderKMPlot(plot, legend, present, { title: "", xLabel: "Time (" + sgUnit() + ")", yLabel: "Survival probability", yScale: "prob",
+      showCI: present.length <= 2, showCensor: true, svgId: "sgKm" + (++sgPlotCount) });
+    attachChartDownload(plot, plot.querySelector("svg"), fileBase.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""), { legendEl: legend });
+  }
+
+  // Category table: n, events, median (95% CI) and the Cox hazard ratio against the reference.
+  function sgGroupTable(groups, ref, hrOf, emptyNote){
+    var head = '<th style="text-align:left;">Category</th><th>N</th><th>Events</th><th>Median (' + escapeXml(sgUnit()) + ')</th><th>95% CI</th>' + (hrOf ? '<th>HR (95% CI)</th><th>p</th>' : "");
+    var body = groups.map(function(g){
+      var n = g.raw.length, e = g.raw.filter(function(r){ return r.event === 1; }).length;
+      if (!n) return '<tr><td style="text-align:left;">' + escapeXml(g.name) + '</td><td colspan="' + (hrOf ? 6 : 4) + '" style="text-align:left;">' + escapeXml(emptyNote) + '</td></tr>';
+      var hr = "", p = "";
+      if (hrOf){
+        if (g.name === ref){ hr = "1 (reference)"; p = ""; }
+        else { var r = hrOf(g.name); hr = sgHr(r); p = r && !r.dropped && !r.infinite ? fmtP(r.p) : "—"; }
+      }
+      return '<tr><td style="text-align:left;">' + escapeXml(g.name) + '</td><td>' + n + '</td><td>' + e + '</td><td>' + sgMedian(g.km) + '</td><td>' + sgMedianCi(g.km) + '</td>' +
+        (hrOf ? '<td>' + hr + '</td><td>' + p + '</td>' : "") + '</tr>';
+    }).join("");
+    return '<div class="table-wrap" style="margin-top:14px;"><table class="life-table" style="min-width:560px;"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+  }
+
+  function sgCoefTable(rows){
+    return '<div class="table-wrap" style="margin-top:14px;"><table class="life-table" style="min-width:620px;"><thead><tr><th style="text-align:left;">Term</th><th>Coefficient (β)</th><th>SE</th><th>HR (95% CI)</th><th>p</th></tr></thead><tbody>' +
+      rows.map(function(r){
+        var ok = !r.dropped && !r.infinite;
+        return '<tr><td style="text-align:left;">' + escapeXml(r.label) + '</td><td>' + (ok ? fmtNum(r.beta, 4) : "—") + '</td><td>' + (ok ? fmtNum(r.se, 4) : "—") + '</td><td>' + sgHr(r) + '</td><td>' + (ok ? fmtP(r.p) : "—") + '</td></tr>';
+      }).join("") + '</tbody></table></div>';
+  }
+
+  function sgParseCuts(text){
+    var parts = String(text || "").split(/[,;\s]+/).filter(function(s){ return s.length; });
+    if (!parts.length) return [];
+    var nums = parts.map(Number);
+    if (nums.some(function(x){ return !isFinite(x); })) return null;
+    return nums.sort(function(a, b){ return a - b; }).filter(function(x, k, arr){ return k === 0 || x !== arr[k - 1]; });
+  }
+
+  function sgRun(all){
+    var problem = sgPrepare();
+    if (problem){ sgRefresh(); return; }
+    var d = sgState.data, c = sgState.choices, refArm = sgEls.refArm.value, trtName = d.trtName;
+    var doOverall = all || c.overall, doInteraction = all || c.interaction;
+    var withinArms = d.arms.filter(function(a){ return all || c.within[a]; });
+    var chosen = sgState.vars.filter(function(v){ return v.use; });
+    var needVars = withinArms.length || doInteraction;
+    if (!doOverall && !needVars){ sgEls.runStatus.textContent = "Tick at least one analysis."; return; }
+    if (needVars && !chosen.length && !doOverall){ sgEls.runStatus.textContent = "Tick at least one subgroup variable in Step 2."; return; }
+
+    sgEls.results.innerHTML = "";
+    var text = ["Survival subgroup analyses — treatment column: " + trtName + ", reference arm: " + refArm + ", time in " + sgUnit()];
+    var summary = [];
+    var summaryHolder = document.createElement("div");
+    sgEls.results.appendChild(summaryHolder);
+
+    if (doOverall){
+      var ov = sgOverall(d.rows.map(function(r){ return { time: r.time, event: r.event, trt: r.trt }; }), [refArm].concat(d.arms.filter(function(a){ return a !== refArm; })), refArm, trtName);
+      var ovRows = ov.rows || [];
+      var hrOf = function(arm){ return ovRows.find(function(r){ return r.level === arm; }); };
+      var sec = sgCard(sgEls.results, "Analysis 1 · all patients", "Overall treatment comparison",
+        '<p class="norm-note">' + ov.n + " patients, " + ov.events + " events. Log-rank test across " + ov.curves.present.length + " arms: " + sgTest(ov.curves.logRank) +
+        ". Cox model: hazard ratio of each arm against " + escapeXml(refArm) + ".</p>" +
+        sgGroupTable(ov.curves.groups, refArm, hrOf, "No patients") + sgWarn(sgModelWarnings(ov.curves.groups, ov.fit, ovRows)));
+      sgPlot(sec, ov.curves.groups, "km-overall-" + trtName);
+      text.push("", "ANALYSIS 1 — overall treatment comparison (n = " + ov.n + ", " + ov.events + " events)", "Log-rank: " + sgTest(ov.curves.logRank));
+      ov.curves.groups.forEach(function(g){
+        var r = g.name === refArm ? null : hrOf(g.name);
+        text.push(g.name + ": n = " + g.raw.length + ", median " + sgMedian(g.km) + " (95% CI " + sgMedianCi(g.km) + ")" + (g.name === refArm ? ", reference" : ", HR " + sgHr(r) + (r && !r.dropped && !r.infinite ? ", " + coxP(r.p) : "")));
+      });
+    }
+
+    var interactionPs = [];
+    if (!withinArms.length && !doInteraction) chosen = [];
+    chosen.forEach(function(v){
+      var status = v.prespec ? "Pre-specified" : "Exploratory";
+      var spec = { name: v.name, type: v.type, ref: v.ref, levels: v.levels };
+      var row = { name: v.name, type: v.type, status: status, within: {}, interaction: null, cats: v.type === "categorical" ? v.levels.length + " categories" : "continuous" };
+      summary.push(row);
+      var head = sgCard(sgEls.results, status + " · " + (v.type === "categorical" ? "categorical, " + v.levels.length + " categor" + (v.levels.length === 1 ? "y" : "ies") : "continuous"), v.name, "");
+      if (v.type === "categorical" && v.levels.length > COX_MAX_LEVELS){
+        head.insertAdjacentHTML("beforeend", sgWarn(["“" + v.name + "” has " + v.levels.length + " categories — too many to analyse as categorical (at most " + COX_MAX_LEVELS + "). If it is a measurement, make it Continuous; if it is an identifier, untick it."]));
+        row.skipped = true; return;
+      }
+      if (v.type === "categorical" && v.levels.length < 2){
+        head.insertAdjacentHTML("beforeend", sgWarn(["“" + v.name + "” has only one category, so there is nothing to compare."])); row.skipped = true; return;
+      }
+      if (v.type === "continuous"){
+        spec.cuts = sgParseCuts(v.cuts);
+        if (spec.cuts === null){ head.insertAdjacentHTML("beforeend", sgWarn(["The cut-offs for “" + v.name + "” must be numbers separated by commas (e.g. 65 or 50, 70)."])); row.skipped = true; return; }
+        row.cats = "continuous" + (spec.cuts.length ? " (curves cut at " + spec.cuts.join(", ") + ")" : "");
+      }
+      head.insertAdjacentHTML("beforeend", '<p class="norm-note">' + (v.prespec ? "Named as pre-specified: analysed as planned." : "Exploratory: not pre-specified, so treat any finding as a hypothesis for another study, not as evidence.") +
+        (v.missing ? " " + v.missing + " patients with no value for " + escapeXml(v.name) + " are left out of its analyses." : "") + '</p>');
+      text.push("", "VARIABLE: " + v.name + " (" + status.toLowerCase() + ", " + row.cats + ")");
+      var rowsFor = d.rows.map(function(r){ return { time: r.time, event: r.event, trt: r.trt, value: (r.row[v.idx] || "").trim() }; });
+
+      withinArms.forEach(function(arm){
+        var w = sgWithinArm(rowsFor, arm, spec), wRows = w.rows || [];
+        var num = d.arms.indexOf(arm) + 2;
+        var title = "Within treatment " + arm + ": " + v.name;
+        var html = '<p class="norm-note">' + w.n + " patients given " + escapeXml(arm) + ", " + w.events + " events" + (w.missing ? " (" + w.missing + " missing " + escapeXml(v.name) + ")" : "") + ".";
+        var test;
+        if (w.curves){
+          test = w.curves.logRank;
+          html += " Log-rank test across " + w.curves.present.length + " " + (v.type === "categorical" ? "categories" : "groups made by your cut-off(s)") + ": " + sgTest(test) + ".";
+        }
+        if (v.type === "continuous"){
+          var cr = wRows[0];
+          html += " Cox model, " + escapeXml(v.name) + " as a continuous variable: HR per unit " + sgHr(cr) + (cr && !cr.dropped && !cr.infinite ? ", " + coxP(cr.p) : "") + ".";
+          if (!w.curves) html += " (No Kaplan–Meier curves: enter a cut-off in Step 2 if you want them.)";
+          else html += " The curves use your cut-off(s) for display only; the hazard ratio uses the continuous values.";
+          test = w.lrTest || test;
+        } else if (w.lrTest){
+          html += " Cox likelihood ratio test across the categories: " + sgTest(w.lrTest) + ".";
+        }
+        if (!w.fit.ok && w.fit.error === "no events") html += " No events in this arm, so no hazard ratios.";
+        html += "</p>";
+        var hrFn = v.type === "categorical" && w.fit.ok ? function(level){ return wRows.find(function(r){ return r.level === level; }); } : null;
+        if (w.curves) html += sgGroupTable(w.curves.groups, v.type === "categorical" ? w.ref : null, hrFn, "No patients in this category in arm " + arm + " — omitted");
+        html += sgWarn(sgModelWarnings(w.curves ? w.curves.groups : null, w.fit, wRows));
+        var sec = sgCard(sgEls.results, "Analysis " + num + " · " + status.toLowerCase(), title, html);
+        if (w.curves) sgPlot(sec, w.curves.groups, "km-" + arm + "-" + v.name);
+        row.within[arm] = test;
+        text.push("Within " + arm + " (n = " + w.n + ", " + w.events + " events): " + (w.curves ? "log-rank " + sgTest(w.curves.logRank) : "Cox " + sgTest(w.lrTest)));
+        if (w.curves) w.curves.groups.forEach(function(g){
+          var r = hrFn ? hrFn(g.name) : null;
+          text.push("  " + g.name + ": n = " + g.raw.length + (g.raw.length ? ", median " + sgMedian(g.km) + " (95% CI " + sgMedianCi(g.km) + ")" + (hrFn ? (g.name === w.ref ? ", reference" : ", HR " + sgHr(r)) : "") : ""));
+        });
+        if (v.type === "continuous") text.push("  HR per unit of " + v.name + ": " + sgHr(wRows[0]));
+      });
+
+      if (doInteraction){
+        var it = sgInteraction(rowsFor, [refArm].concat(d.arms.filter(function(a){ return a !== refArm; })), refArm, trtName, spec);
+        var num4 = d.arms.length + 2, html4;
+        if (!it.fit.ok){
+          html4 = sgWarn([it.fit.error === "no events" ? "No events among these patients." : "The interaction model could not be fitted — the variables are collinear."]);
+        } else {
+          var lr = it.lrTest, wd = it.waldTest;
+          row.interaction = lr; interactionPs.push({ row: row, p: lr.p });
+          var sig = lr.p < 0.05;
+          html4 = '<p class="norm-note">Cox model: ' + escapeXml(trtName) + " + " + escapeXml(v.name) + " + " + escapeXml(trtName) + " × " + escapeXml(v.name) + " (" + it.n + " patients, " + it.events + " events" + (it.missing ? "; " + it.missing + " missing " + escapeXml(v.name) : "") + ").</p>" +
+            '<div class="stat-row"><span class="stat-label">Joint interaction test (likelihood ratio)</span><span class="stat-value">' + sgTest(lr) + '</span></div>' +
+            '<div class="stat-row"><span class="stat-label">Joint interaction test (Wald)</span><span class="stat-value">' + sgTest(wd) + '</span></div>' +
+            '<div class="assumption ' + (sig ? "warn" : "good") + '" style="margin-top:10px;"><span class="dot"></span> ' + escapeXml(
+              lr.df === 0 ? "No interaction coefficient can be estimated, so the interaction cannot be tested." :
+              sig ? "Evidence that the effect of treatment " + (v.type === "categorical" ? "differs across the categories of " + v.name : "changes with " + v.name) + " (p < 0.05)" + (v.prespec ? "." : " — but this variable was not pre-specified, so treat it as a hypothesis, not a finding.") :
+              "No evidence that the effect of treatment " + (v.type === "categorical" ? "differs across the categories of " + v.name + ". This does not show the effect is the same in every category" : "changes with " + v.name + ". This does not show it is constant") + " — interaction tests have little power.") + '</div>' +
+            '<h3 style="font-family:\'Fraunces\',serif;font-size:14px;margin:18px 0 0;">Treatment effect within each ' + (v.type === "categorical" ? "category" : "patient, at the mean " + escapeXml(v.name) + " (" + fmtNum(it.mean, 2) + ")") + '</h3>' +
+            '<div class="table-wrap" style="margin-top:8px;"><table class="life-table" style="min-width:480px;"><thead><tr><th style="text-align:left;">' + escapeXml(v.type === "categorical" ? v.name : "") + '</th><th style="text-align:left;">Comparison</th><th>N</th><th>HR (95% CI)</th><th>p</th></tr></thead><tbody>' +
+            it.effects.map(function(e){
+              return '<tr><td style="text-align:left;">' + escapeXml(e.level === null ? "at mean" : e.level) + '</td><td style="text-align:left;">' + escapeXml(e.arm + " vs " + e.refArm) + '</td><td>' + e.n + '</td><td>' +
+                (e.estimable ? fmtNum(e.hr, 2) + " (" + fmtNum(e.lo, 2) + "–" + fmtNum(e.hi, 2) + ")" : "Not estimable") + '</td><td>' + (e.estimable ? fmtP(e.p) : "—") + '</td></tr>';
+            }).join("") + '</tbody></table></div>' +
+            '<p class="data-hint" style="margin-top:8px;">Each row comes from the same interaction model; whether these hazard ratios differ from each other is what the joint test above answers — not whether each one is "significant".</p>' +
+            '<h3 style="font-family:\'Fraunces\',serif;font-size:14px;margin:18px 0 0;">All model coefficients</h3>' + sgCoefTable(it.rows) +
+            (v.type === "continuous" ? '<p class="data-hint" style="margin-top:8px;">The treatment coefficient in this model is the treatment effect at ' + escapeXml(v.name) + ' = 0, which may be outside the data — use the hazard ratio at the mean above. The interaction hazard ratio is the factor by which the treatment hazard ratio changes per unit of ' + escapeXml(v.name) + '.</p>' : "") +
+            (v.type === "categorical" && it.levels.length > 2 ? '<p class="data-hint" style="margin-top:8px;">With ' + it.levels.length + " categories there are several interaction coefficients; judge the interaction by the joint test, not by any single coefficient's p-value.</p>" : "") +
+            sgWarn(sgModelWarnings(null, it.fit, it.rows));
+          text.push("Interaction " + trtName + " × " + v.name + ": joint LR " + sgTest(lr) + "; joint Wald " + sgTest(wd));
+          it.effects.forEach(function(e){ text.push("  " + (e.level === null ? "at mean " + fmtNum(it.mean, 2) : e.level) + ": " + e.arm + " vs " + e.refArm + " HR " + (e.estimable ? fmtNum(e.hr, 2) + " (" + fmtNum(e.lo, 2) + "–" + fmtNum(e.hi, 2) + "), " + coxP(e.p) : "not estimable")); });
+        }
+        sgCard(sgEls.results, "Analysis " + num4 + " · " + status.toLowerCase(), "Treatment × " + v.name + " interaction", html4);
+      }
+    });
+
+    var holm = holmAdjust(interactionPs.map(function(x){ return x.p; }));
+    interactionPs.forEach(function(x, i){ x.row.holm = holm[i]; });
+    if (summary.length) sgRenderSummary(summaryHolder, summary, withinArms, doInteraction, interactionPs.length, text);
+
+    sgState.ran = true;
+    sgState.lastText = text.join("\n");
+    sgEls.copyBtn.hidden = false;
+    sgEls.runStatus.textContent = "Results below" + (chosen.length || !needVars ? "." : " — tick subgroup variables in Step 2 to add analyses 2–" + (d.arms.length + 2) + ".");
+  }
+
+  function sgRenderSummary(holder, summary, withinArms, doInteraction, nTests, text){
+    var ordered = summary.filter(function(r){ return r.status === "Pre-specified"; }).concat(summary.filter(function(r){ return r.status !== "Pre-specified"; }));
+    var head = '<th style="text-align:left;">Variable</th><th style="text-align:left;">Status</th><th style="text-align:left;">Type</th>' +
+      withinArms.map(function(a){ return '<th>Within ' + escapeXml(a) + ' (p)</th>'; }).join("") +
+      (doInteraction ? '<th>Interaction χ² (df)</th><th>Interaction p</th><th>Holm-adjusted p</th>' : "");
+    var body = ordered.map(function(r){
+      if (r.skipped) return '<tr><td style="text-align:left;">' + escapeXml(r.name) + '</td><td style="text-align:left;">' + r.status + '</td><td colspan="' + (2 + withinArms.length + (doInteraction ? 2 : 0)) + '" style="text-align:left;">Not analysed — see below</td></tr>';
+      return '<tr><td style="text-align:left;">' + escapeXml(r.name) + '</td><td style="text-align:left;">' + r.status + '</td><td style="text-align:left;">' + escapeXml(r.cats) + '</td>' +
+        withinArms.map(function(a){ var t = r.within[a]; return '<td>' + (t && isFinite(t.p) ? fmtP(t.p) : "—") + '</td>'; }).join("") +
+        (doInteraction ? '<td>' + (r.interaction && isFinite(r.interaction.chi2) ? fmtNum(r.interaction.chi2, 2) + " (" + r.interaction.df + ")" : "—") + '</td><td>' +
+          (r.interaction ? fmtP(r.interaction.p) : "—") + '</td><td>' + (isFinite(r.holm) ? fmtP(r.holm) : "—") + '</td>' : "") + '</tr>';
+    }).join("");
+    var exploratory = summary.filter(function(r){ return r.status !== "Pre-specified"; }).length;
+    var warn = [];
+    if (nTests > 1) warn.push(nTests + " interaction tests were run. If the treatment worked equally in every subgroup, the chance of at least one p < 0.05 by chance alone would be about " + Math.round((1 - Math.pow(0.95, nTests)) * 100) + "%. The Holm-adjusted p-values allow for this.");
+    if (exploratory) warn.push(exploratory + " of these variables " + (exploratory === 1 ? "is" : "are") + " exploratory (not pre-specified). Exploratory subgroup findings are often false positives: report them as hypotheses, and do not change practice on them without confirmation in another study.");
+    if (withinArms.length) warn.push("The within-arm p-values compare categories among patients on the same treatment (prognosis); only the interaction test asks whether the treatment works differently across categories.");
+    var sec = document.createElement("section");
+    sec.className = "card";
+    sec.innerHTML = '<p class="eyebrow">Summary</p><h2>Subgroup analyses at a glance</h2>' +
+      '<div class="table-wrap" style="margin-top:12px;"><table class="life-table" style="min-width:620px;"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+      '<p class="data-hint" style="margin-top:8px;">Within-arm p: log-rank test across the categories (continuous variables without cut-offs: Cox likelihood ratio test). Interaction: joint likelihood ratio test of all treatment × variable terms.</p>' + sgWarn(warn);
+    holder.appendChild(sec);
+    text.push("", "SUMMARY");
+    ordered.forEach(function(r){
+      text.push(r.name + " (" + r.status.toLowerCase() + "): " + withinArms.map(function(a){ var t = r.within[a]; return "within " + a + " p = " + (t ? fmtP(t.p) : "—"); }).join("; ") +
+        (doInteraction && r.interaction ? "; interaction χ² = " + fmtNum(r.interaction.chi2, 2) + " (df " + r.interaction.df + "), p = " + fmtP(r.interaction.p) + ", Holm p = " + fmtP(r.holm) : ""));
+    });
+    warn.forEach(function(w){ text.push("Note: " + w); });
+  }
+
+  sgEls.runSelectedBtn.addEventListener("click", function(){ sgRun(false); });
+  sgEls.runAllBtn.addEventListener("click", function(){ sgRun(true); });
+  sgEls.copyBtn.addEventListener("click", function(){ copyTextWithFallback(sgState.lastText, sgEls.copyBtn); });
+  sgEls.timeUnit.addEventListener("change", function(){ if (sgState.ran) sgEls.runStatus.textContent = "Settings have changed since the results below were produced — press Run to update them."; });
+
+  sgEls.runSelectedBtn.disabled = sgEls.runAllBtn.disabled = true;
 
   function survivalExampleText(twoGroup){
     if (!twoGroup){
