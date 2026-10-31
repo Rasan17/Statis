@@ -418,6 +418,11 @@
   details.info-box .info-body p{margin:0 0 10px;}
   details.info-box .info-body p:last-child{margin-bottom:0;}
   details.info-box .info-body ul{margin:0 0 10px;padding-left:20px;}
+  .plain-box{margin-top:16px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;background:var(--paper);padding:12px 16px 10px;}
+  .plain-box .plain-title{margin:0 0 6px;font-weight:700;font-size:13.5px;color:var(--accent-ink);}
+  .plain-box .plain-sub{margin:10px 0 6px;font-weight:700;font-size:13px;color:var(--warn);}
+  .plain-box ul{margin:0;padding-left:20px;font-size:13px;line-height:1.6;color:var(--ink);}
+  .plain-box li{margin:0 0 4px;}
 
   table.life-table{border-collapse:collapse;width:100%;font-size:12.5px;}
   table.life-table th, table.life-table td{
@@ -2597,6 +2602,415 @@
     return span;
   }
 
+  /* ===================== Plain-English summaries ===================== */
+  // Every result ends with an "In plain English" box: what the numbers mean for someone without statistical or
+  // medical training, and the caveats that matter. The wording is built from the same numbers shown above it.
+
+  // Shows (or removes, when plain is null) the box for host; it goes straight after `after` if given, else at the end of host.
+  function plainBox(host, plain, after){
+    var box = host._plainBox;
+    if (!plain || !plain.means || !plain.means.length){
+      if (box){ box.remove(); host._plainBox = null; }
+      return;
+    }
+    if (!box){ box = document.createElement("div"); host._plainBox = box; }
+    if (after){ if (after.nextSibling !== box) after.parentNode.insertBefore(box, after.nextSibling); }
+    else if (box.parentNode !== host) host.appendChild(box);
+    box.innerHTML = plainHtml(plain);
+  }
+
+  function plainHtml(plain){
+    function list(items){ return '<ul>' + items.map(function(s){ return '<li>' + escapeXml(s) + '</li>'; }).join("") + '</ul>'; }
+    return '<div class="plain-box"><p class="plain-title">In plain English</p>' + list(plain.means) +
+      (plain.caveats && plain.caveats.length ? '<p class="plain-sub">Keep in mind</p>' + list(plain.caveats) : "") + '</div>';
+  }
+
+  var PLAIN = {
+    p: "A p-value is not the chance that the finding is true or false, and a small p-value does not mean the difference is large or important. Judge that from the size of the effect and its range (the 95% confidence interval).",
+    ns: "\"Not statistically significant\" does not mean \"no difference\". It means these data cannot rule out chance; a real difference can be missed when the numbers are small. The range (95% confidence interval) shows how large a difference is still possible.",
+    cutoff: "The 0.05 cut-off is a convention, not a law of nature: p = 0.04 and p = 0.06 are almost equally strong evidence.",
+    cause: "This shows that two things go together, not that one causes the other. Unless patients were allocated at random, the groups may differ in other ways (age, severity, other treatments) that explain the result.",
+    ci: "The 95% confidence interval is the range of values the data are reasonably consistent with. The true value is probably somewhere inside it; a wide range means the estimate is imprecise."
+  };
+
+  // "about 1 in 37" — how often chance alone would give a result at least this extreme, if there were no real effect.
+  function plainOdds(p){
+    if (p < 0.0001) return "fewer than 1 in 10,000";
+    if (p >= 0.5) return "about half the time or more";
+    var k = 1 / p;
+    return "about 1 in " + (k < 10 ? String(Math.round(k * 10) / 10) : Math.round(k).toLocaleString("en-GB"));
+  }
+  function plainEvidence(p){
+    return p < 0.001 ? "very strong evidence" : p < 0.01 ? "strong evidence" : p < 0.05 ? "moderate evidence" : p < 0.10 ? "only weak evidence" : "no convincing evidence";
+  }
+  // One sentence on the p-value: `effect` describes the finding ("the two groups really differ"), `none` the opposite ("there were truly no difference").
+  function plainPSentence(p, effect, none){
+    if (!isFinite(p)) return "";
+    var how = p >= 0.5 ? "would happen " + plainOdds(p) : "would happen in " + plainOdds(p) + " studies like this one";
+    return (p < 0.05 ? "There is " + plainEvidence(p) + " that " + effect + " (" + coxP(p) + "): if " + none + ", a result this extreme " + how + "." :
+      "There is " + plainEvidence(p) + " that " + effect + " (" + coxP(p) + "): if " + none + ", a result like this " + how + ", so chance is a reasonable explanation.");
+  }
+  function plainPCaveats(p){
+    var c = [PLAIN.p];
+    if (isFinite(p) && p >= 0.05) c.push(PLAIN.ns);
+    if (isFinite(p) && p > 0.02 && p < 0.10) c.push(PLAIN.cutoff);
+    return c;
+  }
+  // A ratio as a change in words: 1.35 → "about 35% higher", 2.6 → "about 2.6 times as high", 0.7 → "about 30% lower".
+  function plainRatio(r){
+    if (!isFinite(r)) return "not estimable";
+    if (r <= 0) return "close to zero";
+    if (Math.abs(r - 1) < 0.0005) return "about the same";
+    if (Math.abs(r - 1) < 0.005) return "less than 1% " + (r > 1 ? "higher" : "lower");
+    if (r > 1) return r < 2 ? "about " + Math.round((r - 1) * 100) + "% higher" : "about " + (r < 10 ? fmtNum(r, 1) : Math.round(r)) + " times as high";
+    return "about " + Math.round((1 - r) * 100) + "% lower";
+  }
+  // The ratio as a comparison with `than` ("in the control group"): "about 35% higher than in…", "about 2.6 times as high as in…".
+  function plainVs(r, than){
+    var w = plainRatio(r);
+    return w + (/times as high|the same/.test(w) ? " as " : " than ") + than;
+  }
+  function plainRatioRange(lo, hi){
+    if (!isFinite(lo) || !isFinite(hi)) return "";
+    return " The data are consistent with anything from " + plainRatio(lo) + " to " + plainRatio(hi) +
+      (lo < 1 && hi > 1 ? " — a range that includes no difference at all." : ".");
+  }
+  function plainSmall(n, what){
+    return "This is based on only " + n + " " + what + ", so the estimates are imprecise and could change noticeably with more data.";
+  }
+  function plainStrength(v, cuts, words){
+    var a = Math.abs(v);
+    for (var i = 0; i < cuts.length; i++) if (a < cuts[i]) return words[i];
+    return words[words.length - 1];
+  }
+  function plainPct(x, d){ return fmtNum(x * 100, d == null ? 0 : d) + "%"; }
+  function plainList(items){ return items.length < 2 ? items.join("") : items.slice(0, -1).join(", ") + " and " + items[items.length - 1]; }
+
+  /* --- Contingency table --- */
+  function plainContingency(d){
+    var r1 = d.a + d.b, r2 = d.c + d.d, p1 = r1 ? d.a / r1 : NaN, p2 = r2 ? d.c / r2 : NaN;
+    var pMain = d.chiOk ? d.chiP : d.fisherP;
+    var means = [
+      "Among " + d.row1 + ", " + d.a + " of " + r1 + " (" + plainPct(p1, 1) + ") were " + d.col1 + "; among " + d.row2 + ", " + d.c + " of " + r2 + " (" + plainPct(p2, 1) + ") were.",
+      (d.chiOk ? "The groups are large enough for the chi-squared test; Fisher's exact test gives a similar answer." : "Some of the counts are small, so Fisher's exact test is the one to rely on here, not the chi-squared test.") + " " +
+        plainPSentence(pMain, "the proportion who were " + d.col1 + " really differs between " + d.row1 + " and " + d.row2, "there were truly no difference")
+    ];
+    if (isFinite(p1) && isFinite(p2)){
+      var diff = (p1 - p2) * 100;
+      means.push("In absolute terms the difference is " + fmtNum(Math.abs(diff), 1) + " percentage points: about " + fmtNum(Math.abs(diff), 0) + (diff >= 0 ? " more" : " fewer") + " people were " + d.col1 + " for every 100 in " + d.row1 + " than in " + d.row2 + ".");
+    }
+    if (isFinite(d.rr)) means.push("Relative risk " + fmtNum(d.rr, 2) + ": in " + d.row1 + ", the chance of being " + d.col1 + " was " + plainVs(d.rr, "in " + d.row2) + "." + plainRatioRange(d.rrLo, d.rrHi));
+    if (isFinite(d.or)) means.push("The odds ratio (" + fmtNum(d.or, 2) + ") says the same thing on a different scale (odds instead of risk). When the outcome is common it looks more dramatic than the relative risk, so the relative risk is usually the easier one to explain.");
+    var caveats = plainPCaveats(pMain).concat([PLAIN.cause]);
+    if (d.n < 40) caveats.push(plainSmall(d.n, "people"));
+    if (d.haszero) caveats.push("One cell is 0, so 0.5 was added to every cell to calculate the ratios; treat them as rough.");
+    return { means: means, caveats: caveats };
+  }
+
+  /* --- Descriptive / pivot tab --- */
+  function plainPivotTest(d){
+    var means = [
+      "This asks whether " + d.rowVar + " and " + d.colVar + " are linked: does the mix of " + d.colVar + " differ between the " + d.rowVar + " groups?",
+      plainPSentence(d.p, d.rowVar + " and " + d.colVar + " are linked", "they were truly unrelated")
+    ];
+    if (isFinite(d.v)) means.push("Strength of the link (Cramér's V = " + fmtNum(d.v, 2) + ", on a scale from 0 = none to 1 = complete): " +
+      plainStrength(d.v, [0.1, 0.3, 0.5], ["negligible", "weak", "moderate", "strong"]) + ".");
+    if (d.or && isFinite(d.or.or)) means.push("Odds ratio " + fmtNum(d.or.or, 2) + ": for " + d.rowVar + " = " + d.row1 + ", the odds of " + d.colVar + " = " + d.col1 + " were " + plainVs(d.or.or, "for " + d.rowVar + " = " + d.row2) + "." + plainRatioRange(d.or.orLo, d.or.orHi));
+    var caveats = plainPCaveats(d.p).concat([PLAIN.cause, "The test says whether the two are linked, not which particular categories drive it — look at the percentages in the table for that."]);
+    if (d.approx) caveats.push("Some expected counts are very small and the exact test could not be run on a table this large, so this p-value is only approximate.");
+    if (d.n < 40) caveats.push(plainSmall(d.n, "rows"));
+    return { means: means, caveats: caveats };
+  }
+  function plainPivotSingle(s, col, continuous){
+    if (continuous){
+      var skew = isFinite(s.mean) && isFinite(s.median) && s.sd > 0 ? (s.mean - s.median) / s.sd : 0;
+      return {
+        means: [
+          col + ": " + s.n + " values. The average (mean) is " + fmtNum(s.mean, 2) + " and the middle value (median) is " + fmtNum(s.median, 2) + ".",
+          "Half of the values lie between " + fmtNum(s.q1, 2) + " and " + fmtNum(s.q3, 2) + " (the interquartile range); the smallest is " + fmtNum(s.min, 2) + " and the largest " + fmtNum(s.max, 2) + ".",
+          "The standard deviation (" + fmtNum(s.sd, 2) + ") is the typical distance of a value from the average: the larger it is, the more spread out the values."
+        ],
+        caveats: [Math.abs(skew) > 0.2 ?
+            "The mean and median differ noticeably, so the values are lopsided (a few very " + (skew > 0 ? "high" : "low") + " values pull the mean). The median and interquartile range describe a typical value better here." :
+            "The mean and median are close, so the values are fairly evenly spread around the middle.",
+          "SEM (" + fmtNum(s.sem, 3) + ") is not the spread of the values; it is how precisely the average is known.",
+          s.missing ? s.missing + " rows have no usable value and are not included." : "No values are missing."]
+      };
+    }
+    var top = s.rows.slice().sort(function(a, b){ return b.count - a.count; })[0];
+    return {
+      means: [col + ": " + s.n + " values in " + s.unique + " categories." + (top ? " The most common is \"" + top.category + "\" (" + top.count + ", " + fmtNum(top.pct, 1) + "%)." : ""),
+        "The percentages are out of the " + s.n + " rows with a value" + (s.missing ? "; the " + s.missing + " missing rows are left out" : "") + "."],
+      caveats: s.n < 30 ? ["With only " + s.n + " values, these percentages could be quite different in another sample."] : []
+    };
+  }
+
+  /* --- T-test tab --- */
+  function plainTtest(d){
+    var means = [], caveats;
+    var rank = d.method === "mannwhitney" || d.method === "wilcoxon";
+    if (d.paired) means.push("Each " + d.labelA + " value is paired with a " + d.labelB + " value (for example the same patient before and after). On average, values went " + (d.diff >= 0 ? "up" : "down") + " by " + fmtNum(Math.abs(d.diff), 2) + " from " + d.labelA + " to " + d.labelB + ".");
+    else means.push("The average in " + d.labelA + " was " + fmtNum(d.mA, 2) + " and in " + d.labelB + " " + fmtNum(d.mB, 2) + ": " + d.labelA + " was " + fmtNum(Math.abs(d.diff), 2) + (d.diff >= 0 ? " higher" : " lower") + " on average.");
+    if (rank) means.push("Because the values did not look evenly bell-shaped (or this test was chosen), a rank-based test was used: it asks whether one " + (d.paired ? "side tends to be higher than the other" : "group tends to have higher values than the other") + ", rather than comparing averages directly.");
+    means.push(plainPSentence(d.p, "the " + (d.paired ? "change" : "difference between the groups") + " is real", "there were truly no " + (d.paired ? "change" : "difference")));
+    if (isFinite(d.effect)){
+      var word = d.effectKind === "d" ? plainStrength(d.effect, [0.2, 0.5, 0.8], ["negligible", "small", "medium", "large"]) : plainStrength(d.effect, [0.1, 0.3, 0.5], ["negligible", "small", "medium", "large"]);
+      means.push("In practical terms the difference is " + word + (d.effectKind === "d" ? " — about " + fmtNum(Math.abs(d.effect), 1) + " standard deviations (one standard deviation is the typical spread of " + (d.paired ? "the individual changes around their average)." : "values around the average).") : " (effect size " + fmtNum(d.effect, 2) + " on a scale where 0 is no difference and 1 is complete separation)."));
+    }
+    caveats = plainPCaveats(d.p);
+    if (!d.paired) caveats.push(PLAIN.cause);
+    if (d.n < 20) caveats.push(plainSmall(d.n, d.paired ? "pairs" : "values in the smaller group"));
+    caveats.push("Whether a difference of this size matters to patients is a clinical judgement, not a statistical one.");
+    return { means: means, caveats: caveats };
+  }
+
+  /* --- Correlation tab --- */
+  function plainCorrelation(d){
+    var dir = d.coef >= 0 ? "higher" : "lower";
+    var strength = plainStrength(d.coef, [0.1, 0.3, 0.5, 0.7], ["hardly any", "a weak", "a moderate", "a strong", "a very strong"]);
+    var means = [
+      "There is " + strength + " tendency for " + d.yLabel + " to be " + dir + " when " + d.xLabel + " is higher (" + d.name + " = " + fmtNum(d.coef, 2) + ", on a scale from −1 to +1, where 0 means no link).",
+      plainPSentence(d.p, d.xLabel + " and " + d.yLabel + " are really linked", "they were truly unrelated")
+    ];
+    var caveats = ["A correlation shows that two things go together, not that one causes the other: both may be driven by something else (for example age or illness severity)."].concat(plainPCaveats(d.p));
+    if (d.method === "pearson") caveats.push("Pearson's r only measures straight-line relationships and can be swayed by one or two unusual points — look at the scatter plot.");
+    else caveats.push("This rank-based measure only asks whether one tends to rise (or fall) with the other, not whether they follow a straight line.");
+    if (d.n < 20) caveats.push(plainSmall(d.n, "pairs of values"));
+    return { means: means, caveats: caveats };
+  }
+  function plainRegression(d){
+    var means = [
+      "The fitted line says that, on average, each 1-unit increase in " + d.xLabel + " goes with a change of " + fmtNum(d.slope, 3) + " in " + d.yLabel +
+        " (95% confidence interval " + fmtNum(d.lo, 3) + " to " + fmtNum(d.hi, 3) + (d.lo < 0 && d.hi > 0 ? " — a range that includes no change at all" : "") + ").",
+      d.xLabel + " accounts for about " + plainPct(Math.max(0, d.r2)) + " of the person-to-person variation in " + d.yLabel + "; the other " + plainPct(1 - Math.max(0, d.r2)) + " is due to other things.",
+      plainPSentence(d.p, "the slope is real (not flat)", "there were truly no relationship")
+    ];
+    var caveats = [PLAIN.cause, "The line describes the data between " + fmtNum(d.xMin, 2) + " and " + fmtNum(d.xMax, 2) + " for " + d.xLabel + "; do not use it to predict outside that range."];
+    if (d.problems.length) caveats.push("The checks above found that " + plainList(d.problems) + ", so the p-value and range for the slope may be unreliable.");
+    if (d.n < 20) caveats.push(plainSmall(d.n, "pairs of values"));
+    return { means: means, caveats: caveats.concat(plainPCaveats(d.p).slice(0, 1)) };
+  }
+
+  /* --- Survival tab --- */
+  function plainKmIntro(){
+    return "The curve shows the estimated proportion of patients who have not yet had the event at each point in time. It steps down at every event; small tick marks are \"censored\" patients — those still event-free when last seen, so we only know they lasted at least that long.";
+  }
+  function plainMedianSentence(name, km, unit){
+    if (isNaN(km.median)) return name + ": fewer than half had the event during follow-up, so the median time to the event (the time by which half have had it) cannot be estimated yet.";
+    return name + ": half of patients are estimated to have had the event by " + fmtNum(km.median, 1) + " " + unit +
+      (isFinite(km.medianCiLower) || isFinite(km.medianCiUpper) ? " (95% confidence interval " + (isFinite(km.medianCiLower) ? fmtNum(km.medianCiLower, 1) : "the start") + " to " + (isFinite(km.medianCiUpper) ? fmtNum(km.medianCiUpper, 1) : "beyond the end of follow-up") + ")" : "") + ".";
+  }
+  var PLAIN_SURV = [
+    "\"Survival\" here means free of whatever the event column records (death, recurrence, reoperation…), not necessarily alive.",
+    "Censored patients are assumed to be like those who stayed in follow-up. If people dropped out because they were doing badly (or well), the curve is biased.",
+    "The right-hand end of the curve rests on few patients, so it is the least reliable part — the shaded band widens to show this."
+  ];
+  function plainSurvOne(km, n, events, unit){
+    return { means: ["Of " + n + " patients, " + events + " had the event during follow-up and " + (n - events) + " had not (yet) when last seen.", plainMedianSentence("Overall", km, unit), plainKmIntro()],
+      caveats: PLAIN_SURV.concat(events < 20 ? [plainSmall(events, "events")] : []) };
+  }
+  function plainSurvTwo(groups, lr, unit){
+    var means = groups.map(function(g){ return plainMedianSentence(g.name, g.km, unit); });
+    if (isFinite(lr.p)) means.push(plainPSentence(lr.p, "events happen at a different pace in " + groups[0].name + " and " + groups[1].name, "the two groups truly had the same outlook") +
+      " The log-rank test only says whether the curves differ, not by how much — the Cox model below gives the size of the difference (the hazard ratio).");
+    means.push(plainKmIntro());
+    var caveats = plainPCaveats(lr.p).concat([PLAIN.cause]).concat(PLAIN_SURV.slice(0, 2));
+    caveats.push("If the two curves cross, one group does better early and the other later; the log-rank test is weak at detecting this, so look at the plot.");
+    var totalEvents = groups.reduce(function(s, g){ return s + g.raw.filter(function(r){ return r.event === 1; }).length; }, 0);
+    if (totalEvents < 20) caveats.push(plainSmall(totalEvents, "events"));
+    return { means: means, caveats: caveats };
+  }
+  // A Cox hazard ratio row (from renderCoxResults or the subgroup tab) in words.
+  function plainHrSentence(r){
+    if (r.infinite || r.dropped || !isFinite(r.hr)) return null;
+    var who;
+    if (r.info && r.info.continuous) who = r.info.ordinal ? "Each step up the " + r.info.term + " scale goes with an event rate " : "Each 1-unit increase in " + r.info.term + " goes with an event rate ";
+    else if (r.info && r.info.level !== undefined) who = "Patients with " + r.info.term + " = " + r.info.level + " had an event rate ";
+    else who = r.label + ": event rate ";
+    var cmp = r.info && r.info.level !== undefined ? plainVs(r.hr, "in those with " + r.info.term + " = " + r.info.ref) : plainRatio(r.hr);
+    return who + cmp + " (hazard ratio " + fmtNum(r.hr, 2) + (isFinite(r.p) ? ", " + coxP(r.p) : "") + ")." + plainRatioRange(r.lo, r.hi);
+  }
+  var PLAIN_HR = "A hazard ratio compares how fast events happen at any given moment among patients who have not yet had one: 2 means twice the rate, 0.5 half the rate, 1 no difference. It is not the proportion who eventually have the event.";
+  function plainCox(m){
+    var means = [PLAIN_HR];
+    if (m.terms.length > 1) means.push("Each figure is adjusted for the other factors in the model: it compares patients who are alike on those other factors (but only on factors that were included).");
+    m.rows.forEach(function(r){ var s = plainHrSentence(r); if (s) means.push(s); });
+    if (isFinite(m.lrP)) means.push(plainPSentence(m.lrP, "the factors in the model, taken together, are related to how soon the event happens", "they were truly unrelated to it"));
+    if (isFinite(m.concordance)) means.push("How well the model sorts patients by who has the event sooner: C = " + fmtNum(m.concordance, 2) + " (0.5 is no better than a coin toss, 1 is perfect) — " +
+      plainStrength(m.concordance - 0.5, [0.1, 0.2, 0.3], ["poor", "modest", "good", "strong"]) + ".");
+    var caveats = [PLAIN.cause, "Factors that were not measured or not included can still explain the differences."];
+    if (m.epv < 10) caveats.push("There are only " + fmtNum(m.epv, 1) + " events for each estimated effect (10 or more is recommended), so the hazard ratios may be exaggerated and their ranges unreliable.");
+    if (m.rows.some(function(r){ return r.infinite; })) caveats.push("Some effects could not be estimated because a category had no events (or only events).");
+    caveats.push("The model assumes each effect stays the same throughout follow-up; the check below tests this.");
+    caveats.push(PLAIN.p);
+    return { means: means, caveats: caveats };
+  }
+  function plainPh(z, labels){
+    var g = z.global, name = function(t){ return t.cols.length > 1 ? t.name : labels[t.cols[0]]; };
+    var sig = z.terms.filter(function(t){ return t.p < 0.05; });
+    var means = ["The Cox model assumes each factor's effect is steady over time — for example, that a treatment which halves the event rate in the first month still halves it two years later. This check looks for signs that an effect grows or fades."];
+    if (isFinite(g.p)) means.push(g.p < 0.05 ?
+      "There are signs that at least one effect changes over time (" + coxP(g.p) + "), so a single hazard ratio may be a misleading average — for instance of a treatment that helps early on but not later." :
+      "No clear sign that the effects change over time (" + coxP(g.p) + "), so summarising each factor by one hazard ratio is reasonable.");
+    if (sig.length) means.push("The factor" + (sig.length > 1 ? "s" : "") + " flagged: " + sig.map(function(t){ return name(t) + " (" + coxP(t.p) + ")"; }).join(", ") + ". See " + (sig.length > 1 ? "their plots" : "its plot") + ".");
+    means.push("In each plot a flat line means a steady effect; a line that clearly rises or falls means the effect grows or fades over follow-up.");
+    return { means: means, caveats: [
+      "No warning sign is not proof that the effects are steady; with few events these checks easily miss real changes.",
+      "When several factors are checked, one may be flagged by chance alone; look at its plot before acting on it.",
+      "A flagged factor does not make the model useless: its hazard ratio is then an average over follow-up. The \"Effect over time\" table below shows the effect in separate time periods."] };
+  }
+  function plainPeriods(){
+    return { means: ["Each column is the hazard ratio for that stretch of follow-up only. If the numbers differ a lot between columns, the effect changes over time."],
+      caveats: ["Periods with few events give imprecise figures; differences between columns can be due to chance.", "Cut-points chosen after looking at the data can create differences that are not real."] };
+  }
+
+  /* --- Survival subgroups tab --- */
+  function plainSgOverall(ov, refArm, rows, trtName){
+    var means = [PLAIN_HR];
+    rows.forEach(function(r){ var s = plainHrSentence({ hr: r.hr, lo: r.lo, hi: r.hi, p: r.p, infinite: r.infinite, dropped: r.dropped, label: r.level, info: { term: trtName, level: r.level, ref: refArm } }); if (s) means.push(s); });
+    if (ov.curves.logRank && isFinite(ov.curves.logRank.p)) means.push(plainPSentence(ov.curves.logRank.p, "the treatment arms have different outlooks", "the arms truly had the same outlook"));
+    return { means: means, caveats: plainPCaveats(ov.curves.logRank ? ov.curves.logRank.p : NaN).concat([PLAIN.cause]) };
+  }
+  function plainSgWithin(arm, v, test, rows){
+    var means = ["This looks only at patients given " + arm + " and compares them by " + v.name + ". It shows whether " + v.name + " predicts outcome on this treatment (prognosis) — not whether the treatment works differently depending on " + v.name + "; the interaction analysis answers that."];
+    if (test && isFinite(test.p)) means.push(plainPSentence(test.p, "outcome differs by " + v.name + " among these patients", v.name + " truly made no difference"));
+    rows.forEach(function(r){ var s = plainHrSentence({ hr: r.hr, lo: r.lo, hi: r.hi, p: r.p, infinite: r.infinite, dropped: r.dropped, label: r.label,
+      info: v.type === "continuous" ? { term: v.name, continuous: true } : { term: v.name, level: r.level, ref: r.ref } }); if (s) means.push(s); });
+    var caveats = plainPCaveats(test ? test.p : NaN);
+    if (!v.prespec) caveats.push("This variable was not named in advance, so treat any finding as an idea to test in another study, not as a result.");
+    return { means: means, caveats: caveats };
+  }
+  function plainSgInteraction(v, trtName, lr, effects){
+    var means = ["This asks the key subgroup question: does the benefit (or harm) of " + trtName + " differ " + (v.type === "categorical" ? "between the categories of " + v.name : "with " + v.name) + "?"];
+    if (lr && isFinite(lr.p)) means.push(plainPSentence(lr.p, "the treatment effect really differs " + (v.type === "categorical" ? "between categories" : "with " + v.name), "the treatment worked the same for everyone"));
+    effects.forEach(function(e){
+      if (!e.estimable) return;
+      means.push((e.level === null ? "At the average " + v.name : v.name + " = " + e.level) + ": " + "the event rate with " + e.arm + " was " + plainVs(e.hr, "with " + e.refArm) + " (hazard ratio " + fmtNum(e.hr, 2) + ")." + plainRatioRange(e.lo, e.hi));
+    });
+    var caveats = ["A treatment that looks \"significant\" in one subgroup and not in another is not evidence that it works differently; only the test above addresses that.",
+      "Interaction tests need large numbers; failing to find a difference does not show the effect is the same in every subgroup."];
+    if (!v.prespec) caveats.push("This variable was not named in advance: subgroup findings that were not planned are often false alarms and need confirming in another study.");
+    return { means: means, caveats: caveats.concat(plainPCaveats(lr ? lr.p : NaN).slice(0, 1)) };
+  }
+  function plainSgSummary(summary, nTests){
+    var hits = summary.filter(function(r){ return r.interaction && r.interaction.p < 0.05; });
+    var holmHits = summary.filter(function(r){ return isFinite(r.holm) && r.holm < 0.05; });
+    var means = ["This table lists every subgroup variable examined, so none is reported in isolation."];
+    if (nTests) means.push(hits.length ?
+      hits.length + " of " + nTests + " variables showed signs that the treatment effect differs across subgroups (" + hits.map(function(r){ return r.name; }).join(", ") + ")" +
+        (nTests > 1 ? "; after allowing for the number of tests (Holm adjustment), " + (holmHits.length ? holmHits.length + " remain" + (holmHits.length === 1 ? "s" : "") : "none remain") : "") + "." :
+      "None of the " + nTests + " variables showed convincing signs that the treatment effect differs across subgroups.");
+    return { means: means, caveats: ["The more subgroups you check, the more likely one shows a difference purely by chance — like rolling a die many times. The Holm-adjusted p-values correct for this.",
+      "Believable subgroup effects are planned in advance, few in number, biologically plausible and confirmed in other studies."] };
+  }
+
+  /* --- ANOVA tab --- */
+  function plainAnova(d){
+    var rank = d.method === "kruskal";
+    var means = [(rank ? "Middle values (medians): " : "Averages: ") + d.groups.map(function(g){ return g.name + " " + fmtNum(rank ? median(g.arr) : mean(g.arr), 2); }).join(", ") + ".",
+      plainPSentence(d.p, "at least one group differs from the others", "all groups were truly alike")];
+    if (rank) means.push("Because the values did not look evenly bell-shaped (or this test was chosen), a rank-based test was used: it asks whether some groups tend to have higher values than others.");
+    if (d.method === "transform") means.push("The values were mathematically rescaled (a Box–Cox transformation) to make them better behaved before testing; the conclusion is about the groups, but the test was run on the rescaled values.");
+    if (isFinite(d.effect)) means.push("Group membership accounts for about " + plainPct(Math.max(0, d.effect)) + " of the variation between individual values" + (rank ? " (in their rank order)" : "") + " (" + plainStrength(d.effect, [0.01, 0.06, 0.14], ["negligible", "small", "medium", "large"]) + ").");
+    var caveats = ["This test only says whether the groups differ somewhere; it does not say which groups differ from which."].concat(plainPCaveats(d.p)).concat([PLAIN.cause]);
+    var small = d.groups.filter(function(g){ return g.arr.length < 10; });
+    if (small.length) caveats.push("Some groups are small (" + small.map(function(g){ return g.name + ": " + g.arr.length; }).join(", ") + "), so the comparison is imprecise.");
+    return { means: means, caveats: caveats };
+  }
+
+  /* --- MANOVA / ANCOVA tab --- */
+  function plainAncova(d){
+    var fit = d.fit;
+    var means = ["Averages adjusted for " + plainList(d.covariates) + " — what each group's average would be if the groups were alike on " + (d.covariates.length > 1 ? "those" : "that") + ": " +
+        fit.adjMeans.map(function(am){ return am.level + " " + fmtNum(am.mean, 2); }).join(", ") + ".",
+      plainPSentence(fit.pGroup, "the groups really differ in " + d.yLabel + " once " + plainList(d.covariates) + (d.covariates.length > 1 ? " are" : " is") + " taken into account", "there were truly no difference"),
+      d.groupLabel + " accounts for about " + plainPct(Math.max(0, fit.partialEta2)) + " of the variation left after allowing for " + plainList(d.covariates) + "."];
+    var caveats = [];
+    if (fit.slopes && fit.slopes.p < 0.05) caveats.push("The link between " + plainList(d.covariates) + " and " + d.yLabel + " differs between groups, so one adjusted comparison does not tell the whole story.");
+    caveats.push("Adjusting only removes the influence of the factors listed; anything not measured can still explain the difference.");
+    return { means: means, caveats: caveats.concat(plainPCaveats(fit.pGroup)).concat([PLAIN.cause]) };
+  }
+  function plainManova(d){
+    var fit = d.fit;
+    var sig = fit.univariate.filter(function(u){ return u.p < 0.05; }).map(function(u){ return u.name; });
+    var means = ["This asks whether the " + fit.k + " groups differ when all " + fit.numDV + " measurements (" + plainList(d.dvs) + ") are looked at together.",
+      plainPSentence(fit.p, "the groups differ on these measurements taken together", "the groups were truly alike"),
+      "About " + plainPct(Math.max(0, 1 - fit.lambda)) + " of the combined variation is linked to group membership.",
+      sig.length ? "Looked at one at a time, the groups differ most clearly on " + plainList(sig) + "." : "Looked at one at a time, no single measurement differs clearly between the groups."];
+    return { means: means, caveats: ["The one-at-a-time tests are not corrected for checking several measurements, so a single one can come up by chance."].concat(plainPCaveats(fit.p)).concat([PLAIN.cause]) };
+  }
+
+  /* --- GLM tab --- */
+  function plainGlm(d){
+    var noun = d.mode === "logistic" ? "the odds of " + d.yLabel + " are " : d.mode === "poisson-rr" ? "the risk of " + d.yLabel + " is " : "the expected count of " + d.yLabel + " is ";
+    var means = [d.mode === "poisson" ? "This model estimates how each factor relates to how often " + d.yLabel + " happens (a count)." :
+      "This model estimates how each factor relates to the chance of " + d.yLabel + " (yes/no)." + (d.terms.length > 1 ? " Each figure is adjusted for the other factors in the model." : "")];
+    d.terms.forEach(function(te){
+      var who = te.kind === "nominal" ? te.variable + " = " + te.level + " (compared with " + te.reference + ")" : "Each 1-unit increase in " + te.name;
+      if (d.probit) means.push(who + " goes with a " + (te.beta >= 0 ? "higher" : "lower") + " chance of " + d.yLabel + " (" + coxP(te.p) + "); probit models give no simple ratio.");
+      else means.push(who + ": " + noun + plainRatio(te.ratio) + " (ratio " + fmtNum(te.ratio, 2) + ", " + coxP(te.p) + ")." + plainRatioRange(te.ratioLo, te.ratioHi));
+    });
+    means.push(plainPSentence(d.lrP, "these factors, taken together, are related to " + d.yLabel, "they were truly unrelated"));
+    if (isFinite(d.accuracy)) means.push("The model puts " + plainPct(d.accuracy, 0) + " of these same patients on the right side (event / no event), compared with " + plainPct(d.baseline, 0) + " by always guessing the more common outcome.");
+    var caveats = [PLAIN.cause, "Factors that were not included can still explain the results."];
+    if (d.mode === "logistic" && !d.probit && d.prevalence > 0.1) caveats.push(d.yLabel + " is common here (" + plainPct(d.prevalence) + "), so odds ratios overstate how much the risk itself changes; the relative-risk option gives risk ratios instead.");
+    if (isFinite(d.accuracy)) caveats.push("The accuracy is measured on the data used to build the model, so it is optimistic; it would usually be lower in new patients.");
+    if (d.epv < 10) caveats.push("There are few events for the number of factors (" + fmtNum(d.epv, 1) + " per factor; 10 or more is recommended), so the estimates may be exaggerated.");
+    if (!d.converged) caveats.push("The model did not settle on a stable answer (see the warning above), so these figures should not be relied on.");
+    if (d.overdispersed) caveats.push("The counts vary more than a simple Poisson model expects, so the ranges were widened to allow for it.");
+    caveats.push(PLAIN.p);
+    return { means: means, caveats: caveats };
+  }
+
+  /* --- Meta-analysis tab --- */
+  function plainMeta(d){
+    var means = [];
+    if (d.isRatio) means.push("Combining " + d.k + " studies, the " + (d.measure === "OR" ? "odds" : "risk") + " of the event with the intervention " + (d.measure === "OR" ? "were " : "was ") + plainVs(d.est, "with control") + " (" + (d.measure === "OR" ? "odds ratio " : "risk ratio ") + fmtNum(d.est, 2) + ")." + plainRatioRange(d.lo, d.hi));
+    else means.push("Combining " + d.k + " studies, the event happened in about " + fmtNum(Math.abs(d.est) * 100, 1) + (d.est >= 0 ? " more" : " fewer") + " people per 100 with the intervention than with control (95% confidence interval " + fmtNum(d.lo * 100, 1) + " to " + fmtNum(d.hi * 100, 1) + " per 100)" + (d.lo < 0 && d.hi > 0 ? " — a range that includes no difference at all" : "") + ".");
+    means.push(plainPSentence(d.p, "the intervention and control groups really differ", "there were truly no difference"));
+    means.push("How much the studies disagree beyond chance (I² = " + fmtNum(d.I2, 0) + "%): " + (d.I2 < 25 ? "little" : d.I2 < 75 ? "a moderate amount" : "a lot") + "." +
+      (d.I2 >= 50 ? " The studies do not all point the same way, so the single combined figure hides real differences between them." : ""));
+    if (d.model === "random") means.push("The random-effects result is an average effect across different settings; in any one setting the true effect may be larger or smaller.");
+    if (isFinite(d.eggerP)) means.push(d.eggerP < 0.10 ? "The funnel plot is lopsided (Egger " + coxP(d.eggerP) + "): smaller studies show different results from larger ones, which can happen when small studies with disappointing results go unpublished." :
+      "The funnel plot shows no clear lopsidedness (Egger " + coxP(d.eggerP) + "), so there is no strong sign of missing small studies.");
+    var caveats = ["A combined result is only as good as the studies in it; poorly designed or biased studies give a biased combined result.", "Studies can differ in patients, doses and follow-up; check that combining them makes sense."];
+    if (d.k < 10) caveats.push("With fewer than 10 studies, the checks for disagreement and for missing studies are weak.");
+    return { means: means, caveats: caveats.concat(plainPCaveats(d.p).slice(0, 2)) };
+  }
+
+  /* --- ML tab: clustering --- */
+  function plainClusters(d){
+    var means = ["The " + d.algo + " method sorted " + d.n + " rows into " + d.k + " group" + (d.k === 1 ? "" : "s") + " of similar rows, using " + plainList(d.features) + ". Group sizes: " +
+      d.sizes.map(function(sz){ return sz.label + " " + sz.count + " (" + fmtNum(sz.count / d.n * 100, 0) + "%)"; }).join(", ") + ".",
+      "The profile table shows each group's typical values; compare the columns to see what sets the groups apart."];
+    if (d.noise) means.push(d.noise + " rows did not sit close enough to any group and are labelled \"Noise\" rather than forced into one.");
+    if (isFinite(d.silhouette)) means.push("How clearly the groups are separated (silhouette " + fmtNum(d.silhouette, 2) + ", from −1 to +1): " +
+      (d.silhouette >= 0.7 ? "very clearly — a strong structure." : d.silhouette >= 0.5 ? "reasonably clearly." : d.silhouette >= 0.25 ? "only weakly; the groups overlap a good deal." : "hardly at all — there may be no real groups in these data."));
+    return { means: means, caveats: [
+      "A clustering method always produces groups, even in data that have no natural groups; a low silhouette is a warning of exactly that.",
+      "The groups depend on the method, the number of groups chosen and which columns were used; a different choice can give different groups.",
+      "These are patterns in this data set, not diagnoses or proven patient types. They need confirming in other patients before being used."] };
+  }
+
+  /* --- ML tab --- */
+  function plainMlEval(d){
+    var means = [], caveats;
+    if (d.task === "regression"){
+      means.push("On the " + d.nTest + " patients held back for testing (not used to build the model), predictions of " + d.target + " were off by " + fmtNum(d.mae, 2) + " on average.");
+      means.push("The model accounts for about " + plainPct(Math.max(0, d.r2)) + " of the variation in " + d.target + " among those patients" + (d.r2 < 0 ? " — worse than simply predicting the average for everyone" : "") + ".");
+    } else {
+      means.push("On the " + d.nTest + " patients held back for testing (not used to build the model), the model got " + plainPct(d.accuracy, 0) + " right, compared with " + plainPct(d.baseline, 0) + " by always guessing the most common outcome" +
+        (d.accuracy <= d.baseline + 0.02 ? " — so it is doing no better than that simple guess." : "."));
+      means.push("When it predicts a category it is right about " + plainPct(d.precision, 0) + " of the time, and it finds about " + plainPct(d.recall, 0) + " of the patients who really are in each category (averaged over the categories).");
+      if (isFinite(d.auc)) means.push("Its ability to rank a patient with the outcome above one without it (AUC = " + fmtNum(d.auc, 2) + "; 0.5 is a coin toss, 1 is perfect) is " + plainStrength(d.auc - 0.5, [0.1, 0.2, 0.3, 0.4], ["poor", "modest", "fair", "good", "excellent"]) + ".");
+    }
+    caveats = ["The test group is a random slice of the same data; performance is usually lower in patients from another hospital or time period.",
+      "The model learns patterns, not causes: changing a factor in a real patient will not necessarily change the outcome the way the model suggests.",
+      "A model learns any biases in its data. It is not a validated clinical tool and should not guide individual treatment decisions."];
+    if (d.nTest < 50) caveats.unshift("Only " + d.nTest + " patients were in the test group, so these figures could easily be several percentage points different.");
+    return { means: means, caveats: caveats };
+  }
+
   function chiRecommendBadge(ok){
     var span = document.createElement("span");
     if (ok){ span.className = "verdict sig"; span.textContent = "Recommended here"; }
@@ -2690,6 +3104,7 @@
     els.c1total.textContent = cc1;
     els.c2total.textContent = cc2;
     els.grandTotal.textContent = n;
+    plainBox(els.orValue.closest("section"), null);
 
     var badInputs = [els.a, els.b, els.c, els.d].filter(function(el){ return el.classList.contains("invalid-count"); }).length;
     if (badInputs){
@@ -2750,6 +3165,9 @@
     els.orCi.textContent = isFinite(cs.or) ? "95% CI " + fmtNum(cs.orLo, 2) + "–" + fmtNum(cs.orHi, 2) + zeroNote : "not estimable — a row or column total is 0";
     els.rrValue.textContent = fmtNum(cs.rr, 2);
     els.rrCi.textContent = isFinite(cs.rr) ? "95% CI " + fmtNum(cs.rrLo, 2) + "–" + fmtNum(cs.rrHi, 2) + zeroNote : "not estimable — a row or column total is 0";
+    plainBox(els.orValue.closest("section"), plainContingency({ a: a, b: b, c: c, d: d, n: n, chiOk: chiOk, chiP: cs.chiP, fisherP: fisherP,
+      row1: els.r1.value || "row 1", row2: els.r2.value || "row 2", col1: els.c1.value || "column 1",
+      rr: cs.rr, rrLo: cs.rrLo, rrHi: cs.rrHi, or: cs.or, haszero: cs.haszero }));
   }
 
   [els.a, els.b, els.c, els.d, els.yatesToggle].forEach(function(el){
@@ -3375,7 +3793,14 @@
     ttEls.barChart.innerHTML = ""; ttEls.barChartCaption.textContent = "";
   }
 
+  var ttPlain = null;
   function recalcTtest(){
+    ttPlain = null;
+    recalcTtestCore();
+    plainBox(ttEls.cohenD.closest("section"), ttPlain ? plainTtest(ttPlain) : null);
+  }
+
+  function recalcTtestCore(){
     var arrA = parseNumbers(ttEls.dataA.value);
     var arrB = parseNumbers(ttEls.dataB.value);
     var paired = ttEls.pairedToggle.checked;
@@ -3461,6 +3886,7 @@
         ttEls.cohenDNote.textContent = "effect size r (z / √n) — not the same statistic as rank-biserial correlation" +
           (wres.n < diffs.length ? "; " + (diffs.length - wres.n) + " zero difference(s) dropped" : "");
         renderEffectMagnitude(wres.r, "rz");
+        ttPlain = { paired: true, method: "wilcoxon", labelA: labelA, labelB: labelB, diff: dMean, p: wres.p, effect: wres.r, effectKind: "r", n: n };
       } else {
         var dSd = sampleSd(diffs);
         if (dSd === 0){
@@ -3478,6 +3904,7 @@
         ttEls.cohenD.textContent = fmtNum(dMean / dSd, 2);
         ttEls.cohenDNote.textContent = "mean difference in SD units of the differences";
         renderEffectMagnitude(dMean / dSd, "d");
+        ttPlain = { paired: true, method: "paired", labelA: labelA, labelB: labelB, diff: dMean, p: p, effect: dMean / dSd, effectKind: "d", n: n };
       }
     } else {
       if (arrA.length < 2 || arrB.length < 2){
@@ -3506,6 +3933,7 @@
         ttEls.cohenD.textContent = fmtNum(mwres.r, 2);
         ttEls.cohenDNote.textContent = "rank-biserial correlation";
         renderEffectMagnitude(mwres.r, "r");
+        ttPlain = { paired: false, method: "mannwhitney", labelA: labelA, labelB: labelB, mA: mA, mB: mB, diff: meanDiff, p: mwres.p, effect: mwres.r, effectKind: "r", n: Math.min(nA, nB) };
       } else {
         var vA = sampleVariance(arrA), vB = sampleVariance(arrB);
         var pooledSd = Math.sqrt(((nA - 1) * vA + (nB - 1) * vB) / (nA + nB - 2));
@@ -3527,6 +3955,7 @@
         ttEls.cohenD.textContent = fmtNum(meanDiff / pooledSd, 2);
         ttEls.cohenDNote.textContent = "mean difference in pooled SD units";
         renderEffectMagnitude(meanDiff / pooledSd, "d");
+        ttPlain = { paired: false, method: chosenMethod, labelA: labelA, labelB: labelB, mA: mA, mB: mB, diff: meanDiff, p: pVal, effect: meanDiff / pooledSd, effectKind: "d", n: Math.min(nA, nB) };
       }
     }
   }
@@ -4117,6 +4546,8 @@
     var yLabel = regEls.yLabel.value || "Y";
 
     regEls.warning.hidden = true;
+    plainBox(regEls.corrStat.closest("section"), null);
+    plainBox(regEls.regEquation.closest("section"), null);
 
     if (x.length !== y.length){
       regEls.warning.hidden = false;
@@ -4185,6 +4616,9 @@
     }
     regEls.corrP.textContent = fmtP(corrResult.p);
     regEls.corrVerdict.innerHTML = ""; regEls.corrVerdict.appendChild(verdictPill(corrResult.p));
+    plainBox(regEls.corrStat.closest("section"), plainCorrelation({ method: chosenMethod === "kendall" || chosenMethod === "spearman" ? chosenMethod : "pearson",
+      name: regEls.corrTitle.textContent, coef: chosenMethod === "kendall" ? corrResult.tau : chosenMethod === "spearman" ? corrResult.rho : corrResult.r,
+      p: corrResult.p, n: n, xLabel: xLabel, yLabel: yLabel }));
 
     if (selected !== "kendall" && n < 20 && (hasTies(x) || hasTies(y))){
       regEls.kendallPrompt.hidden = false;
@@ -4218,6 +4652,8 @@
     } else {
       regEls.regCaveat.hidden = true;
     }
+    plainBox(regEls.regEquation.closest("section"), plainRegression({ slope: reg.slope, lo: reg.slopeCiLower, hi: reg.slopeCiUpper, r2: reg.r2, p: reg.pSlope, n: n,
+      xLabel: xLabel, yLabel: yLabel, xMin: Math.min.apply(null, x), xMax: Math.max.apply(null, x), problems: caveats }));
   }
 
   regEls.resetBtn.addEventListener("click", function(){
@@ -4786,7 +5222,7 @@
       '<div class="btn-row" style="margin-top:10px;"><button class="ghost-btn" type="button" data-ph="pdfall">Download all plots (PDF)</button></div>';
 
     var interp = phInterpretation(z, ctx.labels);
-    html += '<h3 style="font-family:\'Fraunces\',serif;font-size:14px;margin:18px 0 6px;">Overall interpretation</h3><p class="norm-note">' + escapeXml(interp.text) + '</p>';
+    html += '<h3 style="font-family:\'Fraunces\',serif;font-size:14px;margin:18px 0 6px;">Overall interpretation</h3><p class="norm-note">' + escapeXml(interp.text) + '</p>' + plainHtml(plainPh(z, ctx.labels));
     if (interp.violation){
       html += '<div class="assumption warn" style="margin-top:10px;display:block;"><span class="dot"></span> The hazard ratios above are from the standard Cox model, which assumes each effect is constant over time; nothing has been substituted. If the effect changes over time, consider:' +
         '<br>• <b>Time-varying hazard ratios</b> — see "Effect over time" below: the same model with effects that change at cut-points you choose (a time-dependent Cox model), and the HR(t) scale of the plots above.' +
@@ -4875,7 +5311,7 @@
     var sparse = periods.filter(function(pd){ return pd.events < 10; });
     out.innerHTML = '<div class="table-wrap"><table class="life-table" style="min-width:' + (200 + 170 * periods.length) + 'px;"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
       '<p class="data-hint" style="margin-top:6px;">Hazard ratio (95% CI) and Wald p in each period. Every coefficient is allowed to differ between periods, so each period is in effect its own Cox model of the patients still at risk at its start.</p>' +
-      (sparse.length ? sgWarn(["Few events in " + sparse.length + " period" + (sparse.length === 1 ? "" : "s") + " (fewer than 10): those hazard ratios are imprecise."]) : "");
+      (sparse.length ? sgWarn(["Few events in " + sparse.length + " period" + (sparse.length === 1 ? "" : "s") + " (fewer than 10): those hazard ratios are imprecise."]) : "") + plainHtml(plainPeriods());
   }
 
   function phBind(host, ctx){
@@ -5235,6 +5671,7 @@
       var hi = isFinite(km.medianCiUpper) ? fmtNum(km.medianCiUpper, 2) : "not reached";
       survEls.ogMedianCI.textContent = lo + " – " + hi + " " + timeUnitLabel();
     }
+    plainBox(survEls.oneGroupResultsCard, plainSurvOne(km, n, eventsN, timeUnitLabel()));
   }
 
   function medianCellText(km){
@@ -5262,6 +5699,7 @@
       survEls.lrChi2.textContent = "—"; survEls.lrP.textContent = "—";
       survEls.lrVerdict.innerHTML = "";
       survEls.lrInterpretation.textContent = "The log-rank test cannot be computed — no events were observed in either group over the follow-up period, so there is nothing to compare.";
+      plainBox(survEls.twoGroupResultsCard, null);
       return;
     }
 
@@ -5276,6 +5714,7 @@
       "which tests the null hypothesis that the two survival functions are equal over the observed follow-up period. " +
       "There was " + evidencePhrase + " of a difference between the survival distributions (log-rank χ² = " + fmtNum(lr.chi2, 2) + ", df = 1, p = " + fmtP(lr.p) + "). " +
       "This describes a statistical difference between the observed curves and does not by itself indicate which group's treatment is better or establish clinical importance.";
+    plainBox(survEls.twoGroupResultsCard, plainSurvTwo(groups, lr, timeUnitLabel()));
   }
 
   function renderLifeTables(groups){
@@ -5309,6 +5748,8 @@
       survEls.calcTableContainer.innerHTML = "";
       survEls.smallSampleWarning.hidden = true;
       survLastGroups = null;
+      plainBox(survEls.oneGroupResultsCard, null);
+      plainBox(survEls.twoGroupResultsCard, null);
       recalcCox(result);
       return;
     }
@@ -5576,6 +6017,7 @@
       }).join(" ") +
       " A hazard ratio above 1 means the event happens sooner (a higher rate at any given time); below 1, later. It compares rates, not the proportion who eventually have the event, and it shows an association, not that the covariate causes the difference.";
 
+    plainBox(coxEls.results, plainCox(m), coxEls.interpretation);
     renderCoxForestPlot(coxEls.forest, finite);
     survLastCox = m;
   }
@@ -6317,6 +6759,7 @@
         ". Cox model: hazard ratio of each arm against " + escapeXml(refArm) + ".</p>" +
         sgGroupTable(ov.curves.groups, refArm, hrOf, "No patients") + sgWarn(sgModelWarnings(ov.curves.groups, ov.fit, ovRows)));
       sgPlot(sec, ov.curves.groups, "km-overall-" + trtName);
+      plainBox(sec, plainSgOverall(ov, refArm, ovRows, trtName));
       text.push("", "ANALYSIS 1 — overall treatment comparison (n = " + ov.n + ", " + ov.events + " events)", "Log-rank: " + sgTest(ov.curves.logRank));
       ov.curves.groups.forEach(function(g){
         var r = g.name === refArm ? null : hrOf(g.name);
@@ -6376,6 +6819,7 @@
         html += sgWarn(sgModelWarnings(w.curves ? w.curves.groups : null, w.fit, wRows));
         var sec = sgCard(sgEls.results, "Analysis " + num + " · " + status.toLowerCase(), title, html);
         if (w.curves) sgPlot(sec, w.curves.groups, "km-" + arm + "-" + v.name);
+        plainBox(sec, plainSgWithin(arm, v, test, wRows.map(function(r){ return Object.assign({}, r, { ref: w.ref }); })));
         sgPhDetails(sec, w.fit, arm + "-" + v.name, text, "within " + arm);
         row.within[arm] = test;
         text.push("Within " + arm + " (n = " + w.n + ", " + w.events + " events): " + (w.curves ? "log-rank " + sgTest(w.curves.logRank) : "Cox " + sgTest(w.lrTest)));
@@ -6417,6 +6861,7 @@
           it.effects.forEach(function(e){ text.push("  " + (e.level === null ? "at mean " + fmtNum(it.mean, 2) : e.level) + ": " + e.arm + " vs " + e.refArm + " HR " + (e.estimable ? fmtNum(e.hr, 2) + " (" + fmtNum(e.lo, 2) + "–" + fmtNum(e.hi, 2) + "), " + coxP(e.p) : "not estimable")); });
         }
         var sec4 = sgCard(sgEls.results, "Analysis " + num4 + " · " + status.toLowerCase(), "Treatment × " + v.name + " interaction", html4);
+        if (it.fit.ok) plainBox(sec4, plainSgInteraction(v, trtName, it.lrTest, it.effects));
         sgPhDetails(sec4, it.fit, "interaction-" + v.name, text, "interaction model");
       }
     });
@@ -6454,6 +6899,7 @@
       '<div class="table-wrap" style="margin-top:12px;"><table class="life-table" style="min-width:620px;"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
       '<p class="data-hint" style="margin-top:8px;">Within-arm p: log-rank test across the categories (continuous variables without cut-offs: Cox likelihood ratio test). Interaction: joint likelihood ratio test of all treatment × variable terms.</p>' + sgWarn(warn);
     holder.appendChild(sec);
+    plainBox(sec, plainSgSummary(summary, nTests));
     text.push("", "SUMMARY");
     ordered.forEach(function(r){
       text.push(r.name + " (" + r.status.toLowerCase() + "): " + withinArms.map(function(a){ var t = r.within[a]; return "within " + a + " p = " + (t ? fmtP(t.p) : "—"); }).join("; ") +
@@ -7303,6 +7749,7 @@
 
     anovaEls.error.hidden = true;
     anovaEls.smallSampleWarning.hidden = true;
+    plainBox(anovaEls.interpretation.parentNode, null);
 
     if (groups.length < 2){
       anovaEls.error.hidden = false;
@@ -7412,6 +7859,8 @@
         (result.p < 0.05 ? "evidence" : "no evidence") + " of a difference among the group means (F(" + result.df1 + ", " + result.df2 + ") = " + fmtNum(result.F, 2) + ", p = " + fmtP(result.p) +
         "). This doesn't identify which specific groups differ, and statistical significance alone doesn't establish that the difference is clinically important.";
     }
+    plainBox(anovaEls.interpretation.parentNode, plainAnova({ groups: groups, method: chosenMethod, p: result.p,
+      effect: chosenMethod === "kruskal" ? result.epsilon2 : (chosenMethod === "welch" || chosenMethod === "transform" ? NaN : result.eta2) }), anovaEls.interpretation);
   }
 
   anovaEls.methodSelect.addEventListener("change", recalcAnova);
@@ -7703,6 +8152,7 @@
     var groupTokens = parseTokens(mvEls.ancovaGroupData.value);
     var covariates = readMvBlocks(mvEls.ancovaCovariatesContainer, "Covariate");
     var n = y.length;
+    plainBox(mvEls.ancovaInterpretation.parentNode, null);
 
     if (n === 0 || groupTokens.length === 0 || covariates.length === 0 || covariates.some(function(c){ return c.values.length === 0; })){
       showMvError(mvEls.ancovaError, "Enter the outcome, group labels, and at least one covariate.");
@@ -7767,6 +8217,7 @@
       : "";
     mvEls.ancovaInterpretation.textContent = "An ANCOVA on " + yLabel + " by " + groupLabel + ", adjusting for " + covariates.map(function(c){ return c.name; }).join(", ") + ", found " +
       (fit.pGroup < 0.05 ? "evidence" : "no evidence") + " of a difference among the adjusted group means (F(" + fit.df1 + ", " + fit.df2 + ") = " + fmtNum(fit.Fgroup, 2) + ", p = " + fmtP(fit.pGroup) + ", partial η² = " + fmtNum(fit.partialEta2, 3) + ")." + slopesWarning;
+    plainBox(mvEls.ancovaInterpretation.parentNode, plainAncova({ fit: fit, yLabel: yLabel, groupLabel: groupLabel, covariates: covariates.map(function(c){ return c.name; }) }), mvEls.ancovaInterpretation);
   }
 
   function recalcManova(){
@@ -7774,6 +8225,7 @@
     var groupTokens = parseTokens(mvEls.manovaGroupData.value);
     var dvs = readMvBlocks(mvEls.manovaDvsContainer, "DV");
     var n = groupTokens.length;
+    plainBox(mvEls.manovaInterpretation.parentNode, null);
 
     if (n === 0 || dvs.length < 2 || dvs.some(function(d){ return d.values.length === 0; })){
       showMvError(mvEls.manovaError, "Enter group labels and at least 2 dependent variables.");
@@ -7811,6 +8263,7 @@
     mvEls.manovaInterpretation.textContent = "A one-way MANOVA on " + fit.numDV + " dependent variables (" + dvs.map(function(d){ return d.name; }).join(", ") + ") by " + groupLabel + " (" + fit.k + " groups) found " +
       (fit.p < 0.05 ? "evidence" : "no evidence") + " that the groups differ on the combination of dependent variables (Wilks' Λ = " + fmtNum(fit.lambda, 3) + ", F(" + fmtNum(fit.df1, 2) + ", " + fmtNum(fit.df2, 2) + ") = " + fmtNum(fit.F, 2) + ", p = " + fmtP(fit.p) + ")." +
       (fit.p < 0.05 ? " The univariate follow-up tests below show which dependent variable(s) that difference shows up in most strongly, though they don't individually correct for testing each one." : "");
+    plainBox(mvEls.manovaInterpretation.parentNode, plainManova({ fit: fit, dvs: dvs.map(function(d){ return d.name; }) }), mvEls.manovaInterpretation);
   }
 
   function recalcManovaAncova(){
@@ -8619,6 +9072,7 @@
     var bootstrapActive = mode === "poisson-rr" && glmEls.bootstrapToggle.checked;
     if (!bootstrapActive && glmBootstrapResult) glmBootstrapResult = null;
 
+    plainBox(glmEls.interpretation.parentNode, null);
     var yRaw = parseNumbers(glmEls.yData.value);
     var yLabel = glmEls.yLabel.value || "Y";
     var predictors = readGlmPredictors();
@@ -8881,7 +9335,7 @@
       var ratioHi = showRatio ? (bootstrapReady ? glmBootstrapResult.ciHi[j] : Math.exp(fit.beta[j] + Z975 * se[j])) : NaN;
       rows.push('<tr><td>' + escapeXml(term.name) + '</td><td>' + fmtNum(fit.beta[j], 4) + '</td><td>' + fmtNum(se[j], 4) + '</td><td>' +
         fmtNum(z, 3) + '</td><td>' + fmtP(p) + '</td><td>' + (showRatio ? fmtNum(ratio, 3) : "—") + '</td><td>' + (showRatio ? fmtNum(ratioLo, 3) + '–' + fmtNum(ratioHi, 3) : "—") + '</td></tr>');
-      termEffects.push({ name: term.name, kind: term.kind, variable: term.variable, level: term.level, reference: term.reference, beta: fit.beta[j], ratio: ratio, ratioLo: ratioLo, ratioHi: ratioHi });
+      termEffects.push({ name: term.name, kind: term.kind, variable: term.variable, level: term.level, reference: term.reference, beta: fit.beta[j], ratio: ratio, ratioLo: ratioLo, ratioHi: ratioHi, p: p });
     });
     glmEls.coefBody.innerHTML = rows.join("");
     glmEls.pseudoR2.textContent = fmtNum(pseudoR2, 3);
@@ -8919,6 +9373,10 @@
       glmEls.cm10.textContent = fn; glmEls.cm11.textContent = tp;
       glmEls.accuracy.textContent = fmtNum((tp + tn) / n * 100, 1) + "%";
     }
+    var plainEvents = isBinaryOutcome ? y.filter(function(v){ return v === 1; }).length : NaN;
+    plainBox(glmEls.interpretation.parentNode, plainGlm({ mode: mode, probit: !showRatio, yLabel: yLabel, terms: termEffects, lrP: lrP, converged: fit.converged, overdispersed: quasiAdjusted,
+      accuracy: isBinaryOutcome ? (tp + tn) / n : NaN, baseline: isBinaryOutcome ? Math.max(plainEvents, n - plainEvents) / n : NaN,
+      prevalence: plainEvents / n, epv: isBinaryOutcome && terms.length ? Math.min(plainEvents, n - plainEvents) / terms.length : NaN }), glmEls.interpretation);
   }
 
   // Non-parametric percentile bootstrap for modified Poisson (relative-risk) regression: resample the
@@ -9551,6 +10009,7 @@
     var measure = metaMeasure(), model = metaModel();
     var isRatio = measure !== "RD";
     var validStudies = metaStudies.filter(metaRowValid);
+    plainBox(metaEls.interpretation.parentNode, null);
 
     metaEls.effectName.textContent = measure === "OR" ? "Odds ratio" : (measure === "RR" ? "Risk ratio" : "Risk difference");
 
@@ -9672,8 +10131,10 @@
     renderMetaForestPlot(metaEls.forestPlot, forestRows, pooledForPlot, isRatio);
     renderMetaFunnelPlot(metaEls.funnelPlot, effects, isFinite(fe.estimate) ? fe.estimate : feForHet.estimate, isRatio);
 
+    var eggerP = NaN;
     if (effects.length >= 3){
       var egger = metaEggersTest(effects);
+      eggerP = egger.p;
       metaEls.eggerIntercept.textContent = fmtNum(egger.intercept, 4);
       metaEls.eggerT.textContent = fmtNum(egger.t, 3);
       metaEls.eggerDf.textContent = egger.df;
@@ -9682,6 +10143,8 @@
       metaEls.eggerIntercept.textContent = "—"; metaEls.eggerT.textContent = "—";
       metaEls.eggerDf.textContent = "—"; metaEls.eggerP.textContent = "Need ≥ 3 studies";
     }
+    plainBox(metaEls.interpretation.parentNode, plainMeta({ k: effects.length, measure: measure, isRatio: isRatio, model: model, est: pooledPointDisplay, lo: pooledCiLoDisplay, hi: pooledCiHiDisplay,
+      p: pValue, I2: I2, eggerP: eggerP }), metaEls.interpretation);
   }
 
   [metaEls.measureOR, metaEls.measureRR, metaEls.measureRD, metaEls.modelFixed, metaEls.modelRandom, metaEls.hksjToggle].forEach(function(el){
@@ -10919,6 +11382,7 @@
       mlEls.mse.textContent = fmtNum(rm.mse, 3);
       mlEls.mae.textContent = fmtNum(rm.mae, 3);
       mlRenderScatterChart(mlEls.scatterPlot, truesValue.map(function(t, i){ return { x: t, y: predsValue[i] }; }), "Actual " + mlState.targetCol, "Predicted " + mlState.targetCol, true);
+      plainBox(mlEls.evalCard, plainMlEval({ task: task, target: mlState.targetCol, nTest: truesValue.length, mae: rm.mae, r2: rm.r2 }));
       return;
     }
 
@@ -10952,6 +11416,11 @@
     } else {
       mlEls.rocSection.hidden = true;
     }
+    var classCounts = new Array(numClasses).fill(0);
+    mlState.testY.forEach(function(v){ classCounts[v]++; });
+    plainBox(mlEls.evalCard, plainMlEval({ task: task, target: mlState.targetCol, nTest: mlState.testY.length, accuracy: cmetrics.accuracy,
+      baseline: Math.max.apply(null, classCounts) / Math.max(1, mlState.testY.length), precision: cmetrics.precision, recall: cmetrics.recall,
+      auc: task === "binary" ? roc.auc : NaN }));
   }
 
   /* --- Prediction playground --- */
@@ -10991,7 +11460,9 @@
     var container = mlEls.predictionResult;
     if (mlState.task === "regression"){
       container.innerHTML = '<div class="effect-name">Predicted ' + escapeXml(mlState.targetCol) + '</div><div class="effect-value">' + fmtNum(out.value, 3) + '</div>' +
-        '<p class="norm-note" style="margin-top:8px;">This is a single point estimate from the trained model, not a confidence interval.</p>';
+        '<p class="norm-note" style="margin-top:8px;">This is a single point estimate from the trained model, not a confidence interval.</p>' +
+        plainHtml({ means: ["For a patient with the values entered above, the model's best guess for " + mlState.targetCol + " is " + fmtNum(out.value, 2) + ". Real patients with these values will vary around this figure."],
+          caveats: ["It is a statistical estimate from patterns in the training data, not a measurement or a diagnosis, and it is least reliable for values unlike those in the data."] });
       return;
     }
     var idx = out.probs.indexOf(Math.max.apply(null, out.probs));
@@ -11003,7 +11474,9 @@
     container.innerHTML =
       '<div class="effect-name">Predicted ' + escapeXml(mlState.targetCol) + '</div><div class="effect-value">' + escapeXml(label) + '</div>' +
       '<div class="confidence-bar-track"><div class="confidence-bar-fill" id="mlConfidenceFill"><span>' + fmtNum(pct, 1) + '%</span></div></div>' +
-      '<p class="norm-note" style="margin:10px 0 6px;">Probability breakdown</p>' + breakdown;
+      '<p class="norm-note" style="margin:10px 0 6px;">Probability breakdown</p>' + breakdown +
+      plainHtml({ means: ["For a patient with the values entered above, the model's best guess is \"" + label + "\", with an estimated probability of " + fmtNum(pct, 0) + "%: roughly " + Math.round(pct) + " in 100 such patients would be expected to fall in that category, if the model is well calibrated."],
+        caveats: ["It is a statistical estimate from patterns in the training data, not a diagnosis. Probabilities from some model types (for example trees and nearest neighbours) can be over- or under-confident."] });
     requestAnimationFrame(function(){
       var fill = document.getElementById("mlConfidenceFill");
       if (fill) fill.style.width = pct + "%";
@@ -11492,6 +11965,7 @@
       chartDiv.className = "pivot-mini-chart";
       pivotEls.singleVarOutput.appendChild(chartDiv);
       pivotRenderMiniHistogram(chartDiv, s.sorted, col);
+      plainBox(pivotEls.singleVarOutput, plainPivotSingle(s, col, true));
     } else {
       var f = pivotFrequencyStats(values, type === "ordinal");
       var html2 = '<div class="qc-grid">' +
@@ -11511,6 +11985,7 @@
       chartDiv2.className = "pivot-mini-chart";
       pivotEls.singleVarOutput.appendChild(chartDiv2);
       pivotRenderMiniBars(chartDiv2, f.rows, col);
+      plainBox(pivotEls.singleVarOutput, plainPivotSingle(f, col, false));
     }
   }
 
@@ -11706,6 +12181,7 @@
   function pivotRunTest(ct){
     var r = ct.rowCats.length, c = ct.colCats.length;
     pivotEls.testCard.hidden = false;
+    plainBox(pivotEls.testCard, null);
     if (r < 2 || c < 2 || ct.n === 0){
       pivotEls.testTitle.textContent = "Not enough data";
       pivotEls.testRationale.textContent = "Need at least 2 categories (with data) in both the row and column variable, after filtering, to run a test.";
@@ -11776,6 +12252,9 @@
     } else {
       pivotEls.orRrBlock.hidden = true;
     }
+    plainBox(pivotEls.testCard, plainPivotTest({ rowVar: pivotState.rowVar, colVar: pivotState.colVar, p: pValue, v: cramersV(chi.chi2, ct.n, r, c), n: ct.n,
+      approx: testName.indexOf("approximate") >= 0, or: r === 2 && c === 2 ? orrr : null,
+      row1: String(ct.rowCats[0]), row2: String(ct.rowCats[1]), col1: String(ct.colCats[0]) }));
   }
 
   function pivotRenderPivotAndTest(){
@@ -12772,6 +13251,9 @@
     }
 
     unsEls.silhouetteAchieved.textContent = isFinite(model.silhouette) ? fmtNum(model.silhouette, 3) : "— (skipped" + (hasNoise ? ", or fewer than 2 real groups after excluding noise" : ", dataset too large") + ")";
+    plainBox(unsEls.silhouetteAchieved.closest("section"), plainClusters({ algo: algoLabel, n: n, k: k, features: unsState.featureCols,
+      sizes: groupIds.filter(function(c){ return c !== -1; }).map(function(c){ return { label: unsGroupLabel(c), count: counts[c] }; }),
+      noise: hasNoise ? counts[-1] : 0, silhouette: model.silhouette }));
   }
 
   function unsRenderClusterScatter(numericFeatures, groupIds, hasNoise){
@@ -12892,7 +13374,10 @@
       }).join("");
       html += '<p class="norm-note" style="margin:10px 0 6px;">Distance to each group\'s center (smaller = closer fit)</p>' + breakdown2;
     }
-    unsEls.assignmentResult.innerHTML = html;
+    unsEls.assignmentResult.innerHTML = html + plainHtml({ means: [assigned === -1 ?
+        "These values are not close enough to any of the groups found, so this row is not placed in a group." :
+        "These values most resemble the rows in " + unsGroupLabel(assigned) + ". Compare with that group's typical values in the profile table above."],
+      caveats: ["Belonging to a group is a description of similarity in these data, not a diagnosis or a prediction of outcome."] });
   }
   unsEls.assignBtn.addEventListener("click", unsRunAssignment);
 
