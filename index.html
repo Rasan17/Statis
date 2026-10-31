@@ -1349,20 +1349,70 @@
         <p><b>The formula —</b> Ŝ(t) = Π<sub>tᵢ≤t</sub> (1 − dᵢ⁄nᵢ), where nᵢ is the number still at risk just before time tᵢ and dᵢ is the number of events at tᵢ. The curve only steps down at event times; a censoring removes someone from the risk set for later times but doesn't itself drop the curve.</p>
         <p><b>Median survival —</b> the earliest time at which the estimated survival probability falls to 0.50 or below — i.e., the point by which half the cohort has had the event. If the curve never reaches 0.50 during follow-up, the median is genuinely not known yet; reporting the last observed time as if it were the median would be wrong, so this app says "not reached" instead.</p>
         <p><b>Confidence intervals —</b> computed with Greenwood's formula for the variance of Ŝ(t), combined with a complementary log-log transformation before building the interval and transforming back. This keeps every confidence bound inside [0, 1] and is generally more accurate than a plain linear interval, especially near the ends of the curve.</p>
-        <p><b>The log-rank test —</b> compares two Kaplan–Meier curves by summing, at every time an event occurs in either group, the difference between observed and expected events in one group (expected under the null hypothesis that both groups share the same survival function), weighting by the hypergeometric variance at each time. It tests whether the two survival <i>distributions</i> differ over the whole observed follow-up — it does not estimate the size of the difference (that's what a hazard ratio from a Cox model is for), and it can be underpowered if the two curves cross, or if either group has few events.</p>
+        <p><b>The log-rank test —</b> compares two Kaplan–Meier curves by summing, at every time an event occurs in either group, the difference between observed and expected events in one group (expected under the null hypothesis that both groups share the same survival function), weighting by the hypergeometric variance at each time. It tests whether the two survival <i>distributions</i> differ over the whole observed follow-up — it does not estimate the size of the difference (that's what the hazard ratio from the Cox model below is for), and it can be underpowered if the two curves cross, or if either group has few events.</p>
         <p><b>Statistical vs. clinical significance —</b> a small p-value only says the observed difference is unlikely under the null hypothesis given this sample; it says nothing about whether the difference is large enough to matter clinically, and a non-significant result with a small sample doesn't prove the groups are equivalent. Curves, medians and p-values here should be read alongside the actual sizes of the effects and confidence intervals, not the p-value alone.</p>
       </div>
     </details>
   </section>
 
-  <section class="card">
-    <p class="eyebrow">Not yet implemented</p>
+  <section class="card" id="coxCard">
+    <p class="eyebrow">Hazard ratios</p>
     <h2>Cox proportional hazards model</h2>
-    <p class="norm-note">A hazard ratio should come from a Cox model, not be read off Kaplan–Meier curves or computed from median survival times — both would misrepresent the comparison. That model isn't implemented in this tool yet, so no hazard ratio is shown here. Use the log-rank test above for whether the curves differ, and treat any hazard ratio you compute elsewhere as a separate analysis from this one.</p>
+    <p class="data-hint">Uses the data and the time and event columns above. Tick the columns to include as covariates. <b style="color:var(--ink);">Continuous</b> — one hazard ratio per 1-unit increase (e.g. age in years). <b style="color:var(--ink);">Categorical</b> — a hazard ratio for each category against the reference category (e.g. treatment group). With several covariates ticked, each hazard ratio is adjusted for the others. For more than two groups, choose One group in Step 1 and tick the group column here. Rows with a missing covariate value are left out of the model only.</p>
+    <div id="coxCovariates" style="margin-top:12px;"></div>
+    <div class="assumption warn" id="coxMessage" hidden style="margin-top:14px;"></div>
+    <div id="coxResults" hidden>
+      <div style="margin-top:16px;">
+        <div class="stat-row"><span class="stat-label">Observations in the model</span><span class="stat-value" id="coxN">—</span></div>
+        <div class="stat-row"><span class="stat-label">Events</span><span class="stat-value" id="coxEvents">—</span></div>
+        <div class="stat-row"><span class="stat-label">Events per coefficient</span><span class="stat-value" id="coxEpv">—</span></div>
+        <div class="stat-row"><span class="stat-label">Left out</span><span class="stat-value" id="coxDropped">—</span></div>
+      </div>
+      <div id="coxWarnings"></div>
+      <div class="table-wrap" style="margin-top:16px;">
+        <table class="life-table" style="min-width:640px;">
+          <thead><tr><th style="text-align:left;">Term</th><th>Coefficient (β)</th><th>SE</th><th>z</th><th>p</th><th>Hazard ratio</th><th>95% CI</th></tr></thead>
+          <tbody id="coxCoefBody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px;">
+        <div class="stat-row"><span class="stat-label">Likelihood ratio test</span><span class="stat-value" id="coxLr">—</span></div>
+        <div class="stat-row"><span class="stat-label">Wald test</span><span class="stat-value" id="coxWald">—</span></div>
+        <div class="stat-row"><span class="stat-label">Score (log-rank) test</span><span class="stat-value" id="coxScore">—</span></div>
+        <div class="stat-row"><span class="stat-label">Concordance (Harrell's C)</span><span class="stat-value" id="coxConcordance">—</span></div>
+      </div>
+      <div id="coxVerdict"></div>
+      <p class="norm-note" id="coxInterpretation" style="margin-top:12px;"></p>
+      <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);">
+        <p class="eyebrow">Forest plot</p>
+        <div id="coxForest"></div>
+      </div>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
+        <p class="eyebrow">Assumption check</p>
+        <h2>Proportional hazards</h2>
+        <div class="table-wrap">
+          <table class="life-table" style="min-width:420px;">
+            <thead><tr><th style="text-align:left;">Term</th><th>χ²</th><th>df</th><th>p</th></tr></thead>
+            <tbody id="coxPhBody"></tbody>
+          </table>
+        </div>
+        <div class="assumption" id="coxPhNote" style="margin-top:12px;"></div>
+      </div>
+      <details class="info-box" style="margin-top:18px;">
+        <summary>About the Cox model</summary>
+        <div class="info-body">
+          <p><b>What it is —</b> the Cox proportional hazards model relates the hazard (the instantaneous rate of the event among those still event-free) to one or more covariates: h(t) = h₀(t)·exp(β₁x₁ + β₂x₂ + …). The baseline hazard h₀(t) is left unspecified, so no shape is assumed for the survival curve; only the covariates' effects are estimated. exp(β) is the hazard ratio.</p>
+          <p><b>Proportional hazards —</b> the model assumes each hazard ratio is the same throughout follow-up. The check above is the Grambsch–Therneau test on scaled Schoenfeld residuals (with Kaplan–Meier-transformed time), computed as R's <code>cox.zph()</code> does. A small p-value means the effect changes over time; crossing Kaplan–Meier curves are a visual warning of the same thing.</p>
+          <p><b>The three overall tests —</b> likelihood ratio, Wald and score all test whether the covariates together are associated with survival; they usually agree, and the likelihood ratio test is the most reliable in small samples. With a single two-category covariate the score test is the log-rank test (exactly so when there are no tied event times; with ties, Efron's method makes it differ slightly from the log-rank test above).</p>
+          <p><b>Concordance —</b> Harrell's C is the proportion of usable patient pairs in which the patient with the higher predicted risk had the event first: 0.5 is no better than chance, 1 is perfect ordering. It is measured on the same data the model was fitted to, so it is optimistic.</p>
+          <p><b>Events per coefficient —</b> with fewer than about 10 events for each estimated coefficient (each continuous covariate, and each non-reference category) the estimates become unstable (Peduzzi et al., 1995).</p>
+        </div>
+      </details>
+    </div>
   </section>
 
   <footer class="notes">
-    <b>How it's computed —</b> The Kaplan–Meier estimator is Ŝ(t) = Π(1−dᵢ⁄nᵢ) over each distinct time with an event, ties handled by counting dᵢ and nᵢ as totals at that time rather than breaking them apart. Variance uses Greenwood's formula, Σdᵢ⁄(nᵢ(nᵢ−dᵢ)), transformed via complementary log-log for the 95% bands. Median survival and its CI are read directly off the step function and its confidence bands — never approximated from the last observed time or interpolated. The log-rank test is the Mantel–Haenszel form: at each pooled event time it compares observed vs. expected events in one group under the shared-survival null, weighted by the hypergeometric variance, summed and squared against that total variance (χ², df = 1). No hazard ratio is computed from these curves.
+    <b>How it's computed —</b> The Kaplan–Meier estimator is Ŝ(t) = Π(1−dᵢ⁄nᵢ) over each distinct time with an event, ties handled by counting dᵢ and nᵢ as totals at that time rather than breaking them apart. Variance uses Greenwood's formula, Σdᵢ⁄(nᵢ(nᵢ−dᵢ)), transformed via complementary log-log for the 95% bands. Median survival and its CI are read directly off the step function and its confidence bands — never approximated from the last observed time or interpolated. The log-rank test is the Mantel–Haenszel form: at each pooled event time it compares observed vs. expected events in one group under the shared-survival null, weighted by the hypergeometric variance, summed and squared against that total variance (χ², df = 1). Hazard ratios come only from the Cox model, never from the curves or medians: Newton–Raphson maximisation of the partial likelihood with Efron's method for tied times (as R's <code>coxph()</code>), Wald 95% CIs, likelihood ratio, Wald and score tests, Harrell's C, and the Grambsch–Therneau proportional-hazards test — validated to match R's <code>survival</code> package.
   </footer>
 
   </div>
@@ -4256,6 +4306,213 @@
     return { O1: O1, E1: E1, V: V, chi2: chi2, p: chiSquaredP(chi2), totalEvents: eventTimes };
   }
 
+  /* --- Cox proportional hazards model --- */
+
+  // Log partial likelihood, score and information at beta, Efron's method for tied event times (R's default).
+  // Subjects are visited from the latest time to the earliest so the risk-set sums S0/S1/S2 only ever grow.
+  // With perTime set, also returns each event time's score contribution and information block, which the
+  // proportional-hazards (Grambsch–Therneau) test weights by g(t).
+  function coxPartial(order, times, events, X, beta, perTime){
+    var p = beta.length, n = order.length;
+    var eta = new Array(n), etaMax = -Infinity, i, j, k;
+    for (i = 0; i < n; i++){
+      var s = 0;
+      for (j = 0; j < p; j++) s += X[i][j] * beta[j];
+      eta[i] = s;
+      if (s > etaMax) etaMax = s;
+    }
+    // A common shift of eta cancels in every term of the partial likelihood; it only guards exp() overflow.
+    var r = eta.map(function(e){ return Math.exp(e - etaMax); });
+    function zeroVec(){ return new Array(p).fill(0); }
+    function zeroMat(){ var m = []; for (var a = 0; a < p; a++) m.push(zeroVec()); return m; }
+    var S0 = 0, S1 = zeroVec(), S2 = zeroMat();
+    var loglik = 0, u = zeroVec(), info = zeroMat(), steps = perTime ? [] : null;
+    var pos = 0;
+    while (pos < n){
+      var t = times[order[pos]], end = pos;
+      while (end < n && times[order[end]] === t) end++;
+      var d = 0, D0 = 0, D1 = zeroVec(), D2 = zeroMat(), sumX = zeroVec();
+      for (var q = pos; q < end; q++){
+        i = order[q];
+        var ri = r[i], xi = X[i];
+        S0 += ri;
+        for (j = 0; j < p; j++){
+          S1[j] += ri * xi[j];
+          for (k = 0; k <= j; k++) S2[j][k] += ri * xi[j] * xi[k];
+        }
+        if (events[i] === 1){
+          d++;
+          D0 += ri;
+          loglik += eta[i] - etaMax;
+          for (j = 0; j < p; j++){
+            D1[j] += ri * xi[j];
+            sumX[j] += xi[j];
+            for (k = 0; k <= j; k++) D2[j][k] += ri * xi[j] * xi[k];
+          }
+        }
+      }
+      if (d > 0){
+        var stepU = sumX.slice(), stepI = zeroMat();
+        for (var m = 0; m < d; m++){
+          var f = m / d, s0 = S0 - f * D0;
+          loglik -= Math.log(s0);
+          var xbar = zeroVec();
+          for (j = 0; j < p; j++){ xbar[j] = (S1[j] - f * D1[j]) / s0; stepU[j] -= xbar[j]; }
+          for (j = 0; j < p; j++) for (k = 0; k <= j; k++) stepI[j][k] += (S2[j][k] - f * D2[j][k]) / s0 - xbar[j] * xbar[k];
+        }
+        for (j = 0; j < p; j++){
+          u[j] += stepU[j];
+          for (k = 0; k <= j; k++){ info[j][k] += stepI[j][k]; stepI[k][j] = stepI[j][k]; }
+        }
+        if (perTime) steps.push({ time: t, u: stepU, info: stepI });
+      }
+      pos = end;
+    }
+    for (j = 0; j < p; j++) for (k = 0; k < j; k++) info[k][j] = info[j][k];
+    return { loglik: loglik, u: u, info: info, steps: steps };
+  }
+
+  function coxMatVec(A, v){ return A.map(function(row){ return row.reduce(function(s, a, j){ return s + a * v[j]; }, 0); }); }
+  function coxDot(a, b){ var s = 0; for (var i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+
+  // Newton–Raphson with step halving, R's coxph() defaults: converged when the log partial likelihood changes
+  // by a relative 1e-9, at most 20 iterations. Covariates are centred first (as R does) — this changes no
+  // coefficient, only the numerical conditioning. A coefficient whose last Newton step is still large relative
+  // to its size when the likelihood has stopped changing is heading to ±infinity (monotone likelihood, e.g. a
+  // category with no events) — flagged rather than reported as a finite hazard ratio, by R's own rule.
+  function coxFit(times, events, X){
+    var n = times.length, p = X[0].length, i, j;
+    var means = new Array(p).fill(0);
+    for (i = 0; i < n; i++) for (j = 0; j < p; j++) means[j] += X[i][j] / n;
+    var Xc = X.map(function(row){ return row.map(function(v, c){ return v - means[c]; }); });
+    var order = [];
+    for (i = 0; i < n; i++) order.push(i);
+    order.sort(function(a, b){ return times[b] - times[a]; });
+
+    var beta = new Array(p).fill(0);
+    var cur = coxPartial(order, times, events, Xc, beta);
+    var loglik0 = cur.loglik, null0 = cur;
+    var scoreStep = solveLinear(cur.info.map(function(r){ return r.slice(); }), cur.u);
+    if (!scoreStep) return { ok: false, error: "collinear" };
+    var score = coxDot(cur.u, scoreStep);
+
+    var converged = false, iter = 0;
+    while (iter < 20){
+      iter++;
+      var step = solveLinear(cur.info.map(function(r){ return r.slice(); }), cur.u);
+      if (!step) return { ok: false, error: "collinear" };
+      var trial = beta.map(function(b, c){ return b + step[c]; });
+      var next = coxPartial(order, times, events, Xc, trial);
+      var halvings = 0;
+      while ((!isFinite(next.loglik) || next.loglik < cur.loglik) && halvings < 30){
+        trial = trial.map(function(b, c){ return (b + beta[c]) / 2; });
+        next = coxPartial(order, times, events, Xc, trial);
+        halvings++;
+      }
+      var change = Math.abs(1 - cur.loglik / next.loglik);
+      beta = trial; cur = next;
+      if (change <= 1e-9){ converged = true; break; }
+    }
+    var cov = invertMatrix(cur.info);
+    if (!cov) return { ok: false, error: "collinear" };
+    var lastStep = coxMatVec(cov, cur.u);
+    var infinite = beta.map(function(b, c){ return Math.abs(lastStep[c]) > 1e-9 && Math.abs(lastStep[c]) > Math.sqrt(1e-9) * Math.abs(b); });
+    var se = cov.map(function(row, c){ return Math.sqrt(row[c]); });
+    var wald = coxDot(beta, coxMatVec(cur.info, beta));
+    return {
+      ok: true, beta: beta, se: se, cov: cov, means: means, order: order, Xc: Xc,
+      loglik0: loglik0, loglik: cur.loglik, converged: converged, iterations: iter, infinite: infinite,
+      lr: 2 * (cur.loglik - loglik0), wald: wald, score: score, nullInfo: null0.info
+    };
+  }
+
+  // Harrell's C: of the pairs whose order of events is known (the shorter time is an event), the share where
+  // the higher risk score belongs to the subject who had the event first; tied risk scores count a half.
+  // Two events at the same time are not comparable; an event and a censoring at the same time are (the
+  // censored subject was still event-free at that time) — the same conventions as R's concordance().
+  // Counted in O(n log n): subjects are added to a Fenwick tree over the ranked risk scores from the latest
+  // time down, so each event is compared at once with everyone still event-free after it.
+  function harrellC(times, events, risk){
+    var n = times.length, i;
+    var levels = risk.slice().sort(function(a, b){ return a - b; }).filter(function(v, k, arr){ return k === 0 || v !== arr[k - 1]; });
+    function rankOf(v){
+      var lo = 0, hi = levels.length - 1;
+      while (lo < hi){ var mid = (lo + hi) >> 1; if (levels[mid] < v) lo = mid + 1; else hi = mid; }
+      return lo + 1;
+    }
+    var tree = new Float64Array(levels.length + 1);
+    function add(k){ for (; k <= levels.length; k += k & -k) tree[k]++; }
+    function countTo(k){ var c = 0; for (; k > 0; k -= k & -k) c += tree[k]; return c; }
+    var order = [];
+    for (i = 0; i < n; i++) order.push(i);
+    order.sort(function(a, b){ return times[b] - times[a]; });
+    var inserted = 0, concordant = 0, comparable = 0, pos = 0;
+    while (pos < n){
+      var end = pos, q;
+      while (end < n && times[order[end]] === times[order[pos]]) end++;
+      for (q = pos; q < end; q++) if (events[order[q]] !== 1){ add(rankOf(risk[order[q]])); inserted++; }
+      for (q = pos; q < end; q++){
+        if (events[order[q]] !== 1) continue;
+        var rk = rankOf(risk[order[q]]), below = countTo(rk - 1), equal = countTo(rk) - below;
+        comparable += inserted;
+        concordant += below + equal / 2;
+      }
+      for (q = pos; q < end; q++) if (events[order[q]] === 1){ add(rankOf(risk[order[q]])); inserted++; }
+      pos = end;
+    }
+    return comparable ? concordant / comparable : NaN;
+  }
+
+  // Proportional-hazards test (Grambsch & Therneau 1994), computed as R's survival::cox.zph() does since
+  // version 3.0: a score test, at the fitted model, of adding beta·g(t) terms, with g(t) the Kaplan–Meier
+  // transform of time (1 − S(t−) over all subjects), centred on its mean over the events. Each term is
+  // tested on its own (all its columns together) and all terms jointly (global).
+  function coxZph(fit, times, events, terms){
+    var n = times.length, p = fit.beta.length, i, j, k;
+    var asc = fit.order.slice().reverse();
+    var gAt = {}, surv = 1, pos = 0;
+    while (pos < n){
+      var t = times[asc[pos]], end = pos, d = 0;
+      while (end < n && times[asc[end]] === t){ if (events[asc[end]] === 1) d++; end++; }
+      gAt[t] = 1 - surv;
+      surv *= 1 - d / (n - pos);
+      pos = end;
+    }
+    var gSum = 0, gCount = 0;
+    for (i = 0; i < n; i++) if (events[i] === 1){ gSum += gAt[times[i]]; gCount++; }
+    var gMean = gSum / gCount;
+
+    var steps = coxPartial(fit.order, times, events, fit.Xc, fit.beta, true).steps;
+    var uT = new Array(p).fill(0), big = [];
+    for (i = 0; i < 2 * p; i++) big.push(new Array(2 * p).fill(0));
+    steps.forEach(function(s){
+      var g = gAt[s.time] - gMean;
+      for (j = 0; j < p; j++){
+        uT[j] += g * s.u[j];
+        for (k = 0; k < p; k++){
+          big[j][k] += s.info[j][k];
+          big[j][k + p] += g * s.info[j][k];
+          big[j + p][k] += g * s.info[j][k];
+          big[j + p][k + p] += g * g * s.info[j][k];
+        }
+      }
+    });
+    function test(cols){
+      var idx = [];
+      for (j = 0; j < p; j++) idx.push(j);
+      cols.forEach(function(c){ idx.push(c + p); });
+      var sub = idx.map(function(a){ return idx.map(function(b){ return big[a][b]; }); });
+      var uu = idx.map(function(a){ return a < p ? 0 : uT[a - p]; });
+      var sol = solveLinear(sub, uu);
+      var chi2 = sol ? coxDot(sol, uu) : NaN;
+      return { chi2: chi2, df: cols.length, p: chiSquaredPGeneral(chi2, cols.length) };
+    }
+    var rows = terms.map(function(term){ var r = test(term.cols); r.name = term.name; return r; });
+    var all = [];
+    for (j = 0; j < p; j++) all.push(j);
+    return { terms: rows, global: test(all) };
+  }
+
   var survEls = {
     oneGroupRadio: document.getElementById("survOneGroup"),
     twoGroupRadio: document.getElementById("survTwoGroup"),
@@ -4377,7 +4634,7 @@
       if (reasons.length > 0){
         excluded.push({ rowNumber: rowIdx + 2, raw: row, reasons: reasons });
       } else {
-        included.push({ time: Number(rawTime), event: eventVal, group: twoGroup ? rawGroup : "All" });
+        included.push({ time: Number(rawTime), event: eventVal, group: twoGroup ? rawGroup : "All", row: row });
       }
     });
 
@@ -4671,6 +4928,7 @@
       survEls.calcTableContainer.innerHTML = "";
       survEls.smallSampleWarning.hidden = true;
       survLastGroups = null;
+      recalcCox(result);
       return;
     }
     survEls.error.hidden = true;
@@ -4712,6 +4970,287 @@
     renderKMPlot(survEls.plotContainer, survEls.legend, groups, opts);
     renderLifeTables(groups);
     survLastGroups = groups;
+    recalcCox(result);
+  }
+
+  /* --- Cox model: covariate picker, fit and results --- */
+
+  var coxEls = {
+    covariates: document.getElementById("coxCovariates"),
+    message: document.getElementById("coxMessage"),
+    results: document.getElementById("coxResults"),
+    n: document.getElementById("coxN"),
+    events: document.getElementById("coxEvents"),
+    epv: document.getElementById("coxEpv"),
+    dropped: document.getElementById("coxDropped"),
+    warnings: document.getElementById("coxWarnings"),
+    coefBody: document.getElementById("coxCoefBody"),
+    lr: document.getElementById("coxLr"),
+    wald: document.getElementById("coxWald"),
+    score: document.getElementById("coxScore"),
+    concordance: document.getElementById("coxConcordance"),
+    verdict: document.getElementById("coxVerdict"),
+    interpretation: document.getElementById("coxInterpretation"),
+    forest: document.getElementById("coxForest"),
+    phBody: document.getElementById("coxPhBody"),
+    phNote: document.getElementById("coxPhNote")
+  };
+
+  var coxState = { key: null, cols: [] };
+  var survLastCox = null; // last fitted model, for Copy results and the Methods & Results text
+  var COX_MAX_LEVELS = 20;
+
+  function coxP(p){ return isNaN(p) ? "p = —" : (p < 0.0001 ? "p < 0.0001" : "p = " + fmtP(p)); }
+
+  function coxIsMissing(v){ return v === undefined || v === "" || /^(na|nan|null|\.)$/i.test(v); }
+
+  function coxSortLevels(levels){
+    var numeric = levels.every(function(v){ return !isNaN(Number(v)); });
+    return levels.slice().sort(function(a, b){ return numeric ? Number(a) - Number(b) : a.localeCompare(b); });
+  }
+
+  // Rebuilds the covariate list when the columns change: every column other than time and event, typed
+  // Continuous when all its values are numbers with more than two distinct values, otherwise Categorical
+  // (reference = the first category in sorted order, as R uses). In two-group mode the group column starts ticked.
+  function syncCoxCovariates(result, timeIdx, eventIdx, groupIdx){
+    var key = result.headers.join("|") + "#" + timeIdx + "#" + eventIdx;
+    if (key === coxState.key) return;
+    var previous = {};
+    coxState.cols.forEach(function(c){ previous[c.name] = c; });
+    coxState.key = key;
+    coxState.cols = [];
+    result.headers.forEach(function(name, idx){
+      if (idx === timeIdx || idx === eventIdx) return;
+      var values = result.included.map(function(r){ return (r.row[idx] || "").trim(); }).filter(function(v){ return !coxIsMissing(v); });
+      var distinct = coxSortLevels(values.filter(function(v, k){ return values.indexOf(v) === k; }));
+      var numeric = values.length > 0 && values.every(function(v){ return isFinite(Number(v)); });
+      var col = { idx: idx, name: name, levels: distinct, type: numeric && distinct.length > 2 ? "continuous" : "categorical",
+        ref: distinct[0], use: idx === groupIdx };
+      var old = previous[name];
+      if (old){
+        col.use = old.use; col.type = old.type;
+        if (distinct.indexOf(old.ref) >= 0) col.ref = old.ref;
+      }
+      coxState.cols.push(col);
+    });
+    renderCoxCovariates();
+  }
+
+  function renderCoxCovariates(){
+    if (!coxState.cols.length){ coxEls.covariates.innerHTML = ""; return; }
+    var rows = coxState.cols.map(function(c, k){
+      var refCell = c.type === "categorical" ?
+        '<select data-cox-ref="' + k + '" aria-label="Reference category for ' + escapeXml(c.name) + '">' +
+          c.levels.slice(0, COX_MAX_LEVELS + 1).map(function(l){ return '<option' + (l === c.ref ? " selected" : "") + ' value="' + escapeXml(l) + '">' + escapeXml(l) + '</option>'; }).join("") +
+        '</select>' : '<span class="data-hint">—</span>';
+      return '<tr><td style="text-align:center;"><input type="checkbox" data-cox-use="' + k + '"' + (c.use ? " checked" : "") + ' aria-label="Include ' + escapeXml(c.name) + '"></td>' +
+        '<td style="text-align:left;">' + escapeXml(c.name) + '</td>' +
+        '<td style="text-align:left;"><select data-cox-type="' + k + '" aria-label="Type of ' + escapeXml(c.name) + '">' +
+          '<option value="continuous"' + (c.type === "continuous" ? " selected" : "") + '>Continuous</option>' +
+          '<option value="categorical"' + (c.type === "categorical" ? " selected" : "") + '>Categorical</option></select></td>' +
+        '<td style="text-align:left;">' + refCell + '</td></tr>';
+    }).join("");
+    coxEls.covariates.innerHTML = '<div class="table-wrap"><table class="life-table" style="min-width:480px;"><thead><tr>' +
+      '<th style="text-align:center;">Include</th><th style="text-align:left;">Column</th><th style="text-align:left;">Type</th><th style="text-align:left;">Reference category</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  coxEls.covariates.addEventListener("change", function(e){
+    var el = e.target, k;
+    if (el.hasAttribute("data-cox-use")){ k = +el.getAttribute("data-cox-use"); coxState.cols[k].use = el.checked; }
+    else if (el.hasAttribute("data-cox-type")){ k = +el.getAttribute("data-cox-type"); coxState.cols[k].type = el.value; renderCoxCovariates(); }
+    else if (el.hasAttribute("data-cox-ref")){ k = +el.getAttribute("data-cox-ref"); coxState.cols[k].ref = el.value; }
+    else return;
+    recalcSurvival();
+  });
+
+  function coxShowMessage(text){
+    coxEls.message.hidden = !text;
+    coxEls.message.innerHTML = text ? '<span class="dot"></span> ' + escapeXml(text) : "";
+    coxEls.results.hidden = true;
+    survLastCox = null;
+  }
+
+  function recalcCox(result){
+    if (!result.ok){ coxShowMessage("The Cox model uses the same data — fix the problem above first."); return; }
+    var timeIdx = parseInt(survEls.colTime.value, 10), eventIdx = parseInt(survEls.colEvent.value, 10);
+    var groupIdx = survEls.twoGroupRadio.checked ? parseInt(survEls.colGroup.value, 10) : -1;
+    syncCoxCovariates(result, timeIdx, eventIdx, groupIdx);
+    if (!coxState.cols.length){ coxShowMessage("The data has only a time and an event column. Add one or more covariate columns (for example treatment group, age or grade) to fit a Cox model."); return; }
+    var chosen = coxState.cols.filter(function(c){ return c.use; });
+    if (!chosen.length){ coxShowMessage("Tick at least one covariate above to fit the model."); return; }
+
+    // Complete cases: a row missing (or, for a continuous covariate, with a non-numeric) value is left out.
+    var used = [], dropped = 0;
+    result.included.forEach(function(r){
+      var vals = [];
+      for (var c = 0; c < chosen.length; c++){
+        var v = (r.row[chosen[c].idx] || "").trim();
+        if (coxIsMissing(v) || (chosen[c].type === "continuous" && !isFinite(Number(v)))){ dropped++; return; }
+        vals.push(v);
+      }
+      used.push({ time: r.time, event: r.event, vals: vals });
+    });
+
+    var terms = [], columnInfo = [];
+    for (var c = 0; c < chosen.length; c++){
+      var col = chosen[c];
+      if (col.type === "continuous"){
+        terms.push({ name: col.name, cols: [columnInfo.length] });
+        columnInfo.push({ term: col.name, label: col.name, continuous: true, colIndex: c });
+        continue;
+      }
+      var present = coxSortLevels(used.map(function(u){ return u.vals[c]; }).filter(function(v, k, arr){ return arr.indexOf(v) === k; }));
+      if (present.length > COX_MAX_LEVELS){ coxShowMessage("“" + col.name + "” has " + present.length + " categories — too many for a categorical covariate (at most " + COX_MAX_LEVELS + "). If it is a measurement, set its type to Continuous; if it is an identifier, untick it."); return; }
+      if (present.length < 2){ coxShowMessage("“" + col.name + "” has only one category in the rows used, so its effect can't be estimated. Untick it."); return; }
+      var ref = present.indexOf(col.ref) >= 0 ? col.ref : present[0];
+      var termCols = [];
+      present.forEach(function(level){
+        if (level === ref) return;
+        termCols.push(columnInfo.length);
+        columnInfo.push({ term: col.name, label: col.name + ": " + level + " vs " + ref, level: level, ref: ref, colIndex: c });
+      });
+      terms.push({ name: col.name, cols: termCols });
+    }
+
+    var events = used.filter(function(u){ return u.event === 1; }).length;
+    if (used.length < 2 || events === 0){ coxShowMessage(events === 0 ? "No events among the rows used, so there is nothing to model." : "Too few rows with complete covariate values to fit the model."); return; }
+
+    var times = used.map(function(u){ return u.time; }), evs = used.map(function(u){ return u.event; });
+    var X = used.map(function(u){
+      return columnInfo.map(function(info){
+        return info.continuous ? Number(u.vals[info.colIndex]) : (u.vals[info.colIndex] === info.level ? 1 : 0);
+      });
+    });
+    var fit = coxFit(times, evs, X);
+    if (!fit.ok){ coxShowMessage("The covariates are collinear — one is an exact combination of others (for example the same information coded twice, or a category that only ever occurs together with another), so their separate effects can't be estimated. Untick one of them."); return; }
+
+    var risk = X.map(function(x){ return coxDot(x, fit.beta); });
+    var zph = coxZph(fit, times, evs, terms);
+    renderCoxResults({ fit: fit, columnInfo: columnInfo, terms: terms, zph: zph, n: used.length, events: events, dropped: dropped,
+      concordance: harrellC(times, evs, risk) });
+  }
+
+  function renderCoxResults(m){
+    var fit = m.fit, z975 = stdNormalInvCdf(0.975), p = fit.beta.length;
+    coxEls.message.hidden = true;
+    coxEls.results.hidden = false;
+    coxEls.n.textContent = String(m.n);
+    coxEls.events.textContent = String(m.events);
+    m.epv = m.events / p;
+    coxEls.epv.textContent = fmtNum(m.epv, 1) + " (" + m.events + " events ÷ " + p + " coefficient" + (p === 1 ? "" : "s") + ")";
+    coxEls.dropped.textContent = m.dropped ? m.dropped + " row" + (m.dropped === 1 ? "" : "s") + " left out (missing or non-numeric covariate value)" : "None";
+
+    m.rows = m.columnInfo.map(function(info, j){
+      var b = fit.beta[j], se = fit.se[j], zv = b / se;
+      return { label: info.label, beta: b, se: se, z: zv, p: Math.min(1, erfc(Math.abs(zv) / Math.SQRT2)), hr: Math.exp(b),
+        lo: Math.exp(b - z975 * se), hi: Math.exp(b + z975 * se), infinite: fit.infinite[j], info: info };
+    });
+
+    var warnings = [];
+    if (m.epv < 10) warnings.push("Only " + fmtNum(m.epv, 1) + " events per coefficient (fewer than 10): the hazard ratios may be biased away from 1 and their confidence intervals unreliable. Use fewer covariates, or treat the result as exploratory.");
+    var infinite = m.rows.filter(function(r){ return r.infinite; });
+    if (infinite.length) warnings.push("No finite estimate for " + infinite.map(function(r){ return "“" + r.label + "”"; }).join(", ") + ": the likelihood keeps improving as the coefficient grows without limit (monotone likelihood — typically a category in which no one, or everyone, had the event). Its hazard ratio is shown as not estimable rather than as a meaningless huge number; combine sparse categories or untick it.");
+    if (!fit.converged) warnings.push("The model did not converge within 20 iterations, so the estimates below may be inaccurate.");
+    coxEls.warnings.innerHTML = warnings.map(function(w){ return '<div class="assumption warn" style="margin-top:10px;"><span class="dot"></span> ' + escapeXml(w) + '</div>'; }).join("");
+
+    coxEls.coefBody.innerHTML = m.rows.map(function(r){
+      var label = '<td style="text-align:left;">' + escapeXml(r.label) + '</td>';
+      if (r.infinite) return '<tr>' + label + '<td colspan="6" style="text-align:left;">Not estimable (coefficient tends to infinity)</td></tr>';
+      return '<tr>' + label + '<td>' + fmtNum(r.beta, 4) + '</td><td>' + fmtNum(r.se, 4) + '</td><td>' + fmtNum(r.z, 3) + '</td><td>' + fmtP(r.p) + '</td>' +
+        '<td>' + fmtNum(r.hr, 3) + '</td><td>' + fmtNum(r.lo, 3) + "–" + fmtNum(r.hi, 3) + '</td></tr>';
+    }).join("");
+
+    var lrP = chiSquaredPGeneral(fit.lr, p), waldP = chiSquaredPGeneral(fit.wald, p), scoreP = chiSquaredPGeneral(fit.score, p);
+    m.lrP = lrP;
+    coxEls.lr.textContent = "χ² = " + fmtNum(fit.lr, 3) + ", df = " + p + ", " + coxP(lrP);
+    coxEls.wald.textContent = "χ² = " + fmtNum(fit.wald, 3) + ", df = " + p + ", " + coxP(waldP);
+    coxEls.score.textContent = "χ² = " + fmtNum(fit.score, 3) + ", df = " + p + ", " + coxP(scoreP);
+    coxEls.concordance.textContent = fmtNum(m.concordance, 3);
+    coxEls.verdict.innerHTML = ""; coxEls.verdict.appendChild(verdictPill(lrP));
+
+    coxEls.phBody.innerHTML = m.zph.terms.concat([Object.assign({ name: "Global (all terms)" }, m.zph.global)]).map(function(t){
+      return '<tr><td style="text-align:left;">' + escapeXml(t.name) + '</td><td>' + fmtNum(t.chi2, 3) + '</td><td>' + t.df + '</td><td>' + fmtP(t.p) + '</td></tr>';
+    }).join("");
+    var violating = m.zph.terms.filter(function(t){ return t.p < 0.05; });
+    coxEls.phNote.className = "assumption " + (violating.length || m.zph.global.p < 0.05 ? "warn" : "good");
+    coxEls.phNote.innerHTML = '<span class="dot"></span> ' + escapeXml(violating.length ?
+      "Evidence that the effect of " + violating.map(function(t){ return "“" + t.name + "”"; }).join(", ") + " changes over follow-up (p < 0.05): the proportional-hazards assumption may not hold, and its hazard ratio is then an average over time that can hide, for example, an early benefit that later disappears. Look at the Kaplan–Meier curves for crossing, and consider stratifying on it or splitting follow-up into periods." :
+      (m.zph.global.p < 0.05 ? "No single term fails, but the global test (p < 0.05) suggests the hazards are not proportional overall — interpret the hazard ratios with caution." :
+        "No evidence against proportional hazards (all p ≥ 0.05). This does not prove the assumption holds — with few events the test has little power."));
+
+    var multi = m.terms.length > 1;
+    var finite = m.rows.filter(function(r){ return !r.infinite; });
+    coxEls.interpretation.textContent = (multi ? "Each hazard ratio is adjusted for the other covariates in the model. " : "") +
+      finite.map(function(r){
+        var ci = " (95% CI " + fmtNum(r.lo, 2) + "–" + fmtNum(r.hi, 2) + ", " + coxP(r.p) + ")";
+        return r.info.continuous ?
+          "Each 1-unit increase in " + r.label + " multiplied the hazard of the event by " + fmtNum(r.hr, 3) + ci + "." :
+          "For " + r.info.term + " " + r.info.level + " compared with " + r.info.term + " " + r.info.ref + ", the hazard of the event was " + fmtNum(r.hr, 2) + " times as high" + ci + ".";
+      }).join(" ") +
+      " A hazard ratio above 1 means the event happens sooner (a higher rate at any given time); below 1, later. It compares rates, not the proportion who eventually have the event, and it shows an association, not that the covariate causes the difference.";
+
+    renderCoxForestPlot(coxEls.forest, finite);
+    survLastCox = m;
+  }
+
+  // Hazard ratios with 95% CIs on a log scale, a dashed line at HR = 1.
+  function renderCoxForestPlot(container, rows){
+    if (!rows.length){ container.innerHTML = ""; return; }
+    var rowH = 24, headerH = 28, axisH = 40, padTop = 10;
+    var W = 780, plotL = 330, plotR = 600;
+    var H = padTop + headerH + rows.length * rowH + axisH;
+    var vals = [0];
+    rows.forEach(function(r){ vals.push(Math.log(r.lo), Math.log(r.hi)); });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var pad = (hi - lo) * 0.08 || 0.5;
+    lo -= pad; hi += pad;
+    function sx(v){ return plotL + (v - lo) / (hi - lo) * (plotR - plotL); }
+    var font = 'font-family="IBM Plex Sans, sans-serif"', mono = 'font-family="IBM Plex Mono, monospace"';
+    var svg = [];
+    svg.push('<text x="8" y="' + (padTop + 14) + '" font-size="11" font-weight="700" fill="var(--ink)" ' + font + '>Covariate</text>');
+    svg.push('<text x="624" y="' + (padTop + 14) + '" font-size="11" font-weight="700" fill="var(--ink)" ' + font + '>HR [95% CI]</text>');
+    var topY = padTop + headerH, bottomY = topY + rows.length * rowH;
+    svg.push('<line x1="' + sx(0).toFixed(1) + '" y1="' + topY + '" x2="' + sx(0).toFixed(1) + '" y2="' + bottomY + '" stroke="var(--line)" stroke-dasharray="3,3"/>');
+    rows.forEach(function(r, k){
+      var y = topY + k * rowH + rowH / 2;
+      var label = r.label.length > 46 ? r.label.slice(0, 45) + "…" : r.label;
+      svg.push('<text x="8" y="' + (y + 4).toFixed(1) + '" font-size="11.5" fill="var(--ink)" ' + font + '>' + escapeXml(label) + '</text>');
+      svg.push('<line x1="' + sx(Math.log(r.lo)).toFixed(1) + '" y1="' + y.toFixed(1) + '" x2="' + sx(Math.log(r.hi)).toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="var(--ink-soft)" stroke-width="1.4"/>');
+      svg.push('<rect x="' + (sx(r.beta) - 4.5).toFixed(1) + '" y="' + (y - 4.5).toFixed(1) + '" width="9" height="9" fill="var(--accent)" stroke="var(--accent-ink)" stroke-width="0.5"/>');
+      svg.push('<text x="624" y="' + (y + 4).toFixed(1) + '" font-size="11" fill="var(--ink)" ' + mono + '>' + fmtNum(r.hr, 2) + " [" + fmtNum(r.lo, 2) + "–" + fmtNum(r.hi, 2) + "]" + '</text>');
+    });
+    svg.push('<line x1="' + plotL + '" y1="' + bottomY + '" x2="' + plotR + '" y2="' + bottomY + '" stroke="var(--line)"/>');
+    for (var t = 0; t <= 4; t++){
+      var v = lo + (hi - lo) * t / 4, xPix = sx(v);
+      svg.push('<line x1="' + xPix.toFixed(1) + '" y1="' + bottomY + '" x2="' + xPix.toFixed(1) + '" y2="' + (bottomY + 4) + '" stroke="var(--line)"/>');
+      svg.push('<text x="' + xPix.toFixed(1) + '" y="' + (bottomY + 16) + '" text-anchor="middle" font-size="10" fill="var(--ink-soft)" ' + mono + '>' + fmtNum(Math.exp(v), 2) + '</text>');
+    }
+    svg.push('<text x="' + ((plotL + plotR) / 2) + '" y="' + (bottomY + 32) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" ' + font + '>Hazard ratio (log scale)</text>');
+    container.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Hazard ratio forest plot">' + svg.join("") + '</svg>';
+    attachChartDownload(container, container.querySelector("svg"), "cox-hazard-ratios");
+  }
+
+  function coxResultsText(m){
+    var lines = ["Cox proportional hazards model (Efron's method for tied times)", "N = " + m.n + ", events = " + m.events + (m.dropped ? ", " + m.dropped + " rows left out for missing covariate values" : "")];
+    m.rows.forEach(function(r){
+      lines.push(r.label + ": " + (r.infinite ? "not estimable (coefficient tends to infinity)" : "HR " + fmtNum(r.hr, 3) + " (95% CI " + fmtNum(r.lo, 3) + "–" + fmtNum(r.hi, 3) + "), " + coxP(r.p)));
+    });
+    lines.push("Likelihood ratio test: χ² = " + fmtNum(m.fit.lr, 2) + ", df = " + m.rows.length + ", " + coxP(m.lrP));
+    lines.push("Concordance (Harrell's C) = " + fmtNum(m.concordance, 3));
+    lines.push("Proportional-hazards test (global): χ² = " + fmtNum(m.zph.global.chi2, 2) + ", df = " + m.zph.global.df + ", " + coxP(m.zph.global.p));
+    return lines.join("\n");
+  }
+
+  function coxManuscriptText(m){
+    var names = m.terms.map(function(t){ return t.name; });
+    var finite = m.rows.filter(function(r){ return !r.infinite; });
+    return "A Cox proportional hazards model (Efron's method for tied event times) was fitted with " + names.join(", ") +
+      (names.length > 1 ? " as covariates" : " as the covariate") + " (n = " + m.n + ", " + m.events + " events" +
+      (m.dropped ? "; " + m.dropped + " observations with missing covariate values were excluded" : "") + "). " +
+      finite.map(function(r){ return (r.info.continuous ? r.label + " (per unit)" : r.info.term + " (" + r.info.level + " vs " + r.info.ref + ")") + ": hazard ratio " + fmtNum(r.hr, 2) + " (95% CI, " + fmtNum(r.lo, 2) + "–" + fmtNum(r.hi, 2) + "; " + coxP(r.p) + ")"; }).join("; ") + ". " +
+      "The proportional-hazards assumption was assessed with the Grambsch–Therneau test (global " + coxP(m.zph.global.p) + "). " +
+      "Model discrimination: Harrell's C = " + fmtNum(m.concordance, 2) + ".";
   }
 
   function survivalExampleText(twoGroup){
@@ -5098,7 +5637,7 @@
   }
 
   survEls.copyResultsBtn.addEventListener("click", function(){
-    copyTextWithFallback(survivalResultsText(), survEls.copyResultsBtn);
+    copyTextWithFallback(survivalResultsText() + (survLastCox ? "\n\n" + coxResultsText(survLastCox) : ""), survEls.copyResultsBtn);
   });
 
   survEls.generateManuscriptBtn.addEventListener("click", function(){
@@ -5127,6 +5666,7 @@
         "A two-sided log-rank test " + sigPhrase +
         (isNaN(lr2.chi2) ? "" : " (χ² = " + fmtNum(lr2.chi2, 2) + ", df = 1, p = " + fmtP(lr2.p) + ")") + ".";
     }
+    if (survLastCox) text += " " + coxManuscriptText(survLastCox);
     survEls.manuscriptText.hidden = false;
     survEls.manuscriptText.value = text;
     survEls.copyManuscriptBtn.hidden = false;
