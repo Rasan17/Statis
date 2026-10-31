@@ -1353,7 +1353,8 @@
         <p><b>What it is —</b> Kaplan–Meier estimation tracks the probability of "surviving" (not yet having the event) over time in a group that includes some incomplete observations. It's the standard way to summarize time-to-event data — death, relapse, device failure, discharge — when not everyone has been followed for the same length of time or reached the event by the end of the study.</p>
         <p><b>Event vs. censoring —</b> An <b>event</b> (coded 1) is the outcome you're tracking actually happening. A <b>censored</b> observation (coded 0) is someone who left the risk set without the event happening — the study ended, they were lost to follow-up, or they withdrew. Censoring is not a negative result and is not the same as loss to follow-up in general — it specifically means "we know they hadn't had the event as of this time, but we don't know what happened after."</p>
         <p><b>The formula —</b> Ŝ(t) = Π<sub>tᵢ≤t</sub> (1 − dᵢ⁄nᵢ), where nᵢ is the number still at risk just before time tᵢ and dᵢ is the number of events at tᵢ. The curve only steps down at event times; a censoring removes someone from the risk set for later times but doesn't itself drop the curve.</p>
-        <p><b>Median survival —</b> the earliest time at which the estimated survival probability falls to 0.50 or below — i.e., the point by which half the cohort has had the event. If the curve never reaches 0.50 during follow-up, the median is genuinely not known yet; reporting the last observed time as if it were the median would be wrong, so this app says "not reached" instead.</p>
+        <p><b>Median survival —</b> the earliest time at which the estimated survival probability falls below 0.50 — i.e., the point by which half the cohort has had the event (if the curve sits at exactly 0.50 over an interval, the midpoint of that interval, as R does). If the curve never reaches 0.50 during follow-up, the median is genuinely not known yet; reporting the last observed time as if it were the median would be wrong, so this app says "not reached" instead.</p>
+        <p><b>Median follow-up —</b> estimated by the reverse Kaplan–Meier method (Schemper &amp; Smith, 1996): the Kaplan–Meier median with the roles of event and censoring swapped, i.e. how long patients would have been followed had they not had the event. The simple median of all observed times is not used, because it mixes in the times of patients who had the event early and so understates follow-up.</p>
         <p><b>Confidence intervals —</b> computed with Greenwood's formula for the variance of Ŝ(t), combined with a complementary log-log transformation before building the interval and transforming back. This keeps every confidence bound inside [0, 1] and is generally more accurate than a plain linear interval, especially near the ends of the curve.</p>
         <p><b>The log-rank test —</b> compares two Kaplan–Meier curves by summing, at every time an event occurs in either group, the difference between observed and expected events in one group (expected under the null hypothesis that both groups share the same survival function), weighting by the hypergeometric variance at each time. It tests whether the two survival <i>distributions</i> differ over the whole observed follow-up — it does not estimate the size of the difference (that's what the hazard ratio from the Cox model below is for), and it can be underpowered if the two curves cross, or if either group has few events.</p>
         <p><b>Statistical vs. clinical significance —</b> a small p-value only says the observed difference is unlikely under the null hypothesis given this sample; it says nothing about whether the difference is large enough to matter clinically, and a non-significant result with a small sample doesn't prove the groups are equivalent. Curves, medians and p-values here should be read alongside the actual sizes of the effects and confidence intervals, not the p-value alone.</p>
@@ -2532,10 +2533,28 @@
     var lo = Math.max(0, c1 - r2), hi = Math.min(r1, c1);
     function logP(k){ return logChoose(r1, k) + logChoose(r2, c1 - k) - logChoose(n, c1); }
     var logPobs = logP(a);
-    var p = 0;
-    for (var k = lo; k <= hi; k++){
-      var lp = logP(k);
+    var p = 0, k, lp;
+    if (hi - lo <= 20000){
+      for (k = lo; k <= hi; k++){
+        lp = logP(k);
+        if (lp <= logPobs + 1e-7) p += Math.exp(lp);
+      }
+      return Math.min(1, p);
+    }
+    // Very large tables (millions of patients): the hypergeometric probabilities fall away steadily on each side of
+    // the most likely table, so walk outward from it and stop once a term is below e^-40 of the observed table's
+    // probability — every term beyond is smaller still, so the rest cannot change the p-value at any printed
+    // precision. Summing every one of the millions of terms took seconds per keystroke.
+    var mode = Math.max(lo, Math.min(hi, Math.floor((r1 + 1) * (c1 + 1) / (n + 2))));
+    for (k = mode; k >= lo; k--){
+      lp = logP(k);
       if (lp <= logPobs + 1e-7) p += Math.exp(lp);
+      if (lp < logPobs - 40) break;
+    }
+    for (k = mode + 1; k <= hi; k++){
+      lp = logP(k);
+      if (lp <= logPobs + 1e-7) p += Math.exp(lp);
+      if (lp < logPobs - 40) break;
     }
     return Math.min(1, p);
   }
@@ -2578,6 +2597,37 @@
     if (p < 0.0001) return "< 0.0001";
     return p.toFixed(4);
   }
+
+  // Smallest / largest of an array without Math.min.apply / Math.max.apply, which pass every element as a function
+  // argument and overflow the call stack (RangeError) somewhere above ~120,000 values. Same results otherwise:
+  // Infinity / -Infinity for an empty array, NaN if any element is NaN.
+  function arrMin(a){
+    var m = Infinity;
+    for (var i = 0; i < a.length; i++){ var v = +a[i]; if (v !== v) return NaN; if (v < m) m = v; }
+    return m;
+  }
+  function arrMax(a){
+    var m = -Infinity;
+    for (var i = 0; i < a.length; i++){ var v = +a[i]; if (v !== v) return NaN; if (v > m) m = v; }
+    return m;
+  }
+
+  // Every tab recalculates on each "input" event from its data boxes. With a large paste that can take a second or
+  // more per keystroke, so for a text box holding more than LARGE_INPUT_CHARS characters the event is held back
+  // (in the capture phase, before any tab's own listener sees it) and re-sent once typing has paused. Small data
+  // still updates instantly.
+  var LARGE_INPUT_CHARS = 20000, LARGE_INPUT_DELAY_MS = 400;
+  document.addEventListener("input", function(e){
+    var t = e.target;
+    if (e.statisDeferred || !t || t.tagName !== "TEXTAREA" || t.value.length <= LARGE_INPUT_CHARS) return;
+    e.stopImmediatePropagation();
+    clearTimeout(t.statisInputTimer);
+    t.statisInputTimer = setTimeout(function(){
+      var again = new Event("input", { bubbles: true });
+      again.statisDeferred = true;
+      t.dispatchEvent(again);
+    }, LARGE_INPUT_DELAY_MS);
+  }, true);
 
   function fmtNum(x, d){
     if (!isFinite(x)) return "—";
@@ -2803,10 +2853,12 @@
   var PLAIN_SURV = [
     "\"Survival\" here means free of whatever the event column records (death, recurrence, reoperation…), not necessarily alive.",
     "Censored patients are assumed to be like those who stayed in follow-up. If people dropped out because they were doing badly (or well), the curve is biased.",
-    "The right-hand end of the curve rests on few patients, so it is the least reliable part — the shaded band widens to show this."
+    "The right-hand end of the curve rests on few patients, so it is the least reliable part (the confidence band, when shown, widens there)."
   ];
-  function plainSurvOne(km, n, events, unit){
-    return { means: ["Of " + n + " patients, " + events + " had the event during follow-up and " + (n - events) + " had not (yet) when last seen.", plainMedianSentence("Overall", km, unit), plainKmIntro()],
+  function plainSurvOne(km, n, events, unit, fuMedian){
+    return { means: ["Of " + n + " patients, " + events + " had the event during follow-up and " + (n - events) + " had not (yet) when last seen." +
+        (isFinite(fuMedian) ? " Patients were followed for a median of " + fmtNum(fuMedian, 1) + " " + unit + " (how long they would have been followed had they not had the event)." : ""),
+      plainMedianSentence("Overall", km, unit), plainKmIntro()],
       caveats: PLAIN_SURV.concat(events < 20 ? [plainSmall(events, "events")] : []) };
   }
   function plainSurvTwo(groups, lr, unit){
@@ -2841,6 +2893,7 @@
     var caveats = [PLAIN.cause, "Factors that were not measured or not included can still explain the differences."];
     if (m.epv < 10) caveats.push("There are only " + fmtNum(m.epv, 1) + " events for each estimated effect (10 or more is recommended), so the hazard ratios may be exaggerated and their ranges unreliable.");
     if (m.rows.some(function(r){ return r.infinite; })) caveats.push("Some effects could not be estimated because a category had no events (or only events).");
+    if (isFinite(m.concordance)) caveats.push("The C statistic is measured on the same patients the model was built from, so it flatters the model; in new patients it would usually be lower.");
     caveats.push("The model assumes each effect stays the same throughout follow-up; the check below tests this.");
     caveats.push(PLAIN.p);
     return { means: means, caveats: caveats };
@@ -3293,7 +3346,7 @@
       if (isFinite(g.stats.ciLower)) allVals.push(g.stats.ciLower);
       if (isFinite(g.stats.ciUpper)) allVals.push(g.stats.ciUpper);
     });
-    var yMin = Math.min.apply(null, allVals), yMax = Math.max.apply(null, allVals);
+    var yMin = arrMin(allVals), yMax = arrMax(allVals);
     var pad = (yMax - yMin) * 0.15 || 1;
     yMin -= (yMin < 0 ? pad : 0); yMax += pad;
 
@@ -3349,7 +3402,7 @@
 
   function histogramBins(arr){
     var n = arr.length;
-    var lo = Math.min.apply(null, arr), hi = Math.max.apply(null, arr);
+    var lo = arrMin(arr), hi = arrMax(arr);
     if (lo === hi){
       return { bins: [{ x0: lo - 0.5, x1: hi + 0.5, count: n }], min: lo - 0.5, max: hi + 0.5 };
     }
@@ -3376,7 +3429,7 @@
     }
     var binned = histogramBins(arr);
     var bins = binned.bins;
-    var maxCount = Math.max.apply(null, bins.map(function(b){ return b.count; }));
+    var maxCount = arrMax(bins.map(function(b){ return b.count; }));
     var W = 280, H = 180, mL = 30, mR = 10, mT = 10, mB = 26;
 
     function sx(v){ return mL + (v - binned.min) / (binned.max - binned.min) * (W - mL - mR); }
@@ -4185,24 +4238,52 @@
     return rankWithTies(arr).tieGroups.some(function(t){ return t > 1; });
   }
 
+  // Knight (1966): Kendall's S = concordant − discordant pairs and the tied-pair counts, in O(n log n) — sort by x
+  // (then y), count ties in x and in (x, y), count the discordant pairs as the swaps a merge sort on y needs, then
+  // count ties in y: S = n0 − n1 − n2 + n3 − 2·swaps.
+  function kendallPairCounts(x, y){
+    var n = x.length, idx = [], i;
+    for (i = 0; i < n; i++) idx.push(i);
+    idx.sort(function(a, b){ return x[a] - x[b] || y[a] - y[b]; });
+    var n1 = 0, n3 = 0, run = 1, runXY = 1;
+    for (i = 1; i <= n; i++){
+      var sameX = i < n && x[idx[i]] === x[idx[i - 1]];
+      var sameXY = sameX && y[idx[i]] === y[idx[i - 1]];
+      if (sameXY) runXY++; else { n3 += runXY * (runXY - 1) / 2; runXY = 1; }
+      if (sameX) run++; else { n1 += run * (run - 1) / 2; run = 1; }
+    }
+    var ys = idx.map(function(k){ return y[k]; }), buf = new Array(n), swaps = 0;
+    function sort(lo, hi){
+      if (hi - lo < 2) return;
+      var mid = (lo + hi) >> 1;
+      sort(lo, mid); sort(mid, hi);
+      var a = lo, b = mid, k = lo;
+      while (a < mid && b < hi){
+        if (ys[b] < ys[a]){ swaps += mid - a; buf[k++] = ys[b++]; } else buf[k++] = ys[a++];
+      }
+      while (a < mid) buf[k++] = ys[a++];
+      while (b < hi) buf[k++] = ys[b++];
+      for (k = lo; k < hi; k++) ys[k] = buf[k];
+    }
+    sort(0, n);
+    var n2 = 0; run = 1;
+    for (i = 1; i <= n; i++){
+      if (i < n && ys[i] === ys[i - 1]) run++; else { n2 += run * (run - 1) / 2; run = 1; }
+    }
+    var n0 = n * (n - 1) / 2;
+    return { S: n0 - n1 - n2 + n3 - 2 * swaps, tiedX: n1, tiedY: n2, tiedXY: n3 };
+  }
+
   function kendallTau(x, y){
     var n = x.length;
     if (n < 2) return { tau: NaN, z: NaN, p: NaN, n: n };
-    var nc = 0, nd = 0, txOnly = 0, tyOnly = 0, txy = 0, i, j;
-    for (i = 0; i < n; i++){
-      for (j = i + 1; j < n; j++){
-        var dx = x[i] - x[j], dy = y[i] - y[j];
-        if (dx === 0 && dy === 0) txy++;
-        else if (dx === 0) txOnly++;
-        else if (dy === 0) tyOnly++;
-        else if ((dx > 0) === (dy > 0)) nc++;
-        else nd++;
-      }
-    }
+    // Pair counts by Knight's O(n log n) method rather than comparing all n(n−1)/2 pairs, which took seconds at
+    // 20,000 points and minutes beyond; the counts are identical (checked against the all-pairs loop).
+    var counts = kendallPairCounts(x, y);
     var n0 = n * (n - 1) / 2;
-    var n1 = txOnly + txy, n2 = tyOnly + txy;
+    var n1 = counts.tiedX, n2 = counts.tiedY;
     var denom = Math.sqrt((n0 - n1) * (n0 - n2));
-    var tau = denom > 0 ? (nc - nd) / denom : NaN;
+    var tau = denom > 0 ? counts.S / denom : NaN;
 
     var xTies = rankWithTies(x).tieGroups.filter(function(t){ return t > 1; });
     var yTies = rankWithTies(y).tieGroups.filter(function(t){ return t > 1; });
@@ -4220,7 +4301,7 @@
       sumU_u1_u2 += u * (u - 1) * (u - 2);
     });
 
-    var S = nc - nd;
+    var S = counts.S;
     var v0term = n * (n - 1) * (2 * n + 5);
     var variance;
     if (n > 2){
@@ -4235,7 +4316,8 @@
     var z = variance > 0 ? S / Math.sqrt(variance) : NaN;
     var p = isFinite(z) ? Math.min(1, Math.max(0, erfc(Math.abs(z) / Math.SQRT2))) : NaN;
 
-    return { tau: tau, S: S, z: z, p: p, n: n, nc: nc, nd: nd };
+    var untied = n0 - counts.tiedX - counts.tiedY + counts.tiedXY;   // pairs tied on neither = concordant + discordant
+    return { tau: tau, S: S, z: z, p: p, n: n, nc: (untied + S) / 2, nd: (untied - S) / 2 };
   }
 
   function linearRegression(x, y){
@@ -4380,8 +4462,8 @@
       return;
     }
     var W = 480, H = 300, mL = 50, mR = 16, mT = 16, mB = 38;
-    var xMin = Math.min.apply(null, x), xMax = Math.max.apply(null, x);
-    var yMin = Math.min.apply(null, y), yMax = Math.max.apply(null, y);
+    var xMin = arrMin(x), xMax = arrMax(x);
+    var yMin = arrMin(y), yMax = arrMax(y);
     var xPad = (xMax - xMin) * 0.08 || 1, yPad = (yMax - yMin) * 0.08 || 1;
     xMin -= xPad; xMax += xPad; yMin -= yPad; yMax += yPad;
     function sx(v){ return mL + (v - xMin) / (xMax - xMin) * (W - mL - mR); }
@@ -4653,7 +4735,7 @@
       regEls.regCaveat.hidden = true;
     }
     plainBox(regEls.regEquation.closest("section"), plainRegression({ slope: reg.slope, lo: reg.slopeCiLower, hi: reg.slopeCiUpper, r2: reg.r2, p: reg.pSlope, n: n,
-      xLabel: xLabel, yLabel: yLabel, xMin: Math.min.apply(null, x), xMax: Math.max.apply(null, x), problems: caveats }));
+      xLabel: xLabel, yLabel: yLabel, xMin: arrMin(x), xMax: arrMax(x), problems: caveats }));
   }
 
   regEls.resetBtn.addEventListener("click", function(){
@@ -4684,8 +4766,23 @@
     // Tab-separated lines keep their leading and trailing tabs — trimming them would drop a blank first cell
     // (common in data pasted from Excel) and shift every later column one place to the left.
     if (delim !== "\t") lines = lines.map(function(l){ return l.trim(); });
+    // A field in double quotes may contain the delimiter (e.g. "Smith, J", as Excel and REDCap write it); a doubled
+    // quote inside it is a literal quote. Without this, such a field would be split and shift every later column.
     function splitLine(l){
-      return delim ? l.split(delim).map(function(s){ return s.trim(); }) : l.trim().split(/\s+/);
+      if (!delim) return l.trim().split(/\s+/);
+      if (l.indexOf('"') < 0) return l.split(delim).map(function(s){ return s.trim(); });
+      var out = [], field = "", quoted = false;
+      for (var i = 0; i < l.length; i++){
+        var ch = l[i];
+        if (quoted){
+          if (ch === '"'){ if (l[i + 1] === '"'){ field += '"'; i++; } else quoted = false; }
+          else field += ch;
+        } else if (ch === '"' && field.trim() === ""){ quoted = true; field = ""; }
+        else if (ch === delim){ out.push(field.trim()); field = ""; }
+        else field += ch;
+      }
+      out.push(field.trim());
+      return out;
     }
     var headers = splitLine(lines[0]);
     var rows = lines.slice(1).map(splitLine);
@@ -5061,7 +5158,7 @@
   // quantiles of the 40 prediction points and the residuals' x), and a band of ±2 SE using var = d·I⁻¹.
   // Returns null when the spline cannot be fitted (fewer than 4 distinct times), as R skips the plot.
   function zphSmooth(x, y, varII){
-    var nsmo = 40, xmin = Math.min.apply(null, x), xmax = Math.max.apply(null, x);
+    var nsmo = 40, xmin = arrMin(x), xmax = arrMax(x);
     if (!(xmax > xmin)) return null;
     var px = [];
     for (var i = 0; i < nsmo; i++) px.push(xmin + (xmax - xmin) * i / (nsmo - 1));
@@ -5140,10 +5237,10 @@
     var W = 460, H = 280, mL = 56, mR = 14, mT = 30, mB = 44;
     var ys = z.y.map(function(row){ return row[c]; });
     var vals = ys.concat(smooth ? smooth.up.concat(smooth.low) : [], [beta]);
-    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var lo = arrMin(vals), hi = arrMax(vals);
     if (asHr){ lo = Math.max(lo, -12); hi = Math.min(hi, 12); }
     var pad = (hi - lo) * 0.06 || 0.5; lo -= pad; hi += pad;
-    var xlo = Math.min.apply(null, z.x), xhi = Math.max.apply(null, z.x);
+    var xlo = arrMin(z.x), xhi = arrMax(z.x);
     if (!(xhi > xlo)){ xlo -= 1; xhi += 1; }
     function sx(v){ return mL + (v - xlo) / (xhi - xlo) * (W - mL - mR); }
     function sy(v){ return mT + (hi - Math.min(hi, Math.max(lo, v))) / (hi - lo) * (H - mT - mB); }
@@ -5437,6 +5534,7 @@
 
       if (rawTime === undefined || rawTime === "") reasons.push("missing time");
       else if (isNaN(Number(rawTime))) reasons.push("non-numeric time");
+      else if (!isFinite(Number(rawTime))) reasons.push("time is not a finite number");
       else if (Number(rawTime) < 0) reasons.push("negative time");
 
       var eventVal = null;
@@ -5659,8 +5757,13 @@
     survEls.ogEvents.textContent = String(eventsN);
     survEls.ogCensored.textContent = String(censoredN);
     survEls.ogPctCensored.textContent = n > 0 ? fmtNum(censoredN / n * 100, 1) + "%" : "—";
-    var medFollowup = median(included.map(function(r){ return r.time; }));
-    survEls.ogMedianFollowup.textContent = isFinite(medFollowup) ? fmtTime(medFollowup) + " (median of all observed times)" : "—";
+    // Median follow-up by the reverse Kaplan–Meier method (Schemper & Smith 1996): the Kaplan–Meier median with
+    // censoring treated as the "event". The median of all observed times would mix in event times and understate
+    // how long patients were followed.
+    var fu = kaplanMeier(included.map(function(r){ return r.time; }), included.map(function(r){ return 1 - r.event; }));
+    var maxTime = arrMax(included.map(function(r){ return r.time; }));
+    survEls.ogMedianFollowup.textContent = isFinite(fu.median) ? fmtTime(fu.median) + " (reverse Kaplan–Meier)" :
+      (n ? "Not estimable — too few patients censored (reverse Kaplan–Meier); longest follow-up " + fmtTime(maxTime) : "—");
 
     if (isNaN(km.median)){
       survEls.ogMedianSurv.textContent = "Median survival was not reached during the observed follow-up period.";
@@ -5671,7 +5774,7 @@
       var hi = isFinite(km.medianCiUpper) ? fmtNum(km.medianCiUpper, 2) : "not reached";
       survEls.ogMedianCI.textContent = lo + " – " + hi + " " + timeUnitLabel();
     }
-    plainBox(survEls.oneGroupResultsCard, plainSurvOne(km, n, eventsN, timeUnitLabel()));
+    plainBox(survEls.oneGroupResultsCard, plainSurvOne(km, n, eventsN, timeUnitLabel(), fu.median));
   }
 
   function medianCellText(km){
@@ -5708,7 +5811,7 @@
     survEls.lrVerdict.innerHTML = ""; survEls.lrVerdict.appendChild(verdictPill(lr.p));
 
     var g1 = groups[0], g2 = groups[1];
-    var evidencePhrase = lr.p < 0.05 ? "evidence" : "no evidence";
+    var evidencePhrase = lr.p < 0.05 ? "statistically significant evidence" : "no statistically significant evidence";
     survEls.lrInterpretation.textContent =
       "The Kaplan–Meier curves for " + g1.name + " and " + g2.name + " were compared using a two-sided log-rank test, " +
       "which tests the null hypothesis that the two survival functions are equal over the observed follow-up period. " +
@@ -5750,6 +5853,9 @@
       survLastGroups = null;
       plainBox(survEls.oneGroupResultsCard, null);
       plainBox(survEls.twoGroupResultsCard, null);
+      // Hide the result cards rather than leave the last valid numbers on screen under the error message.
+      survEls.oneGroupResultsCard.hidden = true;
+      survEls.twoGroupResultsCard.hidden = true;
       recalcCox(result);
       return;
     }
@@ -6030,7 +6136,7 @@
     var H = padTop + headerH + rows.length * rowH + axisH;
     var vals = [0];
     rows.forEach(function(r){ vals.push(Math.log(r.lo), Math.log(r.hi)); });
-    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var lo = arrMin(vals), hi = arrMax(vals);
     var pad = (hi - lo) * 0.08 || 0.5;
     lo -= pad; hi += pad;
     function sx(v){ return plotL + (v - lo) / (hi - lo) * (plotR - plotL); }
@@ -6908,8 +7014,19 @@
     warn.forEach(function(w){ text.push("Note: " + w); });
   }
 
-  sgEls.runSelectedBtn.addEventListener("click", function(){ sgRun(false); });
-  sgEls.runAllBtn.addEventListener("click", function(){ sgRun(true); });
+  // With thousands of patients the analyses take a few seconds; show that they are running (and block a second
+  // click) before starting, rather than leaving the page silently unresponsive.
+  function sgStartRun(all){
+    if (sgEls.runSelectedBtn.disabled) return;
+    sgEls.runSelectedBtn.disabled = sgEls.runAllBtn.disabled = true;
+    sgEls.runStatus.textContent = "Running the analyses…";
+    setTimeout(function(){
+      try { sgRun(all); }
+      finally { sgEls.runSelectedBtn.disabled = sgEls.runAllBtn.disabled = !sgState.data; }
+    }, 30);
+  }
+  sgEls.runSelectedBtn.addEventListener("click", function(){ sgStartRun(false); });
+  sgEls.runAllBtn.addEventListener("click", function(){ sgStartRun(true); });
   sgEls.copyBtn.addEventListener("click", function(){ copyTextWithFallback(sgState.lastText, sgEls.copyBtn); });
   sgEls.timeUnit.addEventListener("change", function(){ if (sgState.ran) sgEls.runStatus.textContent = "Settings have changed since the results below were produced — press Run to update them."; });
 
@@ -7276,7 +7393,7 @@
     opts = opts || {};
     var W = 560, labelW = 150, valueW = 70, rowH = 22, mT = title ? 34 : 12, mB = 14;
     var H = mT + rows.length * rowH + mB;
-    var maxV = Math.max.apply(null, rows.map(function(r){ return Math.max(0, r.value); })) || 1;
+    var maxV = arrMax(rows.map(function(r){ return Math.max(0, r.value); })) || 1;
     var trackW = W - labelW - valueW - 24;
     var parts = [];
     if (title) parts.push('<text x="12" y="20" font-size="12.5" font-weight="600" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(title) + '</text>');
@@ -7296,7 +7413,7 @@
     var k = categories.length, cell = Math.max(46, Math.min(80, 420 / k));
     var labW = 120, mT = 58, mL = labW + 34;
     var W = mL + k * cell + 20, H = mT + k * cell + 20;
-    var maxVal = Math.max.apply(null, cm.map(function(row){ return Math.max.apply(null, row); }));
+    var maxVal = arrMax(cm.map(function(row){ return arrMax(row); }));
     var p = [];
     function trunc(s){ s = String(s); return s.length > 14 ? s.slice(0, 13) + "…" : s; }
     p.push('<text x="' + (mL + k * cell / 2) + '" y="16" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">Predicted</text>');
@@ -7377,8 +7494,10 @@
       var n = g.raw.length, e = g.raw.filter(function(r){ return r.event === 1; }).length, c = n - e;
       var medPhrase = isNaN(g.km.median) ? "median survival was not reached during the observed follow-up period" :
         "median survival was " + fmtTime(g.km.median) + " (95% CI, " + medianCiCellText(g.km) + " " + timeUnitLabel() + ")";
+      var fuKm = kaplanMeier(g.raw.map(function(r){ return r.time; }), g.raw.map(function(r){ return 1 - r.event; }));
       text = "Kaplan-Meier survival analysis was performed for " + n + " patients, of whom " + e + " (" + fmtNum(n ? e / n * 100 : 0, 1) +
-        "%) experienced the event and " + c + " (" + fmtNum(n ? c / n * 100 : 0, 1) + "%) were censored; " + medPhrase + ".";
+        "%) experienced the event and " + c + " (" + fmtNum(n ? c / n * 100 : 0, 1) + "%) were censored; " + medPhrase + "." +
+        (isFinite(fuKm.median) ? " Median follow-up, estimated by the reverse Kaplan-Meier method, was " + fmtTime(fuKm.median) + "." : "");
     } else {
       var g1 = survLastGroups[0], g2 = survLastGroups[1];
       var lr2 = logRankTest(
@@ -7388,12 +7507,13 @@
       var med1 = isNaN(g1.km.median) ? "not reached" : fmtTime(g1.km.median) + " (95% CI " + medianCiCellText(g1.km) + ")";
       var med2 = isNaN(g2.km.median) ? "not reached" : fmtTime(g2.km.median) + " (95% CI " + medianCiCellText(g2.km) + ")";
       var sigPhrase = (lr2.totalEvents === 0 || isNaN(lr2.chi2)) ? "could not be computed, as no events were observed in either group" :
-        (lr2.p < 0.05 ? "showed evidence of a difference between the survival distributions" : "showed no evidence of a difference between the survival distributions");
+        (lr2.p < 0.05 ? "showed a statistically significant difference between the survival distributions" : "showed no statistically significant difference between the survival distributions");
       text = "Kaplan-Meier survival curves were generated for " + g1.name + " (n=" + g1.raw.length + ") and " + g2.name + " (n=" + g2.raw.length +
         "). Median survival was " + med1 + " in " + g1.name + " and " + med2 + " in " + g2.name + ". " +
         "A two-sided log-rank test " + sigPhrase +
         (isNaN(lr2.chi2) ? "" : " (χ² = " + fmtNum(lr2.chi2, 2) + ", df = 1, p = " + fmtP(lr2.p) + ")") + ".";
     }
+    text += " Confidence intervals for survival probabilities and medians were calculated from Greenwood's variance with a log-log transformation.";
     if (survLastCox) text += " " + coxManuscriptText(survLastCox);
     survEls.manuscriptText.hidden = false;
     survEls.manuscriptText.value = text;
@@ -7790,7 +7910,7 @@
     var allPositive = rawArrays.every(function(g){ return g.every(function(v){ return v > 0; }); });
     var shift = 0;
     if (canTransform && !allPositive){
-      var minVal = Math.min.apply(null, rawArrays.reduce(function(acc, g){ return acc.concat(g); }, []));
+      var minVal = arrMin(rawArrays.reduce(function(acc, g){ return acc.concat(g); }, []));
       shift = minVal <= 0 ? (1 - minVal) : 0;
     }
     var shiftedGroups = shift > 0 ? rawArrays.map(function(g){ return g.map(function(v){ return v + shift; }); }) : rawArrays;
@@ -8775,10 +8895,10 @@
 
   function renderGlmPlot(container, x, y, beta, family, xLabel, yLabel, probabilityBounded, link){
     var W = 480, H = 300, mL = 50, mR = 16, mT = 16, mB = 38;
-    var xMin = Math.min.apply(null, x), xMax = Math.max.apply(null, x);
+    var xMin = arrMin(x), xMax = arrMax(x);
     var xPad = (xMax - xMin) * 0.06 || 1;
     xMin -= xPad; xMax += xPad;
-    var yMin = 0, yMax = (family === "logistic" || probabilityBounded) ? 1 : (Math.max.apply(null, y) * 1.15 || 1);
+    var yMin = 0, yMax = (family === "logistic" || probabilityBounded) ? 1 : (arrMax(y) * 1.15 || 1);
 
     function sx(v){ return mL + (v - xMin) / (xMax - xMin) * (W - mL - mR); }
     function sy(v){ return H - mB - (Math.min(yMax, v) - yMin) / (yMax - yMin) * (H - mT - mB); }
@@ -9848,7 +9968,7 @@
 
     var domainVals = [pooled.ciLoScale, pooled.ciHiScale, 0];
     rows.forEach(function(r){ domainVals.push(r.ciLoScale, r.ciHiScale); });
-    var domainMin = Math.min.apply(null, domainVals), domainMax = Math.max.apply(null, domainVals);
+    var domainMin = arrMin(domainVals), domainMax = arrMax(domainVals);
     var pad = (domainMax - domainMin) * 0.08 || 1;
     domainMin -= pad; domainMax += pad;
 
@@ -9865,7 +9985,7 @@
     var topY = padTop + headerH, bottomY = padTop + headerH + rows.length * rowH + gapH + diamondRowH;
     svg.push('<line x1="' + refX.toFixed(1) + '" y1="' + topY + '" x2="' + refX.toFixed(1) + '" y2="' + bottomY + '" stroke="var(--line)" stroke-dasharray="3,3"/>');
 
-    var maxWeight = Math.max.apply(null, rows.map(function(r){ return r.weightPct; }));
+    var maxWeight = arrMax(rows.map(function(r){ return r.weightPct; }));
     rows.forEach(function(r, idx){
       var y = padTop + headerH + idx * rowH + rowH / 2;
       svg.push('<text x="8" y="' + (y + 4).toFixed(1) + '" font-size="11.5" fill="var(--ink)" font-family="IBM Plex Sans, sans-serif">' + escapeXml(r.name) + (r.year ? " (" + escapeXml(String(r.year)) + ")" : "") + '</text>');
@@ -9903,9 +10023,9 @@
     var W = 480, H = 340, mL = 54, mR = 20, mT = 16, mB = 40;
     var xs = effects.map(function(e){ return e.yi; });
     var ses = effects.map(function(e){ return Math.sqrt(e.vi); });
-    var maxSe = Math.max.apply(null, ses) * 1.15 || 1;
+    var maxSe = arrMax(ses) * 1.15 || 1;
     var domainVals = xs.concat([feEstimateScale - 1.96 * maxSe, feEstimateScale + 1.96 * maxSe]);
-    var xMin = Math.min.apply(null, domainVals), xMax = Math.max.apply(null, domainVals);
+    var xMin = arrMin(domainVals), xMax = arrMax(domainVals);
     var xPad = (xMax - xMin) * 0.08 || 1;
     xMin -= xPad; xMax += xPad;
 
@@ -10306,7 +10426,7 @@
       var nums = nonEmpty.map(Number).filter(isFinite);
       if (nums.length === 0) return "no numeric values";
       var m = mean(nums);
-      return nums.length + " values, mean " + fmtNum(m, 2) + ", range " + fmtNum(Math.min.apply(null, nums), 1) + "–" + fmtNum(Math.max.apply(null, nums), 1);
+      return nums.length + " values, mean " + fmtNum(m, 2) + ", range " + fmtNum(arrMin(nums), 1) + "–" + fmtNum(arrMax(nums), 1);
     }
     var distinct = mlUnique(nonEmpty);
     if (type === "binary") return distinct.length + " value(s): " + distinct.slice(0, 2).join(" / ");
@@ -10494,7 +10614,7 @@
         var nums = vals.map(mlToNum).filter(isFinite);
         var m = nums.length ? mean(nums) : 0;
         var sd = nums.length ? Math.sqrt(nums.reduce(function(s, v){ return s + (v - m) * (v - m); }, 0) / nums.length) : 1;
-        featureMeta[c] = { type: "numeric", mean: m, sd: sd || 1, sampleMin: nums.length ? Math.min.apply(null, nums) : 0, sampleMax: nums.length ? Math.max.apply(null, nums) : 1 };
+        featureMeta[c] = { type: "numeric", mean: m, sd: sd || 1, sampleMin: nums.length ? arrMin(nums) : 0, sampleMax: nums.length ? arrMax(nums) : 1 };
       } else {
         // Category vocabulary is drawn from ALL rows (train+test), not just the train split: it's part of the
         // problem's label space, not a leaked test-set statistic. Using train-only categories risks a category that
@@ -10649,7 +10769,7 @@
         for (var ii = 0; ii < n; ii++){
           var sc = [0];
           for (var kk = 0; kk < K1; kk++){ var sv = 0; for (var jj = 0; jj < pb; jj++) sv += bv[kk*pb+jj] * Xb[ii][jj]; sc.push(sv); }
-          var mx = Math.max.apply(null, sc), se = 0;
+          var mx = arrMax(sc), se = 0;
           for (var q = 0; q < sc.length; q++) se += Math.exp(sc[q] - mx);
           ll += sc[y[ii]] - mx - Math.log(se);
         }
@@ -10673,7 +10793,7 @@
             var s = 0; for (j = 0; j < pb; j++) s += beta[k*pb+j] * Xb[i][j];
             scores[k] = s;
           }
-          var maxS = Math.max(0, Math.max.apply(null, scores));
+          var maxS = Math.max(0, arrMax(scores));
           var expRef = Math.exp(0 - maxS);
           var expK = scores.map(function(sv){ return Math.exp(sv - maxS); });
           var sumExp = expRef + expK.reduce(function(a,b){ return a+b; }, 0);
@@ -10772,7 +10892,7 @@
     var xb = [1].concat(xRow);
     if (model.type === "multiclass"){
       var z = model.W.map(function(wc){ var s = 0; for (var j = 0; j < xb.length; j++) s += wc[j] * xb[j]; return s; });
-      var maxZ = Math.max.apply(null, z);
+      var maxZ = arrMax(z);
       var exps = z.map(function(zz){ return Math.exp(zz - maxZ); });
       var sumExp = exps.reduce(function(a, b){ return a + b; }, 0);
       return exps.map(function(e){ return e / sumExp; });
@@ -10857,19 +10977,35 @@
     for (var i = 0; i < n; i++){ var idx = Math.floor(appRand() * n); Xb.push(X[idx]); yb.push(y[idx]); }
     return { X: Xb, y: yb };
   }
-  function mlBuildForest(X, y, task, numClasses, numTrees, maxDepth){
+  // Random forest, grown in ~50 ms slices of trees, so the page stays responsive and the progress line can update
+  // while a large forest grows (built in one loop it blocked the page for ~10 s on 10,000 rows with no visible
+  // progress). Slices rather than one tree per timer, because browsers slow timers in a background tab.
+  // Trees are drawn in the same order from the same seeded generator as the single loop did, so results are unchanged.
+  function mlBuildForestAsync(X, y, task, numClasses, numTrees, maxDepth, onTree){
     var p = X[0].length;
     // Breiman's standard per-split feature subsample size: sqrt(p) for classification, p/3 for regression.
     // This randomizes which features each split can even consider, decorrelating the trees beyond what
     // bootstrap resampling alone achieves — the defining ingredient of a random forest versus plain bagging.
     var maxFeatures = task === "classification" ? Math.max(1, Math.round(Math.sqrt(p))) : Math.max(1, Math.round(p / 3));
     var trees = [];
-    for (var t = 0; t < numTrees; t++){
-      var bs = mlBootstrapSample(X, y);
-      trees.push(mlBuildTree(bs.X, bs.y, task, numClasses, 0, maxDepth, 2, maxFeatures));
-    }
-    return trees;
+    return new Promise(function(resolve, reject){
+      function next(){
+        try {
+          var start = Date.now();
+          do {
+            var bs = mlBootstrapSample(X, y);
+            trees.push(mlBuildTree(bs.X, bs.y, task, numClasses, 0, maxDepth, 2, maxFeatures));
+          } while (trees.length < numTrees && Date.now() - start < 50);
+          if (onTree) onTree(trees.length, numTrees);
+          if (trees.length < numTrees) setTimeout(next, 0); else resolve(trees);
+        } catch (e){ reject(e); }
+      }
+      setTimeout(next, 0);
+    });
   }
+  // Resolves after the browser has had a chance to repaint (a microtask would run before any repaint).
+  function mlYield(){ return new Promise(function(resolve){ setTimeout(resolve, 20); }); }
+
   function mlPredictForestRaw(trees, x, task, numClasses){
     if (task === "classification"){
       var agg = new Array(numClasses).fill(0);
@@ -11163,8 +11299,8 @@
     var W = 560, H = 260, mL = 50, mR = 16, mT = 16, mB = 38;
     var allX = [], allY = [];
     series.forEach(function(s){ s.points.forEach(function(p){ allX.push(p.x); allY.push(p.y); }); });
-    var xMin = Math.min.apply(null, allX), xMax = Math.max.apply(null, allX);
-    var yMin = Math.min(0, Math.min.apply(null, allY)), yMax = Math.max.apply(null, allY) * 1.08 || 1;
+    var xMin = arrMin(allX), xMax = arrMax(allX);
+    var yMin = Math.min(0, arrMin(allY)), yMax = arrMax(allY) * 1.08 || 1;
     if (xMax === xMin) xMax = xMin + 1;
     if (yMax === yMin) yMax = yMin + 1;
     function sx(v){ return mL + (v - xMin) / (xMax - xMin) * (W - mL - mR); }
@@ -11198,7 +11334,7 @@
     var W = 480, H = 340, mL = 54, mR = 20, mT = 16, mB = 40;
     var allVals = [];
     points.forEach(function(p){ allVals.push(p.x, p.y); });
-    var vMin = Math.min.apply(null, allVals), vMax = Math.max.apply(null, allVals);
+    var vMin = arrMin(allVals), vMax = arrMax(allVals);
     var pad = (vMax - vMin) * 0.08 || 1;
     vMin -= pad; vMax += pad;
     function sx(v){ return mL + (v - vMin) / (vMax - vMin) * (W - mL - mR); }
@@ -11223,7 +11359,7 @@
 
   function mlRenderConfusionMatrix(cm, categories){
     var k = categories.length;
-    var maxVal = Math.max.apply(null, cm.map(function(row){ return Math.max.apply(null, row); }));
+    var maxVal = arrMax(cm.map(function(row){ return arrMax(row); }));
     var html = '<table class="heatmap"><thead><tr><th></th><th colspan="' + k + '">Predicted</th></tr><tr><td class="axis-label">Actual</td>' +
       categories.map(function(c){ return '<th>' + escapeXml(c) + '</th>'; }).join("") + '</tr></thead><tbody>';
     cm.forEach(function(row, i){
@@ -11308,22 +11444,22 @@
     var trainPromise;
     if (family === "logistic"){
       mlEls.progressStatus.textContent = mlState.task === "regression" ? "Solving the least-squares fit directly…" : "Fitting by Newton–Raphson (IRLS)…";
-      trainPromise = Promise.resolve().then(function(){
+      trainPromise = mlYield().then(function(){
         return { kind: "logistic", data: mlTrainLinearModel(mlState.trainX, mlState.trainY, mlState.task, numClasses) };
       });
     } else if (family === "tree"){
       mlEls.progressStatus.textContent = "Building a decision tree…";
-      trainPromise = Promise.resolve().then(function(){
+      trainPromise = mlYield().then(function(){
         return { kind: "tree", data: mlBuildTree(mlState.trainX, mlState.trainY, mlState.task === "regression" ? "regression" : "classification", numClasses, 0, opts.maxDepth, 2) };
       });
     } else if (family === "forest"){
       mlEls.progressStatus.textContent = "Growing " + opts.numTrees + " trees…";
-      trainPromise = Promise.resolve().then(function(){
-        return { kind: "forest", data: mlBuildForest(mlState.trainX, mlState.trainY, mlState.task === "regression" ? "regression" : "classification", numClasses, opts.numTrees, opts.maxDepth) };
-      });
+      trainPromise = mlBuildForestAsync(mlState.trainX, mlState.trainY, mlState.task === "regression" ? "regression" : "classification", numClasses, opts.numTrees, opts.maxDepth,
+        function(done, total){ mlEls.progressStatus.textContent = "Growing tree " + done + " of " + total + "…"; })
+        .then(function(trees){ return { kind: "forest", data: trees }; });
     } else if (family === "knn"){
       mlEls.progressStatus.textContent = "Indexing training data for k-NN (k = " + opts.k + ")…";
-      trainPromise = Promise.resolve().then(function(){ return { kind: "knn", data: null, k: opts.k }; });
+      trainPromise = mlYield().then(function(){ return { kind: "knn", data: null, k: opts.k }; });
     } else {
       mlEls.progressTitle.textContent = "Training neural network";
       mlEls.progressStatus.textContent = "Loading TensorFlow.js…";
@@ -11341,6 +11477,11 @@
     }
 
     trainPromise.then(function(model){
+      // Scoring the held-out rows can itself take seconds (k-NN compares every test row with every training row),
+      // so say so and let that message paint first.
+      mlEls.progressStatus.textContent = "Checking the model on the " + mlState.testX.length + " held-out test rows…";
+      return mlYield().then(function(){ return model; });
+    }).then(function(model){
       mlState.model = model;
       mlEls.progressTitle.textContent = "Training complete";
       mlEls.progressStatus.textContent = family === "nn" ? "Trained for " + opts.epochs + " epochs." : "Model trained on " + mlState.trainX.length + " rows.";
@@ -11390,7 +11531,7 @@
     var predsClass = [], probs1 = [];
     mlState.testX.forEach(function(vec){
       var out = mlPredictVector(vec).probs;
-      var idx = out.indexOf(Math.max.apply(null, out));
+      var idx = out.indexOf(arrMax(out));
       predsClass.push(idx);
       if (task === "binary") probs1.push(out[1]);
     });
@@ -11419,7 +11560,7 @@
     var classCounts = new Array(numClasses).fill(0);
     mlState.testY.forEach(function(v){ classCounts[v]++; });
     plainBox(mlEls.evalCard, plainMlEval({ task: task, target: mlState.targetCol, nTest: mlState.testY.length, accuracy: cmetrics.accuracy,
-      baseline: Math.max.apply(null, classCounts) / Math.max(1, mlState.testY.length), precision: cmetrics.precision, recall: cmetrics.recall,
+      baseline: arrMax(classCounts) / Math.max(1, mlState.testY.length), precision: cmetrics.precision, recall: cmetrics.recall,
       auc: task === "binary" ? roc.auc : NaN }));
   }
 
@@ -11465,7 +11606,7 @@
           caveats: ["It is a statistical estimate from patterns in the training data, not a measurement or a diagnosis, and it is least reliable for values unlike those in the data."] });
       return;
     }
-    var idx = out.probs.indexOf(Math.max.apply(null, out.probs));
+    var idx = out.probs.indexOf(arrMax(out.probs));
     var label = mlState.targetMeta.categories[idx];
     var pct = out.probs[idx] * 100;
     var breakdown = mlState.targetMeta.categories.map(function(cat, i){
@@ -11532,7 +11673,7 @@
         if (mlState.task === "regression"){
           newRow[predCol] = fmtNum(out.value, 4);
         } else {
-          var idx = out.probs.indexOf(Math.max.apply(null, out.probs));
+          var idx = out.probs.indexOf(arrMax(out.probs));
           newRow[predCol] = mlState.targetMeta.categories[idx];
           newRow[probCol] = fmtNum(out.probs[idx] * 100, 1);
         }
@@ -11749,7 +11890,7 @@
     if (type === "continuous"){
       var nums = nonEmpty.map(Number).filter(isFinite);
       if (nums.length === 0) return "no numeric values";
-      return nums.length + " values, mean " + fmtNum(mean(nums), 2) + ", range " + fmtNum(Math.min.apply(null, nums), 1) + "–" + fmtNum(Math.max.apply(null, nums), 1);
+      return nums.length + " values, mean " + fmtNum(mean(nums), 2) + ", range " + fmtNum(arrMin(nums), 1) + "–" + fmtNum(arrMax(nums), 1);
     }
     var distinct = pivotUnique(nonEmpty);
     return distinct.length + " categories: " + distinct.slice(0, 4).join(", ") + (distinct.length > 4 ? ", …" : "");
@@ -11892,7 +12033,7 @@
       var idx = Math.min(numBins - 1, Math.floor((v - lo0) / binWidth));
       bins[idx]++;
     });
-    var maxCount = Math.max.apply(null, bins);
+    var maxCount = arrMax(bins);
     var html = '<p class="data-hint" style="margin-bottom:6px;">Distribution</p>';
     bins.forEach(function(count, i){
       var binLo = lo0 + i * binWidth, binHi = binLo + binWidth;
@@ -11919,7 +12060,7 @@
   function pivotRenderMiniBars(container, freqRows, varName){
     container.innerHTML = "";
     if (freqRows.length === 0) return;
-    var maxCount = Math.max.apply(null, freqRows.map(function(r){ return r.count; }));
+    var maxCount = arrMax(freqRows.map(function(r){ return r.count; }));
     var html = '<p class="data-hint" style="margin-bottom:6px;">Frequency</p>';
     freqRows.forEach(function(r){
       var pct = maxCount > 0 ? r.count / maxCount * 100 : 0;
@@ -12422,7 +12563,7 @@
     if (type === "numeric"){
       var nums = nonEmpty.map(Number).filter(isFinite);
       if (nums.length === 0) return "no numeric values";
-      return nums.length + " values, mean " + fmtNum(mean(nums), 2) + ", range " + fmtNum(Math.min.apply(null, nums), 1) + "–" + fmtNum(Math.max.apply(null, nums), 1);
+      return nums.length + " values, mean " + fmtNum(mean(nums), 2) + ", range " + fmtNum(arrMin(nums), 1) + "–" + fmtNum(arrMax(nums), 1);
     }
     var distinct = mlUnique(nonEmpty);
     if (type === "binary") return distinct.length + " value(s): " + distinct.slice(0, 2).join(" / ");
@@ -12560,7 +12701,7 @@
         var nums = vals.map(mlToNum).filter(isFinite);
         var m = nums.length ? mean(nums) : 0;
         var sd = nums.length ? Math.sqrt(nums.reduce(function(s, v){ return s + (v - m) * (v - m); }, 0) / nums.length) : 1;
-        featureMeta[c] = { type: "numeric", mean: m, sd: sd || 1, sampleMin: nums.length ? Math.min.apply(null, nums) : 0, sampleMax: nums.length ? Math.max.apply(null, nums) : 1 };
+        featureMeta[c] = { type: "numeric", mean: m, sd: sd || 1, sampleMin: nums.length ? arrMin(nums) : 0, sampleMax: nums.length ? arrMax(nums) : 1 };
       } else if (type === "binary"){
         featureMeta[c] = { type: "binary", categories: mlUnique(vals.filter(function(v){ return v !== ""; })).slice(0, 2) };
       } else {
@@ -12688,7 +12829,7 @@
       }
       var a = sameCount > 0 ? sameSum / sameCount : 0;
       var bValues = Object.keys(otherSums).map(function(key){ return otherSums[key] / otherCounts[key]; });
-      var b = bValues.length > 0 ? Math.min.apply(null, bValues) : 0;
+      var b = bValues.length > 0 ? arrMin(bValues) : 0;
       var s = sameCount === 0 ? 0 : (b - a) / Math.max(a, b);
       total += isFinite(s) ? s : 0;
     }
@@ -12894,7 +13035,7 @@
       for (i = 0; i < n; i++){
         var logProbs = [];
         for (c = 0; c < k; c++) logProbs.push(Math.log(weights[c]) + unsMvNormalLogPdf(X[i], means[c], invSigmas[c], logDets[c], p));
-        var maxLp = Math.max.apply(null, logProbs);
+        var maxLp = arrMax(logProbs);
         var expSum = logProbs.reduce(function(s, lp){ return s + Math.exp(lp - maxLp); }, 0);
         totalLL += maxLp + Math.log(expSum);
         resp.push(logProbs.map(function(lp){ return Math.exp(lp - maxLp) / expSum; }));
@@ -12932,8 +13073,8 @@
       if (Math.abs(totalLL - prevLL) < 1e-6 * (Math.abs(totalLL) + 1)){ prevLL = totalLL; converged = true; break; }
       prevLL = totalLL;
     }
-    var assignments = resp.map(function(r_i){ return r_i.indexOf(Math.max.apply(null, r_i)); });
-    var minComponentWeight = Math.min.apply(null, weights);
+    var assignments = resp.map(function(r_i){ return r_i.indexOf(arrMax(r_i)); });
+    var minComponentWeight = arrMin(weights);
     return { means: means, covs: covs, weights: weights, assignments: assignments, resp: resp, logLik: prevLL,
       converged: converged, iterations: iterUsed + 1, minComponentWeight: minComponentWeight };
   }
@@ -12953,7 +13094,7 @@
       if (!reg) throw new Error("A Gaussian mixture component's covariance matrix could not be inverted for this prediction.");
       logProbs.push(Math.log(model.weights[c]) + unsMvNormalLogPdf(x, model.means[c], reg.inv, reg.logDet, p));
     }
-    var maxLp = Math.max.apply(null, logProbs);
+    var maxLp = arrMax(logProbs);
     var expSum = logProbs.reduce(function(s, lp){ return s + Math.exp(lp - maxLp); }, 0);
     return logProbs.map(function(lp){ return Math.exp(lp - maxLp) / expSum; });
   }
@@ -13045,7 +13186,7 @@
   }
 
   function unsRenderSilhouetteChart(scores, bestK){
-    var maxScore = Math.max.apply(null, scores.map(function(s){ return Math.max(0, s.silhouette); })) || 1;
+    var maxScore = arrMax(scores.map(function(s){ return Math.max(0, s.silhouette); })) || 1;
     var html = '<p class="data-hint" style="margin:14px 0 6px;">Silhouette score by number of groups</p>';
     scores.forEach(function(s){
       var pct = Math.max(0, s.silhouette) / maxScore * 100;
@@ -13261,8 +13402,8 @@
     var W = 480, H = 340, mL = 54, mR = 20, mT = 16, mB = 40;
     var xs = unsState.rows.map(function(r){ return Number(r[xCol]); });
     var ys = unsState.rows.map(function(r){ return Number(r[yCol]); });
-    var xMin = Math.min.apply(null, xs), xMax = Math.max.apply(null, xs);
-    var yMin = Math.min.apply(null, ys), yMax = Math.max.apply(null, ys);
+    var xMin = arrMin(xs), xMax = arrMax(xs);
+    var yMin = arrMin(ys), yMax = arrMax(ys);
     var xPad = (xMax - xMin) * 0.08 || 1, yPad = (yMax - yMin) * 0.08 || 1;
     xMin -= xPad; xMax += xPad; yMin -= yPad; yMax += yPad;
     function sx(v){ return mL + (v - xMin) / (xMax - xMin) * (W - mL - mR); }
@@ -13330,11 +13471,11 @@
     var model = unsState.model;
     if (model.algorithm === "gmm"){
       var probs = unsGmmPosterior(vec, model);
-      return { algorithm: "gmm", assigned: probs.indexOf(Math.max.apply(null, probs)), probs: probs };
+      return { algorithm: "gmm", assigned: probs.indexOf(arrMax(probs)), probs: probs };
     }
     if (model.algorithm === "dbscan"){
       var dists = unsState.X.map(function(x){ return Math.sqrt(unsSquaredDist(vec, x)); });
-      var nearestOverall = Math.min.apply(null, dists);
+      var nearestOverall = arrMin(dists);
       var coreWithinEps = [], anyWithinEps = [];
       dists.forEach(function(d, i){
         if (d > model.eps || model.assignments[i] === -1) return;
@@ -13347,7 +13488,7 @@
       return { algorithm: "dbscan", assigned: model.assignments[candidates[0].i], nearestDist: candidates[0].d, viaCore: coreWithinEps.length > 0 };
     }
     var distances = model.centroids.map(function(centroid){ return Math.sqrt(unsSquaredDist(vec, centroid)); });
-    return { algorithm: model.algorithm, assigned: distances.indexOf(Math.min.apply(null, distances)), distances: distances };
+    return { algorithm: model.algorithm, assigned: distances.indexOf(arrMin(distances)), distances: distances };
   }
 
   function unsRunAssignment(){
