@@ -1372,7 +1372,7 @@
       <div id="coxWarnings"></div>
       <div class="table-wrap" style="margin-top:16px;">
         <table class="life-table" style="min-width:640px;">
-          <thead><tr><th style="text-align:left;">Term</th><th>Coefficient (β)</th><th>SE</th><th>z</th><th>p</th><th>Hazard ratio</th><th>95% CI</th></tr></thead>
+          <thead><tr><th style="text-align:left;">Term</th><th>Coefficient (β)</th><th>SE</th><th>z</th><th>Wald p</th><th>Hazard ratio</th><th>95% CI</th></tr></thead>
           <tbody id="coxCoefBody"></tbody>
         </table>
       </div>
@@ -1384,26 +1384,21 @@
       </div>
       <div id="coxVerdict"></div>
       <p class="norm-note" id="coxInterpretation" style="margin-top:12px;"></p>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
+        <p class="eyebrow">Assumption check · scaled Schoenfeld residuals</p>
+        <h2>Proportional hazards</h2>
+        <div id="coxPh"></div>
+      </div>
       <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line);">
         <p class="eyebrow">Forest plot</p>
         <div id="coxForest"></div>
-      </div>
-      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
-        <p class="eyebrow">Assumption check</p>
-        <h2>Proportional hazards</h2>
-        <div class="table-wrap">
-          <table class="life-table" style="min-width:420px;">
-            <thead><tr><th style="text-align:left;">Term</th><th>χ²</th><th>df</th><th>p</th></tr></thead>
-            <tbody id="coxPhBody"></tbody>
-          </table>
-        </div>
-        <div class="assumption" id="coxPhNote" style="margin-top:12px;"></div>
       </div>
       <details class="info-box" style="margin-top:18px;">
         <summary>About the Cox model</summary>
         <div class="info-body">
           <p><b>What it is —</b> the Cox proportional hazards model relates the hazard (the instantaneous rate of the event among those still event-free) to one or more covariates: h(t) = h₀(t)·exp(β₁x₁ + β₂x₂ + …). The baseline hazard h₀(t) is left unspecified, so no shape is assumed for the survival curve; only the covariates' effects are estimated. exp(β) is the hazard ratio.</p>
-          <p><b>Proportional hazards —</b> the model assumes each hazard ratio is the same throughout follow-up. The check above is the Grambsch–Therneau test on scaled Schoenfeld residuals (with Kaplan–Meier-transformed time), computed as R's <code>cox.zph()</code> does. A small p-value means the effect changes over time; crossing Kaplan–Meier curves are a visual warning of the same thing.</p>
+          <p><b>Proportional hazards —</b> the model assumes each hazard ratio is the same throughout follow-up. The check above is the Grambsch–Therneau test on scaled Schoenfeld residuals, computed as R's <code>cox.zph()</code> does: per covariate (a variable with several coefficients jointly, with its coefficient-level tests beneath), and globally. The time transform defaults to Kaplan–Meier, as in R; rank, identity and log are offered. The plots are those of R's <code>plot(cox.zph())</code>: the residuals estimate β(t), so a sloping trend means the effect changes over time. A p-value above 0.05 is not proof that the assumption holds. Crossing Kaplan–Meier curves are a visual warning of the same thing.</p>
+          <p><b>Ordinal covariates —</b> categories scored 1, 2, 3, … in the order shown, giving one hazard ratio per step up the scale (a linear trend); choose Categorical instead to let each category have its own hazard ratio.</p>
           <p><b>The three overall tests —</b> likelihood ratio, Wald and score all test whether the covariates together are associated with survival; they usually agree, and the likelihood ratio test is the most reliable in small samples. With a single two-category covariate the score test is the log-rank test (exactly so when there are no tied event times; with ties, Efron's method makes it differ slightly from the log-rank test above).</p>
           <p><b>Concordance —</b> Harrell's C is the proportion of usable patient pairs in which the patient with the higher predicted risk had the event first: 0.5 is no better than chance, 1 is perfect ordering. It is measured on the same data the model was fitted to, so it is optimistic.</p>
           <p><b>Events per coefficient —</b> with fewer than about 10 events for each estimated coefficient (each continuous covariate, and each non-reference category) the estimates become unstable (Peduzzi et al., 1995).</p>
@@ -4437,7 +4432,14 @@
           u[j] += stepU[j];
           for (k = 0; k <= j; k++){ info[j][k] += stepI[j][k]; stepI[k][j] = stepI[j][k]; }
         }
-        if (perTime) steps.push({ time: t, u: stepU, info: stepI });
+        if (perTime){
+          // Each event's Schoenfeld residual is its covariates minus the risk-weighted mean, averaged over
+          // Efron's d steps for tied events (as R's residuals(type = "schoenfeld")).
+          var meanX = zeroVec(), deaths = [];
+          for (j = 0; j < p; j++) meanX[j] = (sumX[j] - stepU[j]) / d;
+          for (q = pos; q < end; q++) if (events[order[q]] === 1) deaths.push(order[q]);
+          steps.push({ time: t, u: stepU, info: stepI, meanX: meanX, deaths: deaths });
+        }
       }
       pos = end;
     }
@@ -4537,29 +4539,51 @@
   }
 
   // Proportional-hazards test (Grambsch & Therneau 1994), computed as R's survival::cox.zph() does since
-  // version 3.0: a score test, at the fitted model, of adding beta·g(t) terms, with g(t) the Kaplan–Meier
-  // transform of time (1 − S(t−) over all subjects), centred on its mean over the events. Each term is
-  // tested on its own (all its columns together) and all terms jointly (global).
-  function coxZph(fit, times, events, terms){
+  // version 3.0: a score test, at the fitted model, of adding beta·g(t) terms, with g(t) a transform of time
+  // centred on its mean over the events — "km" (default, 1 − S(t−) from the Kaplan–Meier curve of all
+  // subjects), "rank", "identity" or "log". Tested per term (all its columns together, terms = TRUE), per
+  // coefficient (terms = FALSE) and globally. Also returns the scaled Schoenfeld residuals, one row per event
+  // in time order: y = d·I⁻¹·r + β (d events, I the information, r the Schoenfeld residual), whose trend over
+  // time estimates β(t), with var = d·I⁻¹ for the smoother's confidence band — as cox.zph()'s y and var.
+  function coxZph(fit, times, events, terms, transform){
     var n = times.length, p = fit.beta.length, i, j, k;
-    var asc = fit.order.slice().reverse();
-    var gAt = {}, surv = 1, pos = 0;
-    while (pos < n){
-      var t = times[asc[pos]], end = pos, d = 0;
-      while (end < n && times[asc[end]] === t){ if (events[asc[end]] === 1) d++; end++; }
-      gAt[t] = 1 - surv;
-      surv *= 1 - d / (n - pos);
-      pos = end;
+    transform = transform || "km";
+    var asc = [];
+    for (i = 0; i < n; i++) asc.push(i);
+    asc.sort(function(a, b){ return times[a] - times[b]; });
+    var tt = new Array(n);
+    if (transform === "km"){
+      var surv = 1, pos = 0;
+      while (pos < n){
+        var t = times[asc[pos]], end = pos, d = 0;
+        while (end < n && times[asc[end]] === t){ if (events[asc[end]] === 1) d++; end++; }
+        for (k = pos; k < end; k++) tt[asc[k]] = 1 - surv;
+        surv *= 1 - d / (n - pos);
+        pos = end;
+      }
+    } else if (transform === "rank"){
+      for (var r0 = 0; r0 < n; ){
+        var r1 = r0;
+        while (r1 + 1 < n && times[asc[r1 + 1]] === times[asc[r0]]) r1++;
+        for (k = r0; k <= r1; k++) tt[asc[k]] = (r0 + r1) / 2 + 1;   // average rank for ties
+        r0 = r1 + 1;
+      }
+    } else if (transform === "log"){
+      for (i = 0; i < n; i++) tt[i] = Math.log(times[i]);
+    } else {
+      for (i = 0; i < n; i++) tt[i] = times[i];
     }
-    var gSum = 0, gCount = 0;
-    for (i = 0; i < n; i++) if (events[i] === 1){ gSum += gAt[times[i]]; gCount++; }
-    var gMean = gSum / gCount;
+    var gSum = 0, nEvents = 0;
+    for (i = 0; i < n; i++) if (events[i] === 1){ gSum += tt[i]; nEvents++; }
+    var gMean = gSum / nEvents;
+    if (!isFinite(gMean)) return { ok: false, error: transform === "log" ? "log of a zero time" : "no events" };
 
     var steps = coxPartial(fit.order, times, events, fit.Xc, fit.beta, true).steps;
     var uT = new Array(p).fill(0), big = [];
     for (i = 0; i < 2 * p; i++) big.push(new Array(2 * p).fill(0));
+    var resid = [];
     steps.forEach(function(s){
-      var g = gAt[s.time] - gMean;
+      var g = tt[s.deaths[0]] - gMean;
       for (j = 0; j < p; j++){
         uT[j] += g * s.u[j];
         for (k = 0; k < p; k++){
@@ -4569,10 +4593,11 @@
           big[j + p][k + p] += g * g * s.info[j][k];
         }
       }
+      s.deaths.forEach(function(who){ resid.push({ i: who, time: s.time, x: tt[who], r: fit.Xc[who].map(function(v, c){ return v - s.meanX[c]; }) }); });
     });
     function test(cols){
       var idx = [];
-      for (j = 0; j < p; j++) idx.push(j);
+      for (var m = 0; m < p; m++) idx.push(m);
       cols.forEach(function(c){ idx.push(c + p); });
       var sub = idx.map(function(a){ return idx.map(function(b){ return big[a][b]; }); });
       var uu = idx.map(function(a){ return a < p ? 0 : uT[a - p]; });
@@ -4580,10 +4605,291 @@
       var chi2 = sol ? coxDot(sol, uu) : NaN;
       return { chi2: chi2, df: cols.length, p: chiSquaredPGeneral(chi2, cols.length) };
     }
-    var rows = terms.map(function(term){ var r = test(term.cols); r.name = term.name; return r; });
-    var all = [];
-    for (j = 0; j < p; j++) all.push(j);
-    return { terms: rows, global: test(all) };
+    var rows = terms.map(function(term){ var r = test(term.cols); r.name = term.name; r.cols = term.cols; return r; });
+    var coefRows = [], all = [];
+    for (j = 0; j < p; j++){ all.push(j); var c = test([j]); c.col = j; coefRows.push(c); }
+
+    resid.sort(function(a, b){ return a.time - b.time || a.i - b.i; });
+    var infoInv = invertMatrix(big.slice(0, p).map(function(row){ return row.slice(0, p); }));
+    var y = null, varScaled = null;
+    if (infoInv){
+      y = resid.map(function(e){ return coxMatVec(infoInv, e.r).map(function(v, c){ return nEvents * v + fit.beta[c]; }); });
+      varScaled = infoInv.map(function(row){ return row.map(function(v){ return nEvents * v; }); });
+    }
+    return { ok: true, terms: rows, coefs: coefRows, global: test(all), transform: transform,
+      x: resid.map(function(e){ return e.x; }), time: resid.map(function(e){ return e.time; }), y: y, varScaled: varScaled };
+  }
+
+  // The smoothed trend of the scaled Schoenfeld residuals, as R's plot.cox.zph(): a least-squares natural
+  // cubic spline with 4 degrees of freedom (boundary knots at the ends, interior knots at the 1/3 and 2/3
+  // quantiles of the 40 prediction points and the residuals' x), and a band of ±2 SE using var = d·I⁻¹.
+  // Returns null when the spline cannot be fitted (fewer than 4 distinct times), as R skips the plot.
+  function zphSmooth(x, y, varII){
+    var nsmo = 40, xmin = Math.min.apply(null, x), xmax = Math.max.apply(null, x);
+    if (!(xmax > xmin)) return null;
+    var px = [];
+    for (var i = 0; i < nsmo; i++) px.push(xmin + (xmax - xmin) * i / (nsmo - 1));
+    var all = px.concat(x).slice().sort(function(a, b){ return a - b; });
+    function quantile(pr){ var h = (all.length - 1) * pr, lo = Math.floor(h); return all[lo] + (h - lo) * ((all[Math.min(lo + 1, all.length - 1)]) - all[lo]); }
+    var knots = [xmin, quantile(1 / 3), quantile(2 / 3), xmax].map(function(v){ return (v - xmin) / (xmax - xmin); });
+    function cube(v){ return v > 0 ? v * v * v : 0; }
+    function dk(u, kk){ return (cube(u - knots[kk]) - cube(u - knots[3])) / (knots[3] - knots[kk]); }
+    function basis(v){ var u = (v - xmin) / (xmax - xmin); return [1, u, dk(u, 0) - dk(u, 2), dk(u, 1) - dk(u, 2)]; }
+    var X = x.map(basis), P = px.map(basis);
+    var XtX = [0, 1, 2, 3].map(function(a){ return [0, 1, 2, 3].map(function(b){ return X.reduce(function(s, row){ return s + row[a] * row[b]; }, 0); }); });
+    var Xty = [0, 1, 2, 3].map(function(a){ return X.reduce(function(s, row, r){ return s + row[a] * y[r]; }, 0); });
+    var inv = invertMatrix(XtX);
+    if (!inv || new Set(x).size < 4) return null;
+    var coef = coxMatVec(inv, Xty);
+    var fitY = P.map(function(row){ return coxDot(row, coef); });
+    var band = P.map(function(row){ return 2 * Math.sqrt(varII * coxDot(row, coxMatVec(inv, row))); });
+    return { x: px, y: fitY, up: fitY.map(function(v, r){ return v + band[r]; }), low: fitY.map(function(v, r){ return v - band[r]; }) };
+  }
+
+  // Hazard ratios by period of follow-up — a Cox model whose coefficients change at the cut-points, with all
+  // covariates' effects period-specific (as R's survSplit() + coxph(Surv(tstart, time, event) ~ x:strata(period))).
+  // Periods are (a, b]: an event exactly at a cut-point belongs to the period that ends there. Because every
+  // coefficient is period-specific, the partial likelihood separates into one Cox model per period, fitted to
+  // those still at risk after a, followed until b.
+  function coxByPeriod(times, events, X, cuts){
+    var edges = [-Infinity].concat(cuts, [Infinity]), out = [];   // the first period also holds anyone with time 0
+    for (var k = 0; k + 1 < edges.length; k++){
+      var a = edges[k], b = edges[k + 1], t = [], e = [], x = [];
+      for (var i = 0; i < times.length; i++){
+        if (!(times[i] > a)) continue;
+        t.push(Math.min(times[i], b)); e.push(times[i] <= b ? events[i] : 0); x.push(X[i]);
+      }
+      var nEv = e.filter(function(v){ return v === 1; }).length;
+      var fit = nEv > 0 && x.length > 1 ? coxFitColumns(t, e, x, X[0].map(function(v, j){ return { j: j }; })) : { ok: false };
+      out.push({ from: k === 0 ? 0 : a, to: b, n: t.length, events: nEv, fit: fit });
+    }
+    return out;
+  }
+
+
+  /* --- Proportional-hazards assessment panel (scaled Schoenfeld residuals), shared by every Cox model --- */
+
+  var PH_TRANSFORMS = { km: "Kaplan–Meier (default)", rank: "Rank of time", identity: "Time (identity)", log: "Log of time" };
+
+  function phResult(p){
+    if (!isFinite(p)) return "Not computable";
+    return p < 0.05 ? "Evidence of violation" : "No significant evidence of violation";
+  }
+
+  // x-axis ticks: positions on the transformed scale the test used, labelled in follow-up time (as R does).
+  function phTicks(z, lo, hi){
+    var ticks = [];
+    for (var k = 0; k <= 4; k++){
+      var v = lo + (hi - lo) * k / 4, label;
+      if (z.transform === "identity") label = v;
+      else if (z.transform === "log") label = Math.exp(v);
+      else {
+        label = z.time[z.time.length - 1];
+        for (var i = 0; i < z.x.length; i++){
+          if (z.x[i] >= v){
+            if (i === 0 || z.x[i] === z.x[i - 1]) label = z.time[i];
+            else label = z.time[i - 1] + (z.time[i] - z.time[i - 1]) * (v - z.x[i - 1]) / (z.x[i] - z.x[i - 1]);
+            break;
+          }
+        }
+      }
+      ticks.push({ v: v, label: label });
+    }
+    return ticks;
+  }
+
+  // One scaled-Schoenfeld plot: residuals (points), the spline trend with its ±2 SE band, the fitted
+  // coefficient (dashed, the constant effect proportional hazards assumes) and no effect (dotted).
+  function phPlotSvg(z, c, label, beta, smooth, asHr, unit){
+    var W = 460, H = 280, mL = 56, mR = 14, mT = 30, mB = 44;
+    var ys = z.y.map(function(row){ return row[c]; });
+    var vals = ys.concat(smooth ? smooth.up.concat(smooth.low) : [], [beta]);
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    if (asHr){ lo = Math.max(lo, -12); hi = Math.min(hi, 12); }
+    var pad = (hi - lo) * 0.06 || 0.5; lo -= pad; hi += pad;
+    var xlo = Math.min.apply(null, z.x), xhi = Math.max.apply(null, z.x);
+    if (!(xhi > xlo)){ xlo -= 1; xhi += 1; }
+    function sx(v){ return mL + (v - xlo) / (xhi - xlo) * (W - mL - mR); }
+    function sy(v){ return mT + (hi - Math.min(hi, Math.max(lo, v))) / (hi - lo) * (H - mT - mB); }
+    var mono = 'font-family="IBM Plex Mono, monospace"', sans = 'font-family="IBM Plex Sans, sans-serif"', out = [];
+    out.push('<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="var(--surface)"/>');
+    out.push('<text x="' + mL + '" y="16" font-size="12" font-weight="600" fill="var(--ink)" ' + sans + '>' + escapeXml(label.length > 58 ? label.slice(0, 57) + "…" : label) + '</text>');
+    out.push('<line x1="' + mL + '" y1="' + (H - mB) + '" x2="' + (W - mR) + '" y2="' + (H - mB) + '" stroke="var(--line)"/><line x1="' + mL + '" y1="' + mT + '" x2="' + mL + '" y2="' + (H - mB) + '" stroke="var(--line)"/>');
+    for (var k = 0; k <= 4; k++){
+      var yv = lo + (hi - lo) * k / 4, yp = sy(yv);
+      out.push('<line x1="' + (mL - 4) + '" y1="' + yp.toFixed(1) + '" x2="' + mL + '" y2="' + yp.toFixed(1) + '" stroke="var(--line)"/>');
+      out.push('<text x="' + (mL - 7) + '" y="' + (yp + 3.5).toFixed(1) + '" text-anchor="end" font-size="9.5" fill="var(--ink-soft)" ' + mono + '>' + (asHr ? fmtNum(Math.exp(yv), Math.exp(yv) < 10 ? 2 : 0) : fmtNum(yv, 2)) + '</text>');
+    }
+    phTicks(z, xlo, xhi).forEach(function(t){
+      var xp = sx(t.v);
+      out.push('<line x1="' + xp.toFixed(1) + '" y1="' + (H - mB) + '" x2="' + xp.toFixed(1) + '" y2="' + (H - mB + 4) + '" stroke="var(--line)"/>');
+      out.push('<text x="' + xp.toFixed(1) + '" y="' + (H - mB + 15) + '" text-anchor="middle" font-size="9.5" fill="var(--ink-soft)" ' + mono + '>' + fmtNum(t.label, t.label < 10 ? 1 : 0) + '</text>');
+    });
+    out.push('<text x="' + ((mL + W - mR) / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="10.5" fill="var(--ink-soft)" ' + sans + '>Follow-up time (' + escapeXml(unit) + ')' + (z.transform === "km" || z.transform === "rank" ? ", " + (z.transform === "km" ? "Kaplan–Meier" : "rank") + " scale" : z.transform === "log" ? ", log scale" : "") + '</text>');
+    var yMid = (mT + H - mB) / 2;
+    out.push('<text x="13" y="' + yMid + '" text-anchor="middle" font-size="10.5" fill="var(--ink-soft)" ' + sans + ' transform="rotate(-90 13 ' + yMid + ')">' + (asHr ? "HR(t)" : "Scaled Schoenfeld residual, β(t)") + '</text>');
+    if (lo < 0 && hi > 0) out.push('<line x1="' + mL + '" y1="' + sy(0).toFixed(1) + '" x2="' + (W - mR) + '" y2="' + sy(0).toFixed(1) + '" stroke="var(--ink-soft)" stroke-dasharray="1.5,3"/>');
+    z.x.forEach(function(xv, i){ out.push('<circle cx="' + sx(xv).toFixed(1) + '" cy="' + sy(ys[i]).toFixed(1) + '" r="2" fill="var(--accent3)" fill-opacity="0.45"/>'); });
+    out.push('<line x1="' + mL + '" y1="' + sy(beta).toFixed(1) + '" x2="' + (W - mR) + '" y2="' + sy(beta).toFixed(1) + '" stroke="var(--accent2)" stroke-width="1.3" stroke-dasharray="6,4"/>');
+    if (smooth){
+      function path(arr){ return arr.map(function(v, i){ return (i ? "L" : "M") + sx(smooth.x[i]).toFixed(1) + "," + sy(v).toFixed(1); }).join(" "); }
+      out.push('<path d="' + path(smooth.up) + '" fill="none" stroke="var(--accent)" stroke-width="1.1" stroke-dasharray="4,3"/>');
+      out.push('<path d="' + path(smooth.low) + '" fill="none" stroke="var(--accent)" stroke-width="1.1" stroke-dasharray="4,3"/>');
+      out.push('<path d="' + path(smooth.y) + '" fill="none" stroke="var(--accent)" stroke-width="2.2"/>');
+    }
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Scaled Schoenfeld residuals for ' + escapeXml(label) + '">' + out.join("") + '</svg>';
+  }
+
+  // ctx: { fit, times, events, X (the fitted columns), labels (one per column), terms ([{ name, cols }]),
+  //        unit (function), fileBase, state ({ transform, view, hr, cuts } — kept by the caller between renders) }.
+  // Returns the test results (for summaries), or null.
+  function renderPhAssessment(host, ctx){
+    var st = ctx.state, fit = ctx.fit, p = fit.beta.length;
+    var z = coxZph(fit, ctx.times, ctx.events, ctx.terms, st.transform);
+    var html = '<div class="col-map-grid" style="margin-top:6px;">' +
+      '<div class="col-map-field"><label>Time transform for the test</label><select data-ph="transform">' + Object.keys(PH_TRANSFORMS).map(function(k){ return '<option value="' + k + '"' + (k === st.transform ? " selected" : "") + '>' + PH_TRANSFORMS[k] + '</option>'; }).join("") + '</select></div>' +
+      '<div class="col-map-field"><label>Plots</label><select data-ph="view"><option value="all">All coefficients</option>' + ctx.labels.map(function(l, i){ return '<option value="' + i + '"' + (String(i) === String(st.view) ? " selected" : "") + '>' + escapeXml(l) + '</option>'; }).join("") + '</select></div>' +
+      '<div class="col-map-field"><label>Plot scale</label><select data-ph="hr"><option value="beta">Coefficient, β(t)</option><option value="hr"' + (st.hr ? " selected" : "") + '>Hazard ratio, HR(t)</option></select></div></div>';
+    if (!z.ok){
+      host.innerHTML = html + sgWarn([z.error === "log of a zero time" ? "The log transform needs every time to be above 0 — choose another transform." : "The test needs at least one event."]);
+      phBind(host, ctx);
+      return null;
+    }
+    var warnings = [];
+    if (!fit.converged) warnings.push("The Cox model did not converge, so these tests and plots may be unreliable.");
+    var infinite = ctx.labels.filter(function(l, i){ return fit.infinite[i]; });
+    if (infinite.length) warnings.push("No finite estimate for " + infinite.map(function(l){ return "“" + l + "”"; }).join(", ") + " — its proportional-hazards test and plot are not meaningful.");
+    var nEvents = ctx.events.filter(function(e){ return e === 1; }).length;
+    if (nEvents < 10 * p) warnings.push("Only " + nEvents + " events for " + p + " coefficient" + (p === 1 ? "" : "s") + ": the tests have little power, so a non-significant result says little.");
+
+    // Variable rows (joint test of all their coefficients), with coefficient rows beneath multi-coefficient variables.
+    var rows = "";
+    z.terms.forEach(function(t){
+      var multi = t.cols.length > 1;
+      rows += '<tr><td style="text-align:left;' + (multi ? "font-weight:600;" : "") + '">' + escapeXml(multi ? t.name + " (all " + t.cols.length + " coefficients, joint test)" : ctx.labels[t.cols[0]]) + '</td><td>' + fmtNum(t.chi2, 3) + '</td><td>' + t.df + '</td><td>' + fmtP(t.p) + '</td><td style="text-align:left;">' + phResult(t.p) + '</td></tr>';
+      if (multi) t.cols.forEach(function(c){
+        var cr = z.coefs[c];
+        rows += '<tr><td style="text-align:left;padding-left:22px;">' + escapeXml(ctx.labels[c]) + '</td><td>' + fmtNum(cr.chi2, 3) + '</td><td>1</td><td>' + fmtP(cr.p) + '</td><td style="text-align:left;">' + phResult(cr.p) + '</td></tr>';
+      });
+    });
+    var g = z.global, gSig = g.p < 0.05;
+    html += '<h3 style="font-family:\'Fraunces\',serif;font-size:14px;margin:16px 0 6px;">Test for each covariate</h3>' +
+      '<div class="table-wrap"><table class="life-table" style="min-width:560px;"><thead><tr><th style="text-align:left;">Covariate</th><th>χ²</th><th>df</th><th>p</th><th style="text-align:left;">Result</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="data-hint" style="margin-top:6px;">H₀: the coefficient is constant over time. Each test is the Grambsch–Therneau score test on the scaled Schoenfeld residuals; a variable with several coefficients (a categorical variable with three or more categories) is judged by its joint test, with its coefficient-level tests shown beneath.</p>' +
+      '<h3 style="font-family:\'Fraunces\',serif;font-size:14px;margin:16px 0 6px;">Global test (whole model)</h3>' +
+      '<div class="stat-row"><span class="stat-label">All ' + p + ' coefficient' + (p === 1 ? "" : "s") + ' together</span><span class="stat-value">χ² = ' + fmtNum(g.chi2, 3) + ', df = ' + g.df + ', ' + coxP(g.p) + '</span></div>' +
+      '<div class="assumption ' + (gSig ? "warn" : "good") + '" style="margin-top:10px;"><span class="dot"></span> ' + escapeXml(phGlobalSentence(g)) + '</div>' + sgWarn(warnings);
+
+    html += '<h3 style="font-family:\'Fraunces\',serif;font-size:14px;margin:18px 0 6px;">Scaled Schoenfeld residual plots</h3>' +
+      '<p class="data-hint">Each point is one event. The solid line is a smoothed trend (natural spline, 4 df) with a ±2 SE band (dashed); the dashed orange line is the fitted coefficient — the constant effect that proportional hazards assumes. A trend line that stays flat, its band containing the orange line, fits proportional hazards; a clear slope means the effect changes over follow-up.</p>' +
+      '<div data-ph="plots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(' + (st.view === "all" ? 300 : 520) + 'px,1fr));gap:14px;margin-top:10px;"></div>' +
+      '<div class="btn-row" style="margin-top:10px;"><button class="ghost-btn" type="button" data-ph="pdfall">Download all plots (PDF)</button></div>';
+
+    var interp = phInterpretation(z, ctx.labels);
+    html += '<h3 style="font-family:\'Fraunces\',serif;font-size:14px;margin:18px 0 6px;">Overall interpretation</h3><p class="norm-note">' + escapeXml(interp.text) + '</p>';
+    if (interp.violation){
+      html += '<div class="assumption warn" style="margin-top:10px;display:block;"><span class="dot"></span> The hazard ratios above are from the standard Cox model, which assumes each effect is constant over time; nothing has been substituted. If the effect changes over time, consider:' +
+        '<br>• <b>Time-varying hazard ratios</b> — see "Effect over time" below: the same model with effects that change at cut-points you choose (a time-dependent Cox model), and the HR(t) scale of the plots above.' +
+        '<br>• <b>Stratified Cox regression</b> — if the variable is an adjustment factor rather than the effect of interest, stratifying on it removes the assumption for that variable (its own hazard ratio is then not estimated). Not available in Statis.' +
+        '<br>• <b>Restricted mean survival time (RMST)</b> — the difference in mean event-free time up to a chosen horizon, which needs no proportional-hazards assumption. Not available in Statis.' +
+        '<br>• Report the effect separately for early and late follow-up rather than a single average hazard ratio.</div>';
+    }
+    html += '<h3 style="font-family:\'Fraunces\',serif;font-size:14px;margin:18px 0 6px;">Effect over time: hazard ratios by period</h3>' +
+      '<p class="data-hint">Enter cut-points in ' + escapeXml(ctx.unit()) + ' (e.g. <code>12</code> or <code>12, 24</code>) to fit a time-dependent Cox model in which every coefficient may change at each cut-point; each period (a, b] includes events at its end. Choose cut-points for clinical reasons or before looking, not to make a difference appear.</p>' +
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><input type="text" class="cell-input" data-ph="cuts" value="' + escapeXml(st.cuts || "") + '" placeholder="e.g. ' + fmtNum(phMedianEventTime(ctx), 0) + '" style="width:160px;"><button class="ghost-btn" type="button" data-ph="period">Show hazard ratios by period</button></div>' +
+      '<div data-ph="periodOut" style="margin-top:10px;"></div>';
+    host.innerHTML = html;
+
+    var plotHost = host.querySelector('[data-ph="plots"]'), svgs = [];
+    var show = st.view === "all" ? ctx.labels.map(function(l, i){ return i; }) : [Number(st.view)];
+    show.forEach(function(c){
+      var cell = document.createElement("div");
+      plotHost.appendChild(cell);
+      var smooth = z.y ? zphSmooth(z.x, z.y.map(function(r){ return r[c]; }), z.varScaled[c][c]) : null;
+      if (!z.y){ cell.innerHTML = sgWarn(["The information matrix is singular, so the residuals for “" + ctx.labels[c] + "” cannot be scaled."]); return; }
+      cell.innerHTML = phPlotSvg(z, c, ctx.labels[c] + " — PH test " + coxP(z.coefs[c].p), fit.beta[c], smooth, st.hr, ctx.unit()) +
+        (smooth ? "" : '<p class="data-hint">Too few distinct event times for the smoothed trend (as R skips it).</p>');
+      var svg = cell.querySelector("svg");
+      svgs.push(svg);
+      attachChartDownload(cell, svg, (ctx.fileBase + "-schoenfeld-" + ctx.labels[c]).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""), { pdf: true });
+    });
+    host.querySelector('[data-ph="pdfall"]').addEventListener("click", function(e){
+      downloadSvgsAsPdf(svgs, (ctx.fileBase + "-schoenfeld-plots").toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".pdf", e.target);
+    });
+    phBind(host, ctx);
+    if (st.cuts) phRenderPeriods(host, ctx);
+    return { z: z, interpretation: interp };
+  }
+
+  function phGlobalSentence(g){
+    if (!isFinite(g.p)) return "The global Schoenfeld residuals test could not be computed.";
+    return g.p < 0.05 ?
+      "The global Schoenfeld residuals test was statistically significant (" + coxP(g.p) + "), suggesting that the proportional hazards assumption may be violated." :
+      "The global Schoenfeld residuals test was not statistically significant (" + coxP(g.p) + "). There was no statistically significant evidence of violation of the proportional hazards assumption.";
+  }
+
+  // Combines the global test with the covariate tests without letting one coefficient-level result stand for
+  // the whole model, and judges a multi-coefficient variable by its joint test.
+  function phInterpretation(z, labels){
+    var g = z.global, sigTerms = z.terms.filter(function(t){ return t.p < 0.05; });
+    var name = function(t){ return t.cols.length > 1 ? t.name : labels[t.cols[0]]; };
+    var list = sigTerms.map(function(t){ return name(t) + " (" + coxP(t.p) + ")"; }).join(", ");
+    var parts = [phGlobalSentence(g)];
+    if (g.p < 0.05 && sigTerms.length) parts.push("The covariate test" + (sigTerms.length > 1 ? "s" : "") + " point" + (sigTerms.length > 1 ? "" : "s") + " to " + list + " as the source: its effect appears to change over follow-up — see its plot.");
+    else if (g.p < 0.05) parts.push("No single covariate's test is significant on its own, so the departure seems spread across the model rather than due to one variable.");
+    else if (sigTerms.length) parts.push("Although the global test was not significant, the test for " + list + " was, suggesting that its effect may change over time. With several covariates tested, one such result can arise by chance; look at its plot before acting on it.");
+    else parts.push("This does not prove that the hazards are proportional — the tests have limited power, especially with few events — so check the plots for any trend.");
+    z.terms.forEach(function(t){
+      if (t.cols.length > 1 && t.p >= 0.05){
+        var c = t.cols.filter(function(cc){ return z.coefs[cc].p < 0.05; });
+        if (c.length) parts.push("For " + t.name + ", the coefficient-level test for " + c.map(function(cc){ return labels[cc]; }).join(", ") + " was significant but the joint test for the variable was not (" + coxP(t.p) + "); judge the variable by its joint test.");
+      }
+    });
+    return { text: parts.join(" "), violation: g.p < 0.05 || sigTerms.length > 0 };
+  }
+
+  function phMedianEventTime(ctx){
+    var t = ctx.times.filter(function(v, i){ return ctx.events[i] === 1; }).sort(function(a, b){ return a - b; });
+    return t.length ? t[Math.floor((t.length - 1) / 2)] : 0;
+  }
+
+  function phRenderPeriods(host, ctx){
+    var out = host.querySelector('[data-ph="periodOut"]');
+    var cuts = sgParseCuts(ctx.state.cuts);
+    if (!cuts || !cuts.length){ out.innerHTML = cuts === null ? sgWarn(["Cut-points must be numbers separated by commas."]) : ""; return; }
+    var periods = coxByPeriod(ctx.times, ctx.events, ctx.X, cuts), z975 = stdNormalInvCdf(0.975);
+    var unit = ctx.unit(), head = '<th style="text-align:left;">Covariate</th>' + periods.map(function(pd){
+      return '<th>' + (isFinite(pd.to) ? fmtNum(pd.from, 0) + "–" + fmtNum(pd.to, 0) : "> " + fmtNum(pd.from, 0)) + ' ' + escapeXml(unit) + '<br><span style="font-weight:400;">' + pd.n + ' at risk, ' + pd.events + ' events</span></th>';
+    }).join("");
+    var body = ctx.labels.map(function(l, c){
+      return '<tr><td style="text-align:left;">' + escapeXml(l) + '</td>' + periods.map(function(pd){
+        if (!pd.fit.ok) return '<td>' + (pd.events ? "Not estimable" : "No events") + '</td>';
+        var est = pd.fit.columns[c].est;
+        if (est < 0) return '<td>Not estimable (no variation in this period)</td>';
+        var b = pd.fit.beta[est], se = pd.fit.se[est];
+        if (pd.fit.infinite[est] || !isFinite(se)) return '<td>Not estimable</td>';
+        var pv = Math.min(1, erfc(Math.abs(b / se) / Math.SQRT2));
+        return '<td>' + fmtNum(Math.exp(b), 2) + " (" + fmtNum(Math.exp(b - z975 * se), 2) + "–" + fmtNum(Math.exp(b + z975 * se), 2) + ")<br>" + coxP(pv) + '</td>';
+      }).join("") + '</tr>';
+    }).join("");
+    var sparse = periods.filter(function(pd){ return pd.events < 10; });
+    out.innerHTML = '<div class="table-wrap"><table class="life-table" style="min-width:' + (200 + 170 * periods.length) + 'px;"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+      '<p class="data-hint" style="margin-top:6px;">Hazard ratio (95% CI) and Wald p in each period. Every coefficient is allowed to differ between periods, so each period is in effect its own Cox model of the patients still at risk at its start.</p>' +
+      (sparse.length ? sgWarn(["Few events in " + sparse.length + " period" + (sparse.length === 1 ? "" : "s") + " (fewer than 10): those hazard ratios are imprecise."]) : "");
+  }
+
+  function phBind(host, ctx){
+    Array.prototype.forEach.call(host.querySelectorAll("select[data-ph]"), function(sel){
+      sel.addEventListener("change", function(){
+        var k = sel.getAttribute("data-ph");
+        if (k === "hr") ctx.state.hr = sel.value === "hr"; else ctx.state[k] = sel.value;
+        if (ctx.onChange) ctx.onChange();
+        renderPhAssessment(host, ctx);
+      });
+    });
+    var cutsInput = host.querySelector('[data-ph="cuts"]'), btn = host.querySelector('[data-ph="period"]');
+    if (btn) btn.addEventListener("click", function(){ ctx.state.cuts = cutsInput.value; phRenderPeriods(host, ctx); });
+    if (cutsInput) cutsInput.addEventListener("keydown", function(e){ if (e.key === "Enter"){ ctx.state.cuts = cutsInput.value; phRenderPeriods(host, ctx); } });
   }
 
   var survEls = {
@@ -5067,11 +5373,11 @@
     verdict: document.getElementById("coxVerdict"),
     interpretation: document.getElementById("coxInterpretation"),
     forest: document.getElementById("coxForest"),
-    phBody: document.getElementById("coxPhBody"),
-    phNote: document.getElementById("coxPhNote")
+    ph: document.getElementById("coxPh")
   };
 
   var coxState = { key: null, cols: [] };
+  var coxPhState = { transform: "km", view: "all", hr: false, cuts: "" };
   var survLastCox = null; // last fitted model, for Copy results and the Methods & Results text
   var COX_MAX_LEVELS = 20;
 
@@ -5114,7 +5420,7 @@
   function renderCoxCovariates(){
     if (!coxState.cols.length){ coxEls.covariates.innerHTML = ""; return; }
     var rows = coxState.cols.map(function(c, k){
-      var refCell = c.type === "categorical" ?
+      var refCell = c.type === "ordinal" ? '<span class="data-hint">scored ' + escapeXml(c.levels.slice(0, 8).map(function(l, i){ return l + " = " + (i + 1); }).join(", ") + (c.levels.length > 8 ? ", …" : "")) + '</span>' : c.type === "categorical" ?
         '<select data-cox-ref="' + k + '" aria-label="Reference category for ' + escapeXml(c.name) + '">' +
           c.levels.slice(0, COX_MAX_LEVELS + 1).map(function(l){ return '<option' + (l === c.ref ? " selected" : "") + ' value="' + escapeXml(l) + '">' + escapeXml(l) + '</option>'; }).join("") +
         '</select>' : '<span class="data-hint">—</span>';
@@ -5122,7 +5428,8 @@
         '<td style="text-align:left;">' + escapeXml(c.name) + '</td>' +
         '<td style="text-align:left;"><select data-cox-type="' + k + '" aria-label="Type of ' + escapeXml(c.name) + '">' +
           '<option value="continuous"' + (c.type === "continuous" ? " selected" : "") + '>Continuous</option>' +
-          '<option value="categorical"' + (c.type === "categorical" ? " selected" : "") + '>Categorical</option></select></td>' +
+          '<option value="categorical"' + (c.type === "categorical" ? " selected" : "") + '>Categorical</option>' +
+          '<option value="ordinal"' + (c.type === "ordinal" ? " selected" : "") + '>Ordinal (trend)</option></select></td>' +
         '<td style="text-align:left;">' + refCell + '</td></tr>';
     }).join("");
     coxEls.covariates.innerHTML = '<div class="table-wrap"><table class="life-table" style="min-width:480px;"><thead><tr>' +
@@ -5176,6 +5483,14 @@
         continue;
       }
       var present = coxSortLevels(used.map(function(u){ return u.vals[c]; }).filter(function(v, k, arr){ return arr.indexOf(v) === k; }));
+      if (col.type === "ordinal"){
+        if (present.length < 2){ coxShowMessage("“" + col.name + "” has only one category in the rows used, so its effect can't be estimated. Untick it."); return; }
+        var scores = {};
+        present.forEach(function(l, i){ scores[l] = i + 1; });
+        terms.push({ name: col.name, cols: [columnInfo.length] });
+        columnInfo.push({ term: col.name, label: col.name + " (per step, " + present.join(" < ") + ")", continuous: true, ordinal: true, scores: scores, colIndex: c });
+        continue;
+      }
       if (present.length > COX_MAX_LEVELS){ coxShowMessage("“" + col.name + "” has " + present.length + " categories — too many for a categorical covariate (at most " + COX_MAX_LEVELS + "). If it is a measurement, set its type to Continuous; if it is an identifier, untick it."); return; }
       if (present.length < 2){ coxShowMessage("“" + col.name + "” has only one category in the rows used, so its effect can't be estimated. Untick it."); return; }
       var ref = present.indexOf(col.ref) >= 0 ? col.ref : present[0];
@@ -5194,16 +5509,15 @@
     var times = used.map(function(u){ return u.time; }), evs = used.map(function(u){ return u.event; });
     var X = used.map(function(u){
       return columnInfo.map(function(info){
-        return info.continuous ? Number(u.vals[info.colIndex]) : (u.vals[info.colIndex] === info.level ? 1 : 0);
+        return info.scores ? info.scores[u.vals[info.colIndex]] : info.continuous ? Number(u.vals[info.colIndex]) : (u.vals[info.colIndex] === info.level ? 1 : 0);
       });
     });
     var fit = coxFit(times, evs, X);
     if (!fit.ok){ coxShowMessage("The covariates are collinear — one is an exact combination of others (for example the same information coded twice, or a category that only ever occurs together with another), so their separate effects can't be estimated. Untick one of them."); return; }
 
     var risk = X.map(function(x){ return coxDot(x, fit.beta); });
-    var zph = coxZph(fit, times, evs, terms);
-    renderCoxResults({ fit: fit, columnInfo: columnInfo, terms: terms, zph: zph, n: used.length, events: events, dropped: dropped,
-      concordance: harrellC(times, evs, risk) });
+    renderCoxResults({ fit: fit, columnInfo: columnInfo, terms: terms, n: used.length, events: events, dropped: dropped,
+      concordance: harrellC(times, evs, risk), times: times, evs: evs, X: X });
   }
 
   function renderCoxResults(m){
@@ -5244,15 +5558,12 @@
     coxEls.concordance.textContent = fmtNum(m.concordance, 3);
     coxEls.verdict.innerHTML = ""; coxEls.verdict.appendChild(verdictPill(lrP));
 
-    coxEls.phBody.innerHTML = m.zph.terms.concat([Object.assign({ name: "Global (all terms)" }, m.zph.global)]).map(function(t){
-      return '<tr><td style="text-align:left;">' + escapeXml(t.name) + '</td><td>' + fmtNum(t.chi2, 3) + '</td><td>' + t.df + '</td><td>' + fmtP(t.p) + '</td></tr>';
-    }).join("");
-    var violating = m.zph.terms.filter(function(t){ return t.p < 0.05; });
-    coxEls.phNote.className = "assumption " + (violating.length || m.zph.global.p < 0.05 ? "warn" : "good");
-    coxEls.phNote.innerHTML = '<span class="dot"></span> ' + escapeXml(violating.length ?
-      "Evidence that the effect of " + violating.map(function(t){ return "“" + t.name + "”"; }).join(", ") + " changes over follow-up (p < 0.05): the proportional-hazards assumption may not hold, and its hazard ratio is then an average over time that can hide, for example, an early benefit that later disappears. Look at the Kaplan–Meier curves for crossing, and consider stratifying on it or splitting follow-up into periods." :
-      (m.zph.global.p < 0.05 ? "No single term fails, but the global test (p < 0.05) suggests the hazards are not proportional overall — interpret the hazard ratios with caution." :
-        "No evidence against proportional hazards (all p ≥ 0.05). This does not prove the assumption holds — with few events the test has little power."));
+    if (coxPhState.view !== "all" && Number(coxPhState.view) >= p) coxPhState.view = "all";
+    var ph = renderPhAssessment(coxEls.ph, { fit: fit, times: m.times, events: m.evs, X: m.X, terms: m.terms, state: coxPhState,
+      labels: m.columnInfo.map(function(c){ return c.label; }), unit: timeUnitLabel, fileBase: "cox",
+      onChange: function(){ if (survLastCox) survLastCox.zph = null; } });
+    m.zph = ph ? ph.z : null;
+    m.phText = ph ? ph.interpretation.text : "";
 
     var multi = m.terms.length > 1;
     var finite = m.rows.filter(function(r){ return !r.infinite; });
@@ -5260,7 +5571,7 @@
       finite.map(function(r){
         var ci = " (95% CI " + fmtNum(r.lo, 2) + "–" + fmtNum(r.hi, 2) + ", " + coxP(r.p) + ")";
         return r.info.continuous ?
-          "Each 1-unit increase in " + r.label + " multiplied the hazard of the event by " + fmtNum(r.hr, 3) + ci + "." :
+          (r.info.ordinal ? "Each step up the " + r.info.term + " scale" : "Each 1-unit increase in " + r.label) + " multiplied the hazard of the event by " + fmtNum(r.hr, 3) + ci + "." :
           "For " + r.info.term + " " + r.info.level + " compared with " + r.info.term + " " + r.info.ref + ", the hazard of the event was " + fmtNum(r.hr, 2) + " times as high" + ci + ".";
       }).join(" ") +
       " A hazard ratio above 1 means the event happens sooner (a higher rate at any given time); below 1, later. It compares rates, not the proportion who eventually have the event, and it shows an association, not that the covariate causes the difference.";
@@ -5313,7 +5624,12 @@
     });
     lines.push("Likelihood ratio test: χ² = " + fmtNum(m.fit.lr, 2) + ", df = " + m.rows.length + ", " + coxP(m.lrP));
     lines.push("Concordance (Harrell's C) = " + fmtNum(m.concordance, 3));
-    lines.push("Proportional-hazards test (global): χ² = " + fmtNum(m.zph.global.chi2, 2) + ", df = " + m.zph.global.df + ", " + coxP(m.zph.global.p));
+    if (m.zph){
+      lines.push("Proportional hazards (scaled Schoenfeld residuals, " + PH_TRANSFORMS[m.zph.transform] + " time):");
+      m.zph.terms.forEach(function(t){ lines.push("  " + t.name + ": χ² = " + fmtNum(t.chi2, 2) + ", df = " + t.df + ", " + coxP(t.p)); });
+      lines.push("  Global: χ² = " + fmtNum(m.zph.global.chi2, 2) + ", df = " + m.zph.global.df + ", " + coxP(m.zph.global.p));
+      lines.push(m.phText);
+    }
     return lines.join("\n");
   }
 
@@ -5323,8 +5639,8 @@
     return "A Cox proportional hazards model (Efron's method for tied event times) was fitted with " + names.join(", ") +
       (names.length > 1 ? " as covariates" : " as the covariate") + " (n = " + m.n + ", " + m.events + " events" +
       (m.dropped ? "; " + m.dropped + " observations with missing covariate values were excluded" : "") + "). " +
-      finite.map(function(r){ return (r.info.continuous ? r.label + " (per unit)" : r.info.term + " (" + r.info.level + " vs " + r.info.ref + ")") + ": hazard ratio " + fmtNum(r.hr, 2) + " (95% CI, " + fmtNum(r.lo, 2) + "–" + fmtNum(r.hi, 2) + "; " + coxP(r.p) + ")"; }).join("; ") + ". " +
-      "The proportional-hazards assumption was assessed with the Grambsch–Therneau test (global " + coxP(m.zph.global.p) + "). " +
+      finite.map(function(r){ return (r.info.ordinal ? r.label : r.info.continuous ? r.label + " (per unit)" : r.info.term + " (" + r.info.level + " vs " + r.info.ref + ")") + ": hazard ratio " + fmtNum(r.hr, 2) + " (95% CI, " + fmtNum(r.lo, 2) + "–" + fmtNum(r.hi, 2) + "; " + coxP(r.p) + ")"; }).join("; ") + ". " +
+      (m.zph ? "The proportional-hazards assumption was assessed with the Grambsch–Therneau test on scaled Schoenfeld residuals (" + (m.zph.transform === "km" ? "Kaplan–Meier" : m.zph.transform) + "-transformed time; global " + coxP(m.zph.global.p) + "). " : "") +
       "Model discrimination: Harrell's C = " + fmtNum(m.concordance, 2) + ".";
   }
 
@@ -5396,8 +5712,10 @@
     var keep = coxEstimableColumns(X);
     var info = columns.map(function(c, j){ var at = keep.indexOf(j); return Object.assign({}, c, { est: at }); });
     if (!keep.length) return { ok: false, error: "nothing estimable", columns: info };
-    var fit = coxFit(times, events, X.map(function(row){ return keep.map(function(j){ return row[j]; }); }));
+    var Xk = X.map(function(row){ return keep.map(function(j){ return row[j]; }); });
+    var fit = coxFit(times, events, Xk);
     fit.columns = info;
+    fit.data = { times: times, events: events, X: Xk };   // what was fitted, for the proportional-hazards check
     return fit;
   }
 
@@ -5540,7 +5858,7 @@
     var intCols = [];
     trtCols.forEach(function(t){
       varCols.forEach(function(v){
-        intCols.push({ label: trtName + " " + t.level + " × " + (v.continuous ? spec.name : spec.name + " " + v.level), interaction: true, arm: t.level, level: v.continuous ? null : v.level,
+        intCols.push({ label: trtName + " " + t.level + " × " + (v.continuous ? spec.name : spec.name + " " + v.level), interaction: true, term: trtName + " × " + spec.name, arm: t.level, level: v.continuous ? null : v.level,
           value: function(r){ return t.value(r) * v.value(r); } });
       });
     });
@@ -5894,6 +6212,33 @@
     return w;
   }
 
+  // A collapsible proportional-hazards check under a Cox model: its heading carries the global test, and the
+  // full assessment (tests, plots, effect over time) is drawn the first time it is opened.
+  function sgPhDetails(sec, fit, fileBase, textLines, label){
+    if (!fit || !fit.ok || !fit.data) return;
+    var kept = fit.columns.filter(function(c){ return c.est >= 0; }).sort(function(a, b){ return a.est - b.est; });
+    var terms = [];
+    kept.forEach(function(c){
+      var name = c.term || c.label, t = terms.find(function(x){ return x.name === name; });
+      if (!t){ t = { name: name, cols: [] }; terms.push(t); }
+      t.cols.push(c.est);
+    });
+    var ctx = { fit: fit, times: fit.data.times, events: fit.data.events, X: fit.data.X, terms: terms, labels: kept.map(function(c){ return c.label; }),
+      unit: sgUnit, fileBase: fileBase, state: { transform: "km", view: "all", hr: false, cuts: "" } };
+    var z = coxZph(fit, ctx.times, ctx.events, terms, "km");
+    if (!z.ok) return;
+    var sig = z.global.p < 0.05 || z.terms.some(function(t){ return t.p < 0.05; });
+    var det = document.createElement("details");
+    det.className = "info-box";
+    det.style.marginTop = "16px";
+    det.innerHTML = '<summary>Proportional hazards check (scaled Schoenfeld residuals) — global ' + escapeXml(coxP(z.global.p)) + (sig ? " · possible violation" : " · no significant evidence of violation") + '</summary><div class="info-body"></div>';
+    sec.appendChild(det);
+    var drawn = false;
+    det.addEventListener("toggle", function(){ if (det.open && !drawn){ drawn = true; renderPhAssessment(det.querySelector(".info-body"), ctx); } });
+    if (textLines) textLines.push("  Proportional hazards (" + label + "): global χ² = " + fmtNum(z.global.chi2, 2) + ", df = " + z.global.df + ", " + coxP(z.global.p) +
+      z.terms.filter(function(t){ return t.p < 0.05; }).map(function(t){ return "; " + t.name + " " + coxP(t.p); }).join(""));
+  }
+
   function sgCard(parent, eyebrow, title, html){
     var sec = document.createElement("section");
     sec.className = "card";
@@ -5977,6 +6322,7 @@
         var r = g.name === refArm ? null : hrOf(g.name);
         text.push(g.name + ": n = " + g.raw.length + ", median " + sgMedian(g.km) + " (95% CI " + sgMedianCi(g.km) + ")" + (g.name === refArm ? ", reference" : ", HR " + sgHr(r) + (r && !r.dropped && !r.infinite ? ", " + coxP(r.p) : "")));
       });
+      sgPhDetails(sec, ov.fit, "overall-" + trtName, text, "overall model");
     }
 
     var interactionPs = [];
@@ -6030,6 +6376,7 @@
         html += sgWarn(sgModelWarnings(w.curves ? w.curves.groups : null, w.fit, wRows));
         var sec = sgCard(sgEls.results, "Analysis " + num + " · " + status.toLowerCase(), title, html);
         if (w.curves) sgPlot(sec, w.curves.groups, "km-" + arm + "-" + v.name);
+        sgPhDetails(sec, w.fit, arm + "-" + v.name, text, "within " + arm);
         row.within[arm] = test;
         text.push("Within " + arm + " (n = " + w.n + ", " + w.events + " events): " + (w.curves ? "log-rank " + sgTest(w.curves.logRank) : "Cox " + sgTest(w.lrTest)));
         if (w.curves) w.curves.groups.forEach(function(g){
@@ -6069,7 +6416,8 @@
           text.push("Interaction " + trtName + " × " + v.name + ": joint LR " + sgTest(lr) + "; joint Wald " + sgTest(wd));
           it.effects.forEach(function(e){ text.push("  " + (e.level === null ? "at mean " + fmtNum(it.mean, 2) : e.level) + ": " + e.arm + " vs " + e.refArm + " HR " + (e.estimable ? fmtNum(e.hr, 2) + " (" + fmtNum(e.lo, 2) + "–" + fmtNum(e.hi, 2) + "), " + coxP(e.p) : "not estimable")); });
         }
-        sgCard(sgEls.results, "Analysis " + num4 + " · " + status.toLowerCase(), "Treatment × " + v.name + " interaction", html4);
+        var sec4 = sgCard(sgEls.results, "Analysis " + num4 + " · " + status.toLowerCase(), "Treatment × " + v.name + " interaction", html4);
+        sgPhDetails(sec4, it.fit, "interaction-" + v.name, text, "interaction model");
       }
     });
 
@@ -6400,7 +6748,73 @@
     svgBtn.addEventListener("click", function(){ downloadSvgElement(svg, baseFilename + ".svg", svgBtn, opts); });
     pngBtn.addEventListener("click", function(){ downloadSvgAsPng(svg, baseFilename + ".png", pngBtn, opts); });
     row.appendChild(svgBtn); row.appendChild(pngBtn);
+    if (opts && opts.pdf){
+      var pdfBtn = document.createElement("button");
+      pdfBtn.className = "chart-dl-btn"; pdfBtn.type = "button"; pdfBtn.textContent = "Download PDF";
+      pdfBtn.addEventListener("click", function(){ downloadSvgsAsPdf([svg], baseFilename + ".pdf", pdfBtn, opts); });
+      row.appendChild(pdfBtn);
+    }
     mountEl.appendChild(row);
+  }
+
+  // Renders a chart (as prepared for export) onto a white canvas at print resolution.
+  function exportSvgToCanvas(svgSrc, opts){
+    return new Promise(function(resolve, reject){
+      var svg = exportResolveSource(svgSrc);
+      if (!svg) return reject(new Error("no chart"));
+      var prepared = exportPrepareSvg(svg, opts);
+      var url = URL.createObjectURL(new Blob([exportSerialize(prepared)], { type: "image/svg+xml;charset=utf-8;" }));
+      var img = new Image();
+      img.onload = function(){
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.round(prepared.width * EXPORT_PNG_SCALE); canvas.height = Math.round(prepared.height * EXPORT_PNG_SCALE);
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        resolve({ canvas: canvas, width: prepared.width, height: prepared.height });
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error("render failed")); };
+      img.src = url;
+    });
+  }
+
+  // A PDF with one chart per page, written directly (no library): each page holds the chart as a
+  // print-resolution JPEG image, sized in points to the chart's own dimensions.
+  function buildPdfFromCanvases(pages){
+    var enc = new TextEncoder(), chunks = [], offsets = [], length = 0;
+    function add(part){ var b = typeof part === "string" ? enc.encode(part) : part; chunks.push(b); length += b.length; }
+    function obj(num, body, stream){
+      offsets[num] = length;
+      add(num + " 0 obj\n" + body + (stream ? "\nstream\n" : "\nendobj\n"));
+      if (stream){ add(stream); add("\nendstream\nendobj\n"); }
+    }
+    add("%PDF-1.4\n%\u00e2\u00e3\n");
+    var kids = pages.map(function(_, i){ return (3 + i * 3) + " 0 R"; }).join(" ");
+    obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+    obj(2, "<< /Type /Pages /Kids [" + kids + "] /Count " + pages.length + " >>");
+    pages.forEach(function(pg, i){
+      var w = pg.width.toFixed(2), h = pg.height.toFixed(2), base = 3 + i * 3;
+      var b64 = pg.canvas.toDataURL("image/jpeg", 0.95).split(",")[1], bin = atob(b64), jpeg = new Uint8Array(bin.length);
+      for (var k = 0; k < bin.length; k++) jpeg[k] = bin.charCodeAt(k);
+      var content = enc.encode("q " + w + " 0 0 " + h + " 0 0 cm /Im0 Do Q");
+      obj(base, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + w + " " + h + "] /Resources << /XObject << /Im0 " + (base + 2) + " 0 R >> >> /Contents " + (base + 1) + " 0 R >>");
+      obj(base + 1, "<< /Length " + content.length + " >>", content);
+      obj(base + 2, "<< /Type /XObject /Subtype /Image /Width " + pg.canvas.width + " /Height " + pg.canvas.height + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + jpeg.length + " >>", jpeg);
+    });
+    var count = 3 + pages.length * 3, xref = length;
+    var table = "xref\n0 " + count + "\n0000000000 65535 f \n";
+    for (var n = 1; n < count; n++) table += String(offsets[n]).padStart(10, "0") + " 00000 n \n";
+    add(table + "trailer\n<< /Size " + count + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+    return new Blob(chunks, { type: "application/pdf" });
+  }
+
+  function downloadSvgsAsPdf(svgSources, filename, btn, opts){
+    Promise.all(svgSources.map(function(src){ return exportSvgToCanvas(src, opts); })).then(function(pages){
+      saveFile(filename, buildPdfFromCanvases(pages), btn);
+    }).catch(function(){
+      if (btn){ var o = btn.textContent; btn.textContent = "Couldn't render"; setTimeout(function(){ btn.textContent = o; }, 2200); }
+    });
   }
 
   /* --- Export-only SVG builders for visuals that are drawn with HTML on screen --- */
