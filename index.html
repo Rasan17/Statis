@@ -5795,7 +5795,7 @@
     var fu = kaplanMeier(included.map(function(r){ return r.time; }), included.map(function(r){ return 1 - r.event; }));
     var maxTime = arrMax(included.map(function(r){ return r.time; }));
     survEls.ogMedianFollowup.textContent = isFinite(fu.median) ? fmtTime(fu.median) + " (reverse Kaplan–Meier)" :
-      (n ? "Not estimable — too few patients censored (reverse Kaplan–Meier); longest follow-up " + fmtTime(maxTime) : "—");
+      (n ? "Not estimable — the reverse Kaplan–Meier curve never falls to 50%, because too few patients were censored; longest follow-up " + fmtTime(maxTime) : "—");
 
     if (isNaN(km.median)){
       survEls.ogMedianSurv.textContent = "Median survival was not reached during the observed follow-up period.";
@@ -6118,6 +6118,8 @@
         return info.scores ? info.scores[u.vals[info.colIndex]] : info.continuous ? Number(u.vals[info.colIndex]) : (u.vals[info.colIndex] === info.level ? 1 : 0);
       });
     });
+    var constant = columnInfo.filter(function(info, c){ return X.every(function(row){ return row[c] === X[0][c]; }); });
+    if (constant.length){ coxShowMessage("“" + constant[0].label + "” has the same value for every patient used in the model, so its effect can't be estimated. Untick it."); return; }
     var fit = coxFit(times, evs, X);
     if (!fit.ok){ coxShowMessage("The covariates are collinear — one is an exact combination of others (for example the same information coded twice, or a category that only ever occurs together with another), so their separate effects can't be estimated. Untick one of them."); return; }
 
@@ -7006,7 +7008,7 @@
         var it = sgInteraction(rowsFor, [refArm].concat(d.arms.filter(function(a){ return a !== refArm; })), refArm, trtName, spec);
         var num4 = d.arms.length + 2, html4;
         if (!it.fit.ok){
-          html4 = sgWarn([it.fit.error === "no events" ? "No events among these patients." : "The interaction model could not be fitted — the variables are collinear."]);
+          html4 = sgWarn([it.fit.error === "no events" ? "No events among these patients." : it.fit.error === "nothing estimable" ? "The interaction model could not be fitted — none of its terms vary enough in these patients to be estimated." : "The interaction model could not be fitted — the variables are collinear."]);
         } else {
           var lr = it.lrTest, wd = it.waldTest;
           row.interaction = lr; interactionPs.push({ row: row, p: lr.p });
