@@ -323,8 +323,8 @@
   .effect-ci{font-size:12.5px;color:var(--ink-soft);margin-top:2px;font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",monospace;}
 
   footer.notes{
-    font-size:12.5px;
-    line-height:1.6;
+    font-size:14px;
+    line-height:1.75;
     color:var(--ink-soft);
     padding:0 4px;
   }
@@ -617,6 +617,12 @@
   }
   .reader-fab:hover{filter:brightness(1.05);}
   body.reader-open .reader-fab{display:none;}
+  .expand-btn{
+    float:right;margin:0 0 6px 12px;font-family:inherit;font-size:12px;font-weight:600;line-height:1.4;
+    color:var(--accent-ink);background:var(--accent-soft);border:1px solid transparent;border-radius:7px;padding:3px 9px;cursor:pointer;
+  }
+  .expand-btn:hover{filter:brightness(1.05);}
+  .expand-btn:focus-visible{outline:2px solid var(--accent);}
   .reader-box{
     background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
     width:100%;max-width:960px;height:92vh;display:flex;flex-direction:column;overflow:hidden;
@@ -13872,7 +13878,7 @@
 
   function open(){
     var panel = Array.prototype.find.call(document.querySelectorAll(".tab-panel"), function(p){ return !p.hidden && p.offsetParent !== null; });
-    var cards = panel ? Array.prototype.filter.call(panel.querySelectorAll(".card"), function(c){
+    var cards = panel ? Array.prototype.filter.call(panel.querySelectorAll(".card, footer.notes"), function(c){
       return c.offsetParent !== null && !c.parentElement.closest(".card") && c.textContent.trim().length > 30;
     }) : [];
     body.innerHTML = "";
@@ -13885,16 +13891,58 @@
       if (dist < best){ best = dist; nearest = sec; }
     });
     var tab = document.querySelector(".tab-btn.active");
-    document.getElementById("readerTitle").textContent = "Large-text reader" + (tab ? " · " + tab.textContent.replace(/\d+$/, "").trim() : "");
+    show("Large-text reader" + (tab ? " · " + tab.textContent.replace(/\d+$/, "").trim() : ""));
+    if (nearest && nearest !== body.firstChild) body.scrollTop = nearest.offsetTop - body.offsetTop - 8;
+  }
+
+  function show(title){
+    document.getElementById("readerTitle").textContent = title;
     applyPrefs();
     lastFocus = document.activeElement;
     modal.hidden = false;
     document.body.classList.add("reader-open");
     document.body.style.overflow = "hidden";
     body.scrollTop = 0;
-    if (nearest && nearest !== body.firstChild) body.scrollTop = nearest.offsetTop - body.offsetTop - 8;
     document.getElementById("readerClose").focus();
   }
+
+  // One block of text on its own (a method note, an explanation, a plain-English box, a long hint).
+  function openBlock(el, title){
+    body.innerHTML = "";
+    var sec = cleanCopy(el.matches("details") ? el.querySelector(".info-body") || el : el);
+    body.appendChild(sec);
+    show(title);
+  }
+
+  // An "Expand" button on every long block of text, including ones added later with results.
+  var BLOCKS = "footer.notes, details.info-box, .plain-box, p.data-hint";
+  function blockTitle(el){
+    if (el.matches("details")){ var s = el.querySelector("summary"); return s ? s.textContent.trim() : "Explanation"; }
+    if (el.matches(".plain-box")) return "In plain English";
+    if (el.matches("footer.notes")){ var b = el.querySelector("b"); return b ? b.textContent.replace(/[—\s]+$/, "").trim() : "Notes"; }
+    return "Notes";
+  }
+  function addExpand(el){
+    if (el.dataset.expand || el.closest("#readerModal") || !el.closest(".tab-panel")) return;
+    if (el.matches("p.data-hint, footer.notes") && el.textContent.trim().length < 260) return;
+    el.dataset.expand = "1";
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "expand-btn"; btn.textContent = "Expand";
+    btn.title = "Open this text in a large, easy-to-read window"; btn.setAttribute("aria-label", "Expand: " + blockTitle(el));
+    btn.addEventListener("click", function(e){ e.preventDefault(); e.stopPropagation(); openBlock(el, blockTitle(el)); });
+    var host = el.matches("details") ? el.querySelector(".info-body") : el;
+    if (!host) return;
+    host.insertBefore(btn, host.firstChild);
+  }
+  function scan(root){
+    if (root.nodeType !== 1) return;
+    if (root.matches(BLOCKS)) addExpand(root);
+    root.querySelectorAll(BLOCKS).forEach(addExpand);
+  }
+  scan(document.body);
+  new MutationObserver(function(list){
+    list.forEach(function(m){ m.addedNodes.forEach(scan); });
+  }).observe(document.querySelector(".page"), { childList: true, subtree: true });
 
   function close(){
     modal.hidden = true;
