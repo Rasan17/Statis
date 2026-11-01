@@ -6927,10 +6927,12 @@
     var summary = [];
     var summaryHolder = document.createElement("div");
     sgEls.results.appendChild(summaryHolder);
+    var overallHrs = null;
 
     if (doOverall){
       var ov = sgOverall(d.rows.map(function(r){ return { time: r.time, event: r.event, trt: r.trt }; }), [refArm].concat(d.arms.filter(function(a){ return a !== refArm; })), refArm, trtName);
       var ovRows = ov.rows || [];
+      overallHrs = { n: ov.n, rows: d.arms.filter(function(a){ return a !== refArm; }).map(function(a){ return { arm: a, refArm: refArm, r: ovRows.find(function(r){ return r.level === a; }) }; }) };
       var hrOf = function(arm){ return ovRows.find(function(r){ return r.level === arm; }); };
       var sec = sgCard(sgEls.results, "Analysis 1 · all patients", "Overall treatment comparison",
         '<p class="norm-note">' + ov.n + " patients, " + ov.events + " events. Log-rank test across " + ov.curves.present.length + " arms: " + sgTest(ov.curves.logRank) +
@@ -7016,6 +7018,7 @@
         } else {
           var lr = it.lrTest, wd = it.waldTest;
           row.interaction = lr; interactionPs.push({ row: row, p: lr.p });
+          row.effects = it.effects; row.mean = it.mean;
           var sig = lr.p < 0.05;
           html4 = '<p class="norm-note">Cox model: ' + escapeXml(trtName) + " + " + escapeXml(v.name) + " + " + escapeXml(trtName) + " × " + escapeXml(v.name) + " (" + it.n + " patients, " + it.events + " events" + (it.missing ? "; " + it.missing + " missing " + escapeXml(v.name) : "") + ").</p>" +
             '<div class="stat-row"><span class="stat-label">Joint interaction test (likelihood ratio)</span><span class="stat-value">' + sgTest(lr) + '</span></div>' +
@@ -7046,7 +7049,7 @@
 
     var holm = holmAdjust(interactionPs.map(function(x){ return x.p; }));
     interactionPs.forEach(function(x, i){ x.row.holm = holm[i]; });
-    if (summary.length) sgRenderSummary(summaryHolder, summary, withinArms, doInteraction, interactionPs.length, text);
+    if (summary.length) sgRenderSummary(summaryHolder, summary, withinArms, doInteraction, interactionPs.length, text, overallHrs, d.arms.length > 2);
 
     sgState.ran = true;
     sgState.lastText = text.join("\n");
@@ -7054,16 +7057,23 @@
     sgEls.runStatus.textContent = "Results below" + (chosen.length || !needVars ? "." : " — tick subgroup variables in Step 2 to add analyses 2–" + (d.arms.length + 2) + ".");
   }
 
-  function sgRenderSummary(holder, summary, withinArms, doInteraction, nTests, text){
+  // One treatment-effect estimate from the interaction model, labelled by category (and by arm when there are 3+ arms).
+  function sgEffectLabel(e, r, multiArm){
+    return (e.level === null ? "At mean " + r.name + " (" + fmtNum(r.mean, 1) + ")" : e.level) + (multiArm ? " · " + e.arm + " vs " + e.refArm : "");
+  }
+  function sgEffectHr(e){ return e.estimable ? fmtNum(e.hr, 2) + " (" + fmtNum(e.lo, 2) + "–" + fmtNum(e.hi, 2) + ")" : "Not estimable"; }
+
+  function sgRenderSummary(holder, summary, withinArms, doInteraction, nTests, text, overallHrs, multiArm){
     var ordered = summary.filter(function(r){ return r.status === "Pre-specified"; }).concat(summary.filter(function(r){ return r.status !== "Pre-specified"; }));
     var head = '<th style="text-align:left;">Variable</th><th style="text-align:left;">Status</th><th style="text-align:left;">Type</th>' +
-      (doInteraction ? '<th class="key-col">Holm-adjusted interaction p</th>' : "") +
+      (doInteraction ? '<th class="key-col">Holm-adjusted interaction p</th><th style="text-align:left;">Treatment HR (95% CI) by category</th>' : "") +
       withinArms.map(function(a){ return '<th>Within ' + escapeXml(a) + ' (p)</th>'; }).join("") +
       (doInteraction ? '<th>Interaction χ² (df)</th><th>Interaction p</th>' : "");
     var body = ordered.map(function(r){
-      if (r.skipped) return '<tr><td style="text-align:left;">' + escapeXml(r.name) + '</td><td style="text-align:left;">' + r.status + '</td><td colspan="' + (2 + withinArms.length + (doInteraction ? 2 : 0)) + '" style="text-align:left;">Not analysed — see below</td></tr>';
+      if (r.skipped) return '<tr><td style="text-align:left;">' + escapeXml(r.name) + '</td><td style="text-align:left;">' + r.status + '</td><td colspan="' + (1 + withinArms.length + (doInteraction ? 4 : 0)) + '" style="text-align:left;">Not analysed — see below</td></tr>';
+      var hrCell = r.effects ? r.effects.map(function(e){ return '<span style="white-space:nowrap;">' + escapeXml(sgEffectLabel(e, r, multiArm)) + ": " + sgEffectHr(e) + '</span>'; }).join("<br>") : "—";
       return '<tr><td style="text-align:left;">' + escapeXml(r.name) + '</td><td style="text-align:left;">' + r.status + '</td><td style="text-align:left;">' + escapeXml(r.cats) + '</td>' +
-        (doInteraction ? '<td class="key-col">' + (isFinite(r.holm) ? fmtP(r.holm) : "—") + '</td>' : "") +
+        (doInteraction ? '<td class="key-col">' + (isFinite(r.holm) ? fmtP(r.holm) : "—") + '</td><td style="text-align:left;">' + hrCell + '</td>' : "") +
         withinArms.map(function(a){ var t = r.within[a]; return '<td>' + (t && isFinite(t.p) ? fmtP(t.p) : "—") + '</td>'; }).join("") +
         (doInteraction ? '<td>' + (r.interaction && isFinite(r.interaction.chi2) ? fmtNum(r.interaction.chi2, 2) + " (" + r.interaction.df + ")" : "—") + '</td><td>' +
           (r.interaction ? fmtP(r.interaction.p) : "—") + '</td>' : "") + '</tr>';
@@ -7077,15 +7087,91 @@
     sec.className = "card";
     sec.innerHTML = '<p class="eyebrow">Summary</p><h2>Subgroup analyses at a glance</h2>' +
       '<div class="table-wrap" style="margin-top:12px;"><table class="life-table" style="min-width:620px;"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
-      '<p class="data-hint" style="margin-top:8px;">Within-arm p: log-rank test across the categories (continuous variables without cut-offs: Cox likelihood ratio test). Interaction: joint likelihood ratio test of all treatment × variable terms.</p>' + sgWarn(warn);
+      '<p class="data-hint" style="margin-top:8px;">Within-arm p: log-rank test across the categories (continuous variables without cut-offs: Cox likelihood ratio test). Interaction: joint likelihood ratio test of all treatment × variable terms.' +
+      (doInteraction ? " Treatment HR by category: hazard ratio of treatment against the reference arm within each category, from that variable's interaction model (continuous variables: at the mean)." : "") + '</p>' + sgWarn(warn);
     holder.appendChild(sec);
     plainBox(sec, plainSgSummary(summary, nTests));
+    if (doInteraction) sgRenderForest(holder, ordered, overallHrs, multiArm);
     text.push("", "SUMMARY");
+    if (overallHrs) overallHrs.rows.forEach(function(o){ text.push("All patients: " + o.arm + " vs " + o.refArm + " HR " + sgHr(o.r)); });
     ordered.forEach(function(r){
       text.push(r.name + " (" + r.status.toLowerCase() + "): " + withinArms.map(function(a){ var t = r.within[a]; return "within " + a + " p = " + (t ? fmtP(t.p) : "—"); }).join("; ") +
         (doInteraction && r.interaction ? "; interaction χ² = " + fmtNum(r.interaction.chi2, 2) + " (df " + r.interaction.df + "), " + coxP(r.interaction.p) + ", Holm " + coxP(r.holm) : ""));
+      if (doInteraction && r.effects) r.effects.forEach(function(e){ text.push("  " + sgEffectLabel(e, r, multiArm) + ": treatment HR " + sgEffectHr(e)); });
     });
     warn.forEach(function(w){ text.push("Note: " + w); });
+  }
+
+  // Subgroup forest plot: the treatment hazard ratio overall and within each category of every analysed variable
+  // (from its interaction model), log scale, with the Holm-adjusted interaction p beside each variable.
+  function sgRenderForest(holder, ordered, overallHrs, multiArm){
+    var items = [];
+    if (overallHrs) overallHrs.rows.forEach(function(o){
+      var ok = o.r && !o.r.dropped && !o.r.infinite;
+      items.push({ kind: "row", label: "All patients" + (multiArm ? " · " + o.arm + " vs " + o.refArm : ""), n: overallHrs.n, ok: ok, hr: ok ? o.r.hr : NaN, lo: ok ? o.r.lo : NaN, hi: ok ? o.r.hi : NaN, bold: true });
+    });
+    ordered.forEach(function(r){
+      if (!r.effects) return;
+      items.push({ kind: "head", label: r.name + (r.status === "Pre-specified" ? "" : " (exploratory)"), p: r.holm });
+      r.effects.forEach(function(e){
+        items.push({ kind: "row", label: sgEffectLabel(e, r, multiArm), n: e.n, ok: e.estimable && isFinite(e.lo) && isFinite(e.hi), hr: e.hr, lo: e.lo, hi: e.hi });
+      });
+    });
+    if (!items.some(function(it){ return it.kind === "row" && it.ok; })) return;
+    var rowH = 24, headerH = 28, axisH = 52, padTop = 10, W = 780, plotL = 330, plotR = 580, nX = 300, hrX = 600;
+    var H = padTop + headerH + items.length * rowH + axisH;
+    var vals = [0];
+    items.forEach(function(it){ if (it.kind === "row" && it.ok) vals.push(Math.log(it.lo), Math.log(it.hi)); });
+    var lo = arrMin(vals), hi = arrMax(vals), pad = (hi - lo) * 0.08 || 0.5;
+    lo -= pad; hi += pad;
+    function sx(v){ return plotL + (v - lo) / (hi - lo) * (plotR - plotL); }
+    var font = 'font-family="IBM Plex Sans, sans-serif"', mono = 'font-family="IBM Plex Mono, monospace"';
+    var svg = [];
+    svg.push('<text x="8" y="' + (padTop + 14) + '" font-size="11" font-weight="700" fill="var(--ink)" ' + font + '>Subgroup</text>');
+    svg.push('<text x="' + nX + '" y="' + (padTop + 14) + '" text-anchor="end" font-size="11" font-weight="700" fill="var(--ink)" ' + font + '>N</text>');
+    svg.push('<text x="' + hrX + '" y="' + (padTop + 14) + '" font-size="11" font-weight="700" fill="var(--ink)" ' + font + '>HR [95% CI]</text>');
+    var topY = padTop + headerH, bottomY = topY + items.length * rowH;
+    svg.push('<line x1="' + sx(0).toFixed(1) + '" y1="' + topY + '" x2="' + sx(0).toFixed(1) + '" y2="' + bottomY + '" stroke="var(--line)" stroke-dasharray="3,3"/>');
+    items.forEach(function(it, k){
+      var y = topY + k * rowH + rowH / 2;
+      if (it.kind === "head"){
+        var hl = it.label.length > 40 ? it.label.slice(0, 39) + "…" : it.label;
+        svg.push('<text x="8" y="' + (y + 4).toFixed(1) + '" font-size="11.5" font-weight="700" fill="var(--ink)" ' + font + '>' + escapeXml(hl) + '</text>');
+        if (isFinite(it.p)) svg.push('<text x="' + hrX + '" y="' + (y + 4).toFixed(1) + '" font-size="10.5" fill="var(--ink-soft)" ' + font + '>Holm interaction p ' + escapeXml(fmtP(it.p)) + '</text>');
+        return;
+      }
+      var label = it.label.length > 38 ? it.label.slice(0, 37) + "…" : it.label;
+      svg.push('<text x="' + (it.bold ? 8 : 20) + '" y="' + (y + 4).toFixed(1) + '" font-size="11.5"' + (it.bold ? ' font-weight="700"' : "") + ' fill="var(--ink)" ' + font + '>' + escapeXml(label) + '</text>');
+      svg.push('<text x="' + nX + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="var(--ink-soft)" ' + mono + '>' + it.n + '</text>');
+      if (!it.ok){
+        svg.push('<text x="' + hrX + '" y="' + (y + 4).toFixed(1) + '" font-size="11" fill="var(--ink-soft)" ' + font + '>Not estimable</text>');
+        return;
+      }
+      svg.push('<line x1="' + sx(Math.log(it.lo)).toFixed(1) + '" y1="' + y.toFixed(1) + '" x2="' + sx(Math.log(it.hi)).toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="var(--ink-soft)" stroke-width="1.4"/>');
+      var s = it.bold ? 5.5 : 4.5;
+      svg.push(it.bold ?
+        '<polygon points="' + [[sx(Math.log(it.hr)) - s * 1.4, y], [sx(Math.log(it.hr)), y - s], [sx(Math.log(it.hr)) + s * 1.4, y], [sx(Math.log(it.hr)), y + s]].map(function(p){ return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ") + '" fill="var(--accent)" stroke="var(--accent-ink)" stroke-width="0.5"/>' :
+        '<rect x="' + (sx(Math.log(it.hr)) - s).toFixed(1) + '" y="' + (y - s).toFixed(1) + '" width="' + (2 * s) + '" height="' + (2 * s) + '" fill="var(--accent)" stroke="var(--accent-ink)" stroke-width="0.5"/>');
+      svg.push('<text x="' + hrX + '" y="' + (y + 4).toFixed(1) + '" font-size="11" fill="var(--ink)" ' + mono + '>' + fmtNum(it.hr, 2) + " [" + fmtNum(it.lo, 2) + "–" + fmtNum(it.hi, 2) + "]" + '</text>');
+    });
+    svg.push('<line x1="' + plotL + '" y1="' + bottomY + '" x2="' + plotR + '" y2="' + bottomY + '" stroke="var(--line)"/>');
+    for (var t = 0; t <= 4; t++){
+      var v = lo + (hi - lo) * t / 4, xPix = sx(v);
+      svg.push('<line x1="' + xPix.toFixed(1) + '" y1="' + bottomY + '" x2="' + xPix.toFixed(1) + '" y2="' + (bottomY + 4) + '" stroke="var(--line)"/>');
+      svg.push('<text x="' + xPix.toFixed(1) + '" y="' + (bottomY + 16) + '" text-anchor="middle" font-size="10" fill="var(--ink-soft)" ' + mono + '>' + fmtNum(Math.exp(v), 2) + '</text>');
+    }
+    svg.push('<text x="' + ((plotL + plotR) / 2) + '" y="' + (bottomY + 32) + '" text-anchor="middle" font-size="11" fill="var(--ink-soft)" ' + font + '>Hazard ratio (log scale)</text>');
+    svg.push('<text x="' + (sx(0) - 6).toFixed(1) + '" y="' + (bottomY + 46) + '" text-anchor="end" font-size="10" fill="var(--ink-soft)" ' + font + '>← lower hazard on treatment</text>');
+    svg.push('<text x="' + (sx(0) + 6).toFixed(1) + '" y="' + (bottomY + 46) + '" font-size="10" fill="var(--ink-soft)" ' + font + '>higher hazard on treatment →</text>');
+    var sec = document.createElement("section");
+    sec.className = "card";
+    sec.innerHTML = '<p class="eyebrow">Summary</p><h2>Forest plot: treatment effect by subgroup</h2>' +
+      '<p class="data-hint" style="margin-top:6px;">Hazard ratio of treatment against the reference arm, overall (diamond) and within each category (squares), each with its 95% confidence interval. Category estimates come from each variable\'s interaction model. Judge differences between categories by the interaction p, not by whether a single interval crosses 1.</p>' +
+      '<div class="sg-forest" style="margin-top:10px;"></div>';
+    holder.appendChild(sec);
+    var mount = sec.querySelector(".sg-forest");
+    mount.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block;" role="img" aria-label="Subgroup forest plot">' + svg.join("") + '</svg>';
+    attachChartDownload(mount, mount.querySelector("svg"), "subgroup-forest-plot");
   }
 
   // With thousands of patients the analyses take a few seconds; show that they are running (and block a second
