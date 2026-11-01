@@ -227,8 +227,9 @@
     display:flex;
     align-items:center;
     gap:10px;
-    font-size:13px;
-    padding:10px 12px;
+    font-size:14px;
+    line-height:1.6;
+    padding:11px 14px;
     border-radius:9px;
   }
   .assumption.good{background:var(--good-soft);color:var(--good);}
@@ -362,7 +363,7 @@
     resize:vertical;
   }
   .data-field textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
-  .data-hint{font-size:11.5px;color:var(--ink-soft);margin:5px 0 0;}
+  .data-hint{font-size:14px;line-height:1.7;color:var(--ink-soft);margin:6px 0 0;}
 
   .norm-row{padding:12px 0;border-top:1px solid var(--line);}
   .norm-row:first-child{border-top:none;padding-top:0;}
@@ -372,7 +373,7 @@
   .norm-stats{display:flex;align-items:center;flex-wrap:wrap;gap:12px 16px;}
   .norm-stat{font-family:"IBM Plex Mono",monospace;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink-soft);white-space:nowrap;}
   .norm-stat b{color:var(--ink);font-weight:600;}
-  .norm-note{font-size:12.5px;color:var(--ink-soft);}
+  .norm-note{font-size:14px;line-height:1.7;color:var(--ink-soft);}
 
   .radio-group{display:flex;gap:10px;flex-wrap:wrap;}
   .radio-card{
@@ -385,7 +386,7 @@
   .radio-card input{margin-top:3px;accent-color:var(--accent);flex:none;}
   .radio-card.active{border-color:var(--accent);background:var(--accent-soft);}
   .radio-card-title{font-weight:600;font-size:13.5px;}
-  .radio-card-sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .radio-card-sub{font-size:13px;line-height:1.55;color:var(--ink-soft);margin-top:3px;}
 
   .file-btn{position:relative;overflow:hidden;display:inline-flex;}
   .file-btn input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;}
@@ -416,16 +417,16 @@
   details.info-box summary::-webkit-details-marker{display:none;}
   details.info-box summary::after{content:"+";font-size:16px;color:var(--ink-soft);font-weight:400;}
   details.info-box[open] summary::after{content:"−";}
-  details.info-box .info-body{padding:14px;font-size:13px;line-height:1.65;color:var(--ink-soft);}
+  details.info-box .info-body{padding:16px;font-size:14.5px;line-height:1.75;color:var(--ink-soft);}
   details.info-box .info-body b{color:var(--ink);}
   details.info-box .info-body p{margin:0 0 10px;}
   details.info-box .info-body p:last-child{margin-bottom:0;}
   details.info-box .info-body ul{margin:0 0 10px;padding-left:20px;}
   .plain-box{margin-top:16px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;background:var(--paper);padding:12px 16px 10px;}
-  .plain-box .plain-title{margin:0 0 6px;font-weight:700;font-size:13.5px;color:var(--accent-ink);}
-  .plain-box .plain-sub{margin:10px 0 6px;font-weight:700;font-size:13px;color:var(--warn);}
-  .plain-box ul{margin:0;padding-left:20px;font-size:13px;line-height:1.6;color:var(--ink);}
-  .plain-box li{margin:0 0 4px;}
+  .plain-box .plain-title{margin:0 0 8px;font-weight:700;font-size:15px;color:var(--accent-ink);}
+  .plain-box .plain-sub{margin:12px 0 8px;font-weight:700;font-size:14.5px;color:var(--warn);}
+  .plain-box ul{margin:0;padding-left:20px;font-size:14.5px;line-height:1.75;color:var(--ink);}
+  .plain-box li{margin:0 0 7px;}
 
   table.life-table{border-collapse:collapse;width:100%;font-size:12.5px;}
   table.life-table th, table.life-table td{
@@ -597,6 +598,50 @@
   .modal-box{
     background:var(--surface);border:1px solid var(--line);border-radius:14px;
     padding:26px;max-width:460px;width:100%;box-shadow:var(--shadow);
+  }
+  .reader-fab{
+    position:fixed;right:18px;bottom:18px;z-index:900;
+    font-family:inherit;font-size:14px;font-weight:700;color:var(--surface);background:var(--accent);
+    border:none;border-radius:24px;padding:11px 18px;cursor:pointer;box-shadow:var(--shadow);
+  }
+  .reader-fab:hover{filter:brightness(1.05);}
+  body.reader-open .reader-fab{display:none;}
+  .reader-box{
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+    width:100%;max-width:960px;height:92vh;display:flex;flex-direction:column;overflow:hidden;
+  }
+  .reader-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line);}
+  .reader-bar h2{margin:0 auto 0 0;font-size:19px;}
+  .reader-bar .ghost-btn{font-size:14px;}
+  .reader-size{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink-soft);min-width:44px;text-align:center;}
+  .reader-body{flex:1;overflow-y:auto;padding:22px 34px 40px;font-size:var(--reader-size,19px);line-height:var(--reader-lh,1.75);color:var(--ink);}
+  .reader-body *{font-size:inherit !important;line-height:inherit !important;max-width:none !important;}
+  .reader-body p, .reader-body li, .reader-body td, .reader-body th, .reader-body span, .reader-body div{color:var(--ink);}
+  .reader-body .plain-title, .reader-body .eyebrow{color:var(--accent-ink) !important;}
+  .reader-body .plain-sub{color:var(--warn) !important;}
+  .reader-body section.reader-card{border-top:2px solid var(--line);padding-top:18px;margin-top:26px;}
+  .reader-body section.reader-card:first-child{border-top:none;margin-top:0;padding-top:0;}
+  .reader-body h2{font-size:1.3em !important;margin:0 0 0.5em;}
+  .reader-body h3{font-size:1.1em !important;margin:1em 0 0.4em;}
+  .reader-body .eyebrow{font-size:0.7em !important;}
+  .reader-body p{margin:0 0 0.8em;}
+  .reader-body ul{padding-left:1.3em;margin:0 0 0.8em;}
+  .reader-body li{margin:0 0 0.45em;}
+  .reader-body table{font-size:0.85em !important;}
+  .reader-body table *{font-size:inherit !important;}
+  .reader-body td, .reader-body th{padding:6px 10px !important;}
+  .reader-body .assumption{display:block;padding:10px 14px;margin:0.7em 0;}
+  .reader-body .plain-box{padding:14px 20px;}
+  .reader-body .table-wrap{overflow-x:auto;}
+  .reader-body .reader-val{font-family:"IBM Plex Mono",monospace;border:1px solid var(--line);border-radius:6px;padding:0 6px;}
+  .reader-body .card-head{display:block;margin-bottom:0.6em;}
+  .reader-body .reader-chart-note{font-style:italic;color:var(--ink-soft) !important;font-size:0.8em !important;}
+  @media print{
+    body.reader-open > *:not(#readerModal){display:none !important;}
+    body.reader-open #readerModal{position:static;background:none;padding:0;}
+    body.reader-open .reader-box{height:auto;border:none;box-shadow:none;max-width:none;}
+    body.reader-open .reader-bar{display:none;}
+    body.reader-open .reader-body{overflow:visible;}
   }
   .modal-box h2{margin:0 0 12px;font-size:19px;}
   .modal-box p{margin:0 0 12px;color:var(--ink-soft);font-size:13.5px;line-height:1.6;}
@@ -13738,5 +13783,130 @@
   recalc();
   recalcTtest();
   recalcRegression();
+})();
+</script>
+<button class="reader-fab" id="readerFab" type="button" aria-haspopup="dialog" title="Read this tab's explanations and results in large text">Aa&nbsp; Large text</button>
+<div class="modal-overlay" id="readerModal" role="dialog" aria-modal="true" aria-labelledby="readerTitle" hidden>
+  <div class="reader-box">
+    <div class="reader-bar">
+      <h2 id="readerTitle">Large-text reader</h2>
+      <button class="ghost-btn" id="readerSmaller" type="button" aria-label="Smaller text">A−</button>
+      <span class="reader-size" id="readerSizeLabel">19 px</span>
+      <button class="ghost-btn" id="readerLarger" type="button" aria-label="Larger text">A+</button>
+      <button class="ghost-btn" id="readerSpacing" type="button">Line spacing: wide</button>
+      <button class="ghost-btn" id="readerPrint" type="button">Print</button>
+      <button class="ghost-btn" id="readerClose" type="button">Close</button>
+    </div>
+    <div class="reader-body" id="readerBody"></div>
+  </div>
+</div>
+<script>
+// Large-text reader: copies the text of the current tab (explanations, results, tables, warnings and the
+// plain-English boxes, with charts and controls left out) into a full-height pop-up with adjustable size and spacing.
+(function(){
+  var fab = document.getElementById("readerFab"), modal = document.getElementById("readerModal"), body = document.getElementById("readerBody");
+  var sizeLabel = document.getElementById("readerSizeLabel"), spacingBtn = document.getElementById("readerSpacing");
+  var KEY = "statisReader", SIZES = [16, 17, 18, 19, 20, 22, 24, 26, 28, 32];
+  var prefs = { size: 19, wide: true };
+  try { var saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved && SIZES.indexOf(saved.size) >= 0) prefs = { size: saved.size, wide: saved.wide !== false }; } catch (e){}
+  var lastFocus = null;
+
+  function applyPrefs(){
+    body.style.setProperty("--reader-size", prefs.size + "px");
+    body.style.setProperty("--reader-lh", prefs.wide ? "1.85" : "1.5");
+    sizeLabel.textContent = prefs.size + " px";
+    spacingBtn.textContent = "Line spacing: " + (prefs.wide ? "wide" : "normal");
+    try { localStorage.setItem(KEY, JSON.stringify(prefs)); } catch (e){}
+  }
+
+  // A form control becomes its current value as plain text, so settings stay readable.
+  function controlText(el){
+    if (el.tagName === "SELECT") return el.selectedIndex >= 0 ? el.options[el.selectedIndex].text : "";
+    if (el.type === "checkbox" || el.type === "radio") return el.checked ? "☑" : "☐";
+    if (el.type === "file" || el.type === "button" || el.type === "submit") return null;
+    return el.value;
+  }
+
+  function cleanCopy(card){
+    var copy = card.cloneNode(true);
+    // Values of controls: read from the original (clones lose the live state), then replace in the copy.
+    var origCtrls = card.querySelectorAll("input, select, textarea"), copyCtrls = copy.querySelectorAll("input, select, textarea");
+    for (var i = 0; i < copyCtrls.length; i++){
+      var t = controlText(origCtrls[i]), c = copyCtrls[i];
+      // Data boxes (pasted CSV etc.) are left out: they are data, not text to review.
+      if (t === null || t === "" || c.tagName === "TEXTAREA" || t.length > 120 || c.closest(".file-btn")){ c.remove(); continue; }
+      var s = document.createElement("span"); s.className = "reader-val"; s.textContent = t;
+      c.replaceWith(s);
+    }
+    copy.querySelectorAll('svg[role="img"], canvas').forEach(function(n){
+      var note = document.createElement("p"); note.className = "reader-chart-note"; note.textContent = "[Chart — see the main page]";
+      n.replaceWith(note);
+    });
+    copy.querySelectorAll("[hidden], svg, button, script, style, .file-btn, .toggle-track").forEach(function(n){ n.remove(); });
+    copy.querySelectorAll("[style]").forEach(function(n){ if (/display\s*:\s*none/i.test(n.getAttribute("style"))) n.remove(); });
+    copy.querySelectorAll("details").forEach(function(d){ d.open = true; });
+    copy.querySelectorAll("[id]").forEach(function(n){ n.removeAttribute("id"); });
+    copy.removeAttribute("id");
+    var sec = document.createElement("section");
+    sec.className = "reader-card";
+    while (copy.firstChild) sec.appendChild(copy.firstChild);
+    return sec;
+  }
+
+  function open(){
+    var panel = Array.prototype.find.call(document.querySelectorAll(".tab-panel"), function(p){ return !p.hidden && p.offsetParent !== null; });
+    var cards = panel ? Array.prototype.filter.call(panel.querySelectorAll(".card"), function(c){
+      return c.offsetParent !== null && !c.parentElement.closest(".card") && c.textContent.trim().length > 30;
+    }) : [];
+    body.innerHTML = "";
+    if (!cards.length){ body.innerHTML = "<p>Nothing to show in this tab yet.</p>"; }
+    var mid = window.innerHeight / 2, nearest = null, best = Infinity;
+    cards.forEach(function(c){
+      var sec = cleanCopy(c);
+      body.appendChild(sec);
+      var r = c.getBoundingClientRect(), dist = r.top <= mid && r.bottom >= mid ? 0 : Math.min(Math.abs(r.top - mid), Math.abs(r.bottom - mid));
+      if (dist < best){ best = dist; nearest = sec; }
+    });
+    var tab = document.querySelector(".tab-btn.active");
+    document.getElementById("readerTitle").textContent = "Large-text reader" + (tab ? " · " + tab.textContent.replace(/\d+$/, "").trim() : "");
+    applyPrefs();
+    lastFocus = document.activeElement;
+    modal.hidden = false;
+    document.body.classList.add("reader-open");
+    document.body.style.overflow = "hidden";
+    body.scrollTop = 0;
+    if (nearest && nearest !== body.firstChild) body.scrollTop = nearest.offsetTop - body.offsetTop - 8;
+    document.getElementById("readerClose").focus();
+  }
+
+  function close(){
+    modal.hidden = true;
+    document.body.classList.remove("reader-open");
+    document.body.style.overflow = "";
+    body.innerHTML = "";
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  function step(dir){
+    var i = SIZES.indexOf(prefs.size) + dir;
+    if (i < 0 || i >= SIZES.length) return;
+    var frac = body.scrollHeight ? body.scrollTop / body.scrollHeight : 0;
+    prefs.size = SIZES[i]; applyPrefs();
+    body.scrollTop = frac * body.scrollHeight;
+  }
+
+  fab.addEventListener("click", open);
+  document.getElementById("readerClose").addEventListener("click", close);
+  document.getElementById("readerSmaller").addEventListener("click", function(){ step(-1); });
+  document.getElementById("readerLarger").addEventListener("click", function(){ step(1); });
+  spacingBtn.addEventListener("click", function(){ prefs.wide = !prefs.wide; applyPrefs(); });
+  document.getElementById("readerPrint").addEventListener("click", function(){ window.print(); });
+  modal.addEventListener("click", function(e){ if (e.target === modal) close(); });
+  document.addEventListener("keydown", function(e){
+    if (modal.hidden) return;
+    if (e.key === "Escape"){ e.preventDefault(); close(); }
+    else if ((e.key === "+" || e.key === "=") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); step(1); }
+    else if (e.key === "-" && !e.metaKey && !e.ctrlKey){ e.preventDefault(); step(-1); }
+  });
 })();
 </script>
