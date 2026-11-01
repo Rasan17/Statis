@@ -1182,7 +1182,7 @@
         <input type="radio" name="survAnalysisType" id="survTwoGroup" value="two">
         <div>
           <div class="radio-card-title">Two-group comparison</div>
-          <div class="radio-card-sub">Compare two curves with a log-rank test. Also needs Group.</div>
+          <div class="radio-card-sub">Compare two curves with log-rank and Gehan–Breslow–Wilcoxon tests. Also needs Group.</div>
         </div>
       </label>
     </div>
@@ -1319,6 +1319,16 @@
       <div id="lrVerdict"></div>
       <p class="norm-note" id="lrInterpretation" style="margin-top:12px;"></p>
     </div>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
+      <p class="eyebrow">Gehan–Breslow–Wilcoxon test</p>
+      <h2>Comparison weighted towards early follow-up</h2>
+      <div class="stat-row"><span class="stat-label">χ²</span><span class="stat-value" id="gbwChi2">—</span></div>
+      <div class="stat-row"><span class="stat-label">df</span><span class="stat-value">1</span></div>
+      <div class="stat-row"><span class="stat-label">p-value</span><span class="stat-value" id="gbwP">—</span></div>
+      <div id="gbwVerdict"></div>
+      <p class="norm-note" id="gbwInterpretation" style="margin-top:12px;"></p>
+    </div>
   </section>
 
   <section class="card">
@@ -1357,6 +1367,7 @@
         <p><b>Median follow-up —</b> estimated by the reverse Kaplan–Meier method (Schemper &amp; Smith, 1996): the Kaplan–Meier median with the roles of event and censoring swapped, i.e. how long patients would have been followed had they not had the event. The simple median of all observed times is not used, because it mixes in the times of patients who had the event early and so understates follow-up.</p>
         <p><b>Confidence intervals —</b> computed with Greenwood's formula for the variance of Ŝ(t), combined with a complementary log-log transformation before building the interval and transforming back. This keeps every confidence bound inside [0, 1] and is generally more accurate than a plain linear interval, especially near the ends of the curve.</p>
         <p><b>The log-rank test —</b> compares two Kaplan–Meier curves by summing, at every time an event occurs in either group, the difference between observed and expected events in one group (expected under the null hypothesis that both groups share the same survival function), weighting by the hypergeometric variance at each time. It tests whether the two survival <i>distributions</i> differ over the whole observed follow-up — it does not estimate the size of the difference (that's what the hazard ratio from the Cox model below is for), and it can be underpowered if the two curves cross, or if either group has few events.</p>
+        <p><b>The Gehan–Breslow–Wilcoxon test —</b> the same comparison, but each event time's observed-minus-expected difference is weighted by the number of patients still at risk (and its variance by that number squared; Breslow, 1970 — the "Wilcoxon" test of SAS PROC LIFETEST and Stata's <code>sts test, wilcoxon</code>). Early events, when many patients remain, therefore count for more than late ones: it is more sensitive than the log-rank test to differences early in follow-up and less sensitive to late ones. Because the number at risk also falls through censoring, its weights depend on the censoring pattern, so it can mislead when censoring differs between the groups. Decide which test is primary before looking at the results; reporting whichever gives the smaller p-value overstates the evidence.</p>
         <p><b>Statistical vs. clinical significance —</b> a small p-value only says the observed difference is unlikely under the null hypothesis given this sample; it says nothing about whether the difference is large enough to matter clinically, and a non-significant result with a small sample doesn't prove the groups are equivalent. Curves, medians and p-values here should be read alongside the actual sizes of the effects and confidence intervals, not the p-value alone.</p>
       </div>
     </details>
@@ -1482,7 +1493,7 @@
   </section>
 
   <footer class="notes">
-    <b>How it's computed —</b> Kaplan–Meier curves, Greenwood log-log confidence bands and medians are those of the Survival tab. The log-rank test for k categories is the Mantel–Haenszel form with the multivariate hypergeometric covariance, χ² on k − 1 df (as R's <code>survdiff()</code>). Cox models use the Survival tab's validated engine (Efron's method for ties, as R's <code>coxph()</code>), with indicator variables for every non-reference category and products of the treatment and subgroup indicators for the interaction; columns that the data cannot estimate are dropped, as R reports them NA. The joint interaction tests are the likelihood ratio test of the models with and without the interaction terms and the Wald test bᵀV⁻¹b on the interaction coefficients, each with df = the number of estimable interaction coefficients; treatment hazard ratios within categories are linear combinations of coefficients with variances from the full covariance matrix. Rows missing the subgroup variable are left out of that variable's analyses only. All of these — hazard ratios, confidence intervals, p-values, log-rank tests and joint interaction tests — were validated against R's <code>survival</code> package (3.8) for binary and multi-category variables, a category absent from one arm, a category with no events, missing data, tied times, three treatment arms and a continuous variable.
+    <b>How it's computed —</b> Kaplan–Meier curves, Greenwood log-log confidence bands and medians are those of the Survival tab. The log-rank test for k categories is the Mantel–Haenszel form with the multivariate hypergeometric covariance, χ² on k − 1 df (as R's <code>survdiff()</code>). The Gehan–Breslow–Wilcoxon test is the same statistic with each event time's observed-minus-expected counts weighted by the number at risk and the covariance by its square (Breslow, 1970; SAS LIFETEST's "Wilcoxon", Stata's <code>sts test, wilcoxon</code>), so early events count for more; its weights depend on censoring as well as survival. Cox models use the Survival tab's validated engine (Efron's method for ties, as R's <code>coxph()</code>), with indicator variables for every non-reference category and products of the treatment and subgroup indicators for the interaction; columns that the data cannot estimate are dropped, as R reports them NA. The joint interaction tests are the likelihood ratio test of the models with and without the interaction terms and the Wald test bᵀV⁻¹b on the interaction coefficients, each with df = the number of estimable interaction coefficients; treatment hazard ratios within categories are linear combinations of coefficients with variances from the full covariance matrix. Rows missing the subgroup variable are left out of that variable's analyses only. All of these — hazard ratios, confidence intervals, p-values, log-rank tests and joint interaction tests — were validated against R's <code>survival</code> package (3.8) for binary and multi-category variables, a category absent from one arm, a category with no events, missing data, tied times, three treatment arms and a continuous variable.
   </footer>
 
   </div>
@@ -2861,13 +2872,18 @@
       plainMedianSentence("Overall", km, unit), plainKmIntro()],
       caveats: PLAIN_SURV.concat(events < 20 ? [plainSmall(events, "events")] : []) };
   }
-  function plainSurvTwo(groups, lr, unit){
+  var PLAIN_GBW = "The Gehan–Breslow–Wilcoxon test asks the same question but gives more weight to events early in follow-up, when more patients are still being followed.";
+  var PLAIN_GBW_CAVEAT = "Running two tests and quoting whichever looks better overstates the evidence; the test that matters should be chosen before the results are seen. The Gehan–Breslow–Wilcoxon test can also be thrown off if patients dropped out of follow-up at different rates in the groups.";
+  function plainSurvTwo(groups, lr, unit, gbw){
     var means = groups.map(function(g){ return plainMedianSentence(g.name, g.km, unit); });
     if (isFinite(lr.p)) means.push(plainPSentence(lr.p, "events happen at a different pace in " + groups[0].name + " and " + groups[1].name, "the two groups truly had the same outlook") +
       " The log-rank test only says whether the curves differ, not by how much — the Cox model below gives the size of the difference (the hazard ratio).");
+    var gs = plainGehanSentence(lr, gbw);
+    if (gs) means.push(gs);
     means.push(plainKmIntro());
     var caveats = plainPCaveats(lr.p).concat([PLAIN.cause]).concat(PLAIN_SURV.slice(0, 2));
     caveats.push("If the two curves cross, one group does better early and the other later; the log-rank test is weak at detecting this, so look at the plot.");
+    if (gs) caveats.push(PLAIN_GBW_CAVEAT);
     var totalEvents = groups.reduce(function(s, g){ return s + g.raw.filter(function(r){ return r.event === 1; }).length; }, 0);
     if (totalEvents < 20) caveats.push(plainSmall(totalEvents, "events"));
     return { means: means, caveats: caveats };
@@ -2922,14 +2938,26 @@
     var means = [PLAIN_HR];
     rows.forEach(function(r){ var s = plainHrSentence({ hr: r.hr, lo: r.lo, hi: r.hi, p: r.p, infinite: r.infinite, dropped: r.dropped, label: r.level, info: { term: trtName, level: r.level, ref: refArm } }); if (s) means.push(s); });
     if (ov.curves.logRank && isFinite(ov.curves.logRank.p)) means.push(plainPSentence(ov.curves.logRank.p, "the treatment arms have different outlooks", "the arms truly had the same outlook"));
-    return { means: means, caveats: plainPCaveats(ov.curves.logRank ? ov.curves.logRank.p : NaN).concat([PLAIN.cause]) };
+    var g = plainGehanSentence(ov.curves.logRank, ov.curves.gehan);
+    if (g) means.push(g);
+    return { means: means, caveats: plainPCaveats(ov.curves.logRank ? ov.curves.logRank.p : NaN).concat([PLAIN.cause]).concat(g ? [PLAIN_GBW_CAVEAT] : []) };
   }
-  function plainSgWithin(arm, v, test, rows){
+  // One sentence on the Gehan–Breslow–Wilcoxon result beside the log-rank one, or null when it was not computed.
+  function plainGehanSentence(lr, gbw){
+    if (!gbw || !isFinite(gbw.p)) return null;
+    var differ = lr && isFinite(lr.p) && (gbw.p < 0.05) !== (lr.p < 0.05);
+    return PLAIN_GBW + " Here it gives " + coxP(gbw.p) + (differ ? (gbw.p < 0.05 ? ", while the log-rank test does not reach significance — a sign that the difference lies mainly early on." :
+      ", while the log-rank test is significant — a sign that the difference lies mainly later on.") : ", in line with the log-rank test.");
+  }
+  function plainSgWithin(arm, v, test, rows, gbw){
     var means = ["This looks only at patients given " + arm + " and compares them by " + v.name + ". It shows whether " + v.name + " predicts outcome on this treatment (prognosis) — not whether the treatment works differently depending on " + v.name + "; the interaction analysis answers that."];
     if (test && isFinite(test.p)) means.push(plainPSentence(test.p, "outcome differs by " + v.name + " among these patients", v.name + " truly made no difference"));
     rows.forEach(function(r){ var s = plainHrSentence({ hr: r.hr, lo: r.lo, hi: r.hi, p: r.p, infinite: r.infinite, dropped: r.dropped, label: r.label,
       info: v.type === "continuous" ? { term: v.name, continuous: true } : { term: v.name, level: r.level, ref: r.ref } }); if (s) means.push(s); });
+    var gs = v.type === "categorical" ? plainGehanSentence(test, gbw) : null;
+    if (gs) means.push(gs);
     var caveats = plainPCaveats(test ? test.p : NaN);
+    if (gs) caveats.push(PLAIN_GBW_CAVEAT);
     if (!v.prespec) caveats.push("This variable was not named in advance, so treat any finding as an idea to test in another study, not as a result.");
     return { means: means, caveats: caveats };
   }
@@ -5472,6 +5500,10 @@
     lrP: document.getElementById("lrP"),
     lrVerdict: document.getElementById("lrVerdict"),
     lrInterpretation: document.getElementById("lrInterpretation"),
+    gbwChi2: document.getElementById("gbwChi2"),
+    gbwP: document.getElementById("gbwP"),
+    gbwVerdict: document.getElementById("gbwVerdict"),
+    gbwInterpretation: document.getElementById("gbwInterpretation"),
     calcTableToggleBtn: document.getElementById("calcTableToggleBtn"),
     calcTableContainer: document.getElementById("calcTableContainer"),
     exportSvgBtn: document.getElementById("exportSvgBtn"),
@@ -5788,7 +5820,7 @@
     return lo + "–" + hi;
   }
 
-  function renderTwoGroupResults(groups, lr){
+  function renderTwoGroupResults(groups, lr, gbw){
     survEls.tgResultsBody.innerHTML = groups.map(function(g){
       var n = g.raw.length, e = g.raw.filter(function(r){ return r.event === 1; }).length, c = n - e;
       return '<tr><th class="rowhead" style="text-align:left;">' + escapeXml(g.name) + '</th>' +
@@ -5802,6 +5834,9 @@
       survEls.lrChi2.textContent = "—"; survEls.lrP.textContent = "—";
       survEls.lrVerdict.innerHTML = "";
       survEls.lrInterpretation.textContent = "The log-rank test cannot be computed — no events were observed in either group over the follow-up period, so there is nothing to compare.";
+      survEls.gbwChi2.textContent = "—"; survEls.gbwP.textContent = "—";
+      survEls.gbwVerdict.innerHTML = "";
+      survEls.gbwInterpretation.textContent = "The Gehan–Breslow–Wilcoxon test cannot be computed either, for the same reason.";
       plainBox(survEls.twoGroupResultsCard, null);
       return;
     }
@@ -5815,9 +5850,32 @@
     survEls.lrInterpretation.textContent =
       "The Kaplan–Meier curves for " + g1.name + " and " + g2.name + " were compared using a two-sided log-rank test, " +
       "which tests the null hypothesis that the two survival functions are equal over the observed follow-up period. " +
-      "There was " + evidencePhrase + " of a difference between the survival distributions (log-rank χ² = " + fmtNum(lr.chi2, 2) + ", df = 1, p = " + fmtP(lr.p) + "). " +
+      "There was " + evidencePhrase + " of a difference between the survival distributions (log-rank χ² = " + fmtNum(lr.chi2, 2) + ", df = 1, " + coxP(lr.p) + "). " +
       "This describes a statistical difference between the observed curves and does not by itself indicate which group's treatment is better or establish clinical importance.";
-    plainBox(survEls.twoGroupResultsCard, plainSurvTwo(groups, lr, timeUnitLabel()));
+    renderGehanResult(g1, g2, lr, gbw);
+    plainBox(survEls.twoGroupResultsCard, plainSurvTwo(groups, lr, timeUnitLabel(), gbw));
+  }
+
+  // The Gehan–Breslow–Wilcoxon result, with a note when it and the log-rank test point different ways.
+  function renderGehanResult(g1, g2, lr, gbw){
+    if (!gbw || !isFinite(gbw.chi2)){
+      survEls.gbwChi2.textContent = "—"; survEls.gbwP.textContent = "—";
+      survEls.gbwVerdict.innerHTML = "";
+      survEls.gbwInterpretation.textContent = "The Gehan–Breslow–Wilcoxon test cannot be computed for these data.";
+      return;
+    }
+    survEls.gbwChi2.textContent = fmtNum(gbw.chi2, 3);
+    survEls.gbwP.textContent = fmtP(gbw.p);
+    survEls.gbwVerdict.innerHTML = ""; survEls.gbwVerdict.appendChild(verdictPill(gbw.p));
+    var evidencePhrase = gbw.p < 0.05 ? "statistically significant evidence" : "no statistically significant evidence";
+    var text = "The Gehan–Breslow–Wilcoxon test compares the same curves for " + g1.name + " and " + g2.name + ", but weights each event time by the number of patients still at risk, " +
+      "so differences early in follow-up count for more than late ones. There was " + evidencePhrase + " of a difference between the survival distributions " +
+      "(Gehan–Breslow–Wilcoxon χ² = " + fmtNum(gbw.chi2, 2) + ", df = 1, " + coxP(gbw.p) + ").";
+    if (isFinite(lr.p) && (gbw.p < 0.05) !== (lr.p < 0.05))
+      text += gbw.p < 0.05 ? " The two tests disagree: only this one, which emphasises early events, is significant, which suggests the difference lies mainly early in follow-up (curves that separate early and then come together, or cross)." :
+        " The two tests disagree: only the log-rank test, which weights all event times equally, is significant, which suggests the difference lies mainly later in follow-up.";
+    text += " Its weights also depend on censoring, so it can mislead if censoring differs between the groups. Choose the primary test in advance rather than reporting whichever gives the smaller p-value.";
+    survEls.gbwInterpretation.textContent = text;
   }
 
   function renderLifeTables(groups){
@@ -5875,7 +5933,8 @@
         groups[0].raw.map(function(r){ return { time: r.time, event: r.event }; }),
         groups[1].raw.map(function(r){ return { time: r.time, event: r.event }; })
       );
-      renderTwoGroupResults(groups, lr);
+      var gbw = logRankK([groups[0].raw, groups[1].raw], "gehan");
+      renderTwoGroupResults(groups, lr, gbw);
     }
 
     var warnings = checkSmallSample(groups);
@@ -6197,7 +6256,10 @@
   // Log-rank test for k ≥ 2 groups (R's survdiff): at each distinct event time, observed minus expected events
   // per group and the multivariate hypergeometric covariance; χ² = (O−E)ᵀ V⁻¹ (O−E) on the first k−1 groups,
   // df = k − 1. groups: arrays of { time, event }. For two groups this equals logRankTest().
-  function logRankK(groups){
+  // weight "gehan" gives the Gehan–Breslow–Wilcoxon test (Breslow 1970): each event time's O − E is weighted by
+  // the number still at risk, and its covariance by that number squared, as SAS LIFETEST's "Wilcoxon" and
+  // Stata's sts test, wilcoxon. Early differences, when many patients remain, count for more than late ones.
+  function logRankK(groups, weight){
     var k = groups.length, all = [];
     groups.forEach(function(g, gi){ g.forEach(function(r){ all.push({ time: r.time, event: r.event, g: gi }); }); });
     all.sort(function(a, b){ return a.time - b.time; });
@@ -6213,11 +6275,12 @@
         end++;
       }
       if (d > 0){
+        var w = weight === "gehan" ? n : 1;
         for (i = 0; i < k; i++){
-          O[i] += dg[i];
-          E[i] += d * atRisk[i] / n;
+          O[i] += w * dg[i];
+          E[i] += w * d * atRisk[i] / n;
           if (n > 1){
-            var f = d * (n - d) / (n * n * (n - 1));
+            var f = w * w * d * (n - d) / (n * n * (n - 1));
             for (j = 0; j < k; j++) V[i][j] += f * atRisk[i] * ((i === j ? n : 0) - atRisk[j]);
           }
         }
@@ -6230,7 +6293,9 @@
     for (i = 0; i < k - 1; i++){ diff.push(O[i] - E[i]); sub.push(V[i].slice(0, k - 1)); }
     var sol = solveLinear(sub.map(function(r){ return r.slice(); }), diff);
     var chi2 = sol ? coxDot(sol, diff) : NaN;
-    return { O: O, E: E, chi2: chi2, df: k - 1, p: chiSquaredPGeneral(chi2, k - 1), events: O.reduce(function(s, v){ return s + v; }, 0) };
+    // For the Gehan test O and E are weighted sums, so the event count comes from the unweighted data.
+    var events = groups.reduce(function(s, g){ return s + g.filter(function(r){ return r.event === 1; }).length; }, 0);
+    return { O: O, E: E, chi2: chi2, df: k - 1, p: chiSquaredPGeneral(chi2, k - 1), events: events };
   }
 
   // Drops columns the data cannot estimate — all-constant columns, and any column that is an exact linear
@@ -6329,7 +6394,7 @@
     return out;
   }
 
-  // Kaplan–Meier per category, the k-group log-rank test, and medians — the shared core of analyses 1–3.
+  // Kaplan–Meier per category, the k-group log-rank and Gehan–Breslow–Wilcoxon tests, and medians — the shared core of analyses 1–3.
   function sgCurves(rows, categoryOf, order){
     var groups = order.map(function(name){
       var raw = rows.filter(function(r){ return categoryOf(r) === name; });
@@ -6337,7 +6402,8 @@
     });
     var present = groups.filter(function(g){ return g.raw.length > 0; });
     var lr = present.length >= 2 ? logRankK(present.map(function(g){ return g.raw; })) : null;
-    return { groups: groups, present: present, logRank: lr };
+    var gehan = present.length >= 2 ? logRankK(present.map(function(g){ return g.raw; }), "gehan") : null;
+    return { groups: groups, present: present, logRank: lr, gehan: gehan };
   }
 
   // Indicator columns for the non-reference levels of a categorical variable.
@@ -6862,11 +6928,11 @@
       var hrOf = function(arm){ return ovRows.find(function(r){ return r.level === arm; }); };
       var sec = sgCard(sgEls.results, "Analysis 1 · all patients", "Overall treatment comparison",
         '<p class="norm-note">' + ov.n + " patients, " + ov.events + " events. Log-rank test across " + ov.curves.present.length + " arms: " + sgTest(ov.curves.logRank) +
-        ". Cox model: hazard ratio of each arm against " + escapeXml(refArm) + ".</p>" +
+        "; Gehan–Breslow–Wilcoxon test (weighted towards early events): " + sgTest(ov.curves.gehan) + ". Cox model: hazard ratio of each arm against " + escapeXml(refArm) + ".</p>" +
         sgGroupTable(ov.curves.groups, refArm, hrOf, "No patients") + sgWarn(sgModelWarnings(ov.curves.groups, ov.fit, ovRows)));
       sgPlot(sec, ov.curves.groups, "km-overall-" + trtName);
       plainBox(sec, plainSgOverall(ov, refArm, ovRows, trtName));
-      text.push("", "ANALYSIS 1 — overall treatment comparison (n = " + ov.n + ", " + ov.events + " events)", "Log-rank: " + sgTest(ov.curves.logRank));
+      text.push("", "ANALYSIS 1 — overall treatment comparison (n = " + ov.n + ", " + ov.events + " events)", "Log-rank: " + sgTest(ov.curves.logRank), "Gehan-Breslow-Wilcoxon: " + sgTest(ov.curves.gehan));
       ov.curves.groups.forEach(function(g){
         var r = g.name === refArm ? null : hrOf(g.name);
         text.push(g.name + ": n = " + g.raw.length + ", median " + sgMedian(g.km) + " (95% CI " + sgMedianCi(g.km) + ")" + (g.name === refArm ? ", reference" : ", HR " + sgHr(r) + (r && !r.dropped && !r.infinite ? ", " + coxP(r.p) : "")));
@@ -6907,7 +6973,7 @@
         var test;
         if (w.curves){
           test = w.curves.logRank;
-          html += " Log-rank test across " + w.curves.present.length + " " + (v.type === "categorical" ? "categories" : "groups made by your cut-off(s)") + ": " + sgTest(test) + ".";
+          html += " Log-rank test across " + w.curves.present.length + " " + (v.type === "categorical" ? "categories" : "groups made by your cut-off(s)") + ": " + sgTest(test) + "; Gehan–Breslow–Wilcoxon test (weighted towards early events): " + sgTest(w.curves.gehan) + ".";
         }
         if (v.type === "continuous"){
           var cr = wRows[0];
@@ -6925,10 +6991,10 @@
         html += sgWarn(sgModelWarnings(w.curves ? w.curves.groups : null, w.fit, wRows));
         var sec = sgCard(sgEls.results, "Analysis " + num + " · " + status.toLowerCase(), title, html);
         if (w.curves) sgPlot(sec, w.curves.groups, "km-" + arm + "-" + v.name);
-        plainBox(sec, plainSgWithin(arm, v, test, wRows.map(function(r){ return Object.assign({}, r, { ref: w.ref }); })));
+        plainBox(sec, plainSgWithin(arm, v, test, wRows.map(function(r){ return Object.assign({}, r, { ref: w.ref }); }), w.curves ? w.curves.gehan : null));
         sgPhDetails(sec, w.fit, arm + "-" + v.name, text, "within " + arm);
         row.within[arm] = test;
-        text.push("Within " + arm + " (n = " + w.n + ", " + w.events + " events): " + (w.curves ? "log-rank " + sgTest(w.curves.logRank) : "Cox " + sgTest(w.lrTest)));
+        text.push("Within " + arm + " (n = " + w.n + ", " + w.events + " events): " + (w.curves ? "log-rank " + sgTest(w.curves.logRank) + "; Gehan-Breslow-Wilcoxon " + sgTest(w.curves.gehan) : "Cox " + sgTest(w.lrTest)));
         if (w.curves) w.curves.groups.forEach(function(g){
           var r = hrFn ? hrFn(g.name) : null;
           text.push("  " + g.name + ": n = " + g.raw.length + (g.raw.length ? ", median " + sgMedian(g.km) + " (95% CI " + sgMedianCi(g.km) + ")" + (hrFn ? (g.name === w.ref ? ", reference" : ", HR " + sgHr(r)) : "") : ""));
@@ -7009,7 +7075,7 @@
     text.push("", "SUMMARY");
     ordered.forEach(function(r){
       text.push(r.name + " (" + r.status.toLowerCase() + "): " + withinArms.map(function(a){ var t = r.within[a]; return "within " + a + " p = " + (t ? fmtP(t.p) : "—"); }).join("; ") +
-        (doInteraction && r.interaction ? "; interaction χ² = " + fmtNum(r.interaction.chi2, 2) + " (df " + r.interaction.df + "), p = " + fmtP(r.interaction.p) + ", Holm p = " + fmtP(r.holm) : ""));
+        (doInteraction && r.interaction ? "; interaction χ² = " + fmtNum(r.interaction.chi2, 2) + " (df " + r.interaction.df + "), " + coxP(r.interaction.p) + ", Holm " + coxP(r.holm) : ""));
     });
     warn.forEach(function(w){ text.push("Note: " + w); });
   }
@@ -7470,6 +7536,7 @@
       lines.push(g.name + ": N=" + n + ", events=" + e + ", censored=" + c + " (" + fmtNum(n ? c / n * 100 : 0, 1) + "%), median=" + medianCellText(g.km) + " (95% CI " + medianCiCellText(g.km) + ")");
     });
     lines.push(survEls.lrInterpretation.textContent);
+    lines.push(survEls.gbwInterpretation.textContent);
     return lines.join("\n");
   }
 
@@ -7511,7 +7578,11 @@
       text = "Kaplan-Meier survival curves were generated for " + g1.name + " (n=" + g1.raw.length + ") and " + g2.name + " (n=" + g2.raw.length +
         "). Median survival was " + med1 + " in " + g1.name + " and " + med2 + " in " + g2.name + ". " +
         "A two-sided log-rank test " + sigPhrase +
-        (isNaN(lr2.chi2) ? "" : " (χ² = " + fmtNum(lr2.chi2, 2) + ", df = 1, p = " + fmtP(lr2.p) + ")") + ".";
+        (isNaN(lr2.chi2) ? "" : " (χ² = " + fmtNum(lr2.chi2, 2) + ", df = 1, " + coxP(lr2.p) + ")") + ".";
+      var gbw2 = logRankK([g1.raw, g2.raw], "gehan");
+      if (isFinite(gbw2.chi2)) text += " A Gehan-Breslow-Wilcoxon test, which gives more weight to early events, " +
+        (gbw2.p < 0.05 ? "showed a statistically significant difference" : "showed no statistically significant difference") +
+        " (χ² = " + fmtNum(gbw2.chi2, 2) + ", df = 1, " + coxP(gbw2.p) + ").";
     }
     text += " Confidence intervals for survival probabilities and medians were calculated from Greenwood's variance with a log-log transformation.";
     if (survLastCox) text += " " + coxManuscriptText(survLastCox);
