@@ -1510,6 +1510,7 @@
       <div class="btn-row">
         <span class="ghost-btn file-btn">Upload CSV or Excel<input type="file" id="sgFileInput" accept=".csv,.tsv,.txt,.xlsx"></span>
         <button class="ghost-btn" id="sgLoadExampleBtn" type="button">Load example</button>
+        <button class="ghost-btn" id="sgDownloadExampleBtn" type="button" title="Save the fictional example trial (240 patients) as a CSV file">Download example (CSV)</button>
       </div>
     </div>
     <textarea id="sgPasteArea" aria-label="Patient-level survival data" rows="8" style="width:100%;border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--ink);font:13px/1.5 'IBM Plex Mono',monospace;padding:10px 12px;resize:vertical;"></textarea>
@@ -6681,6 +6682,7 @@
   var sgEls = {
     fileInput: document.getElementById("sgFileInput"),
     loadExampleBtn: document.getElementById("sgLoadExampleBtn"),
+    downloadExampleBtn: document.getElementById("sgDownloadExampleBtn"),
     pasteArea: document.getElementById("sgPasteArea"),
     error: document.getElementById("sgError"),
     colTime: document.getElementById("sgColTime"),
@@ -6846,6 +6848,9 @@
     sgRefresh();
     sgState.vars.forEach(function(v){ if (v.name !== "patient") v.use = true; if (v.name === "grade") v.prespec = true; if (v.name === "age") v.cuts = "65"; if (v.name === "race") v.ref = "White"; });
     sgRenderVariables();
+  });
+  sgEls.downloadExampleBtn.addEventListener("click", function(){
+    triggerDownload("statis-survival-subgroups-example.csv", new Blob([sgExampleText() + "\n"], { type: "text/csv;charset=utf-8;" }));
   });
   sgEls.fileInput.addEventListener("change", function(e){
     var file = e.target.files && e.target.files[0];
