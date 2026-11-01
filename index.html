@@ -434,6 +434,7 @@
   }
   table.life-table th{background:var(--neutral-soft);font-family:"IBM Plex Sans",sans-serif;font-weight:600;text-align:right;}
   table.life-table th:first-child, table.life-table td:first-child{text-align:left;}
+  table.life-table .key-col{background:var(--accent-soft);color:var(--accent-ink);font-weight:600;}
 
   .legend-row{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;}
   .legend-item{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-soft);}
@@ -7056,14 +7057,16 @@
   function sgRenderSummary(holder, summary, withinArms, doInteraction, nTests, text){
     var ordered = summary.filter(function(r){ return r.status === "Pre-specified"; }).concat(summary.filter(function(r){ return r.status !== "Pre-specified"; }));
     var head = '<th style="text-align:left;">Variable</th><th style="text-align:left;">Status</th><th style="text-align:left;">Type</th>' +
+      (doInteraction ? '<th class="key-col">Holm-adjusted interaction p</th>' : "") +
       withinArms.map(function(a){ return '<th>Within ' + escapeXml(a) + ' (p)</th>'; }).join("") +
-      (doInteraction ? '<th>Interaction χ² (df)</th><th>Interaction p</th><th>Holm-adjusted p</th>' : "");
+      (doInteraction ? '<th>Interaction χ² (df)</th><th>Interaction p</th>' : "");
     var body = ordered.map(function(r){
       if (r.skipped) return '<tr><td style="text-align:left;">' + escapeXml(r.name) + '</td><td style="text-align:left;">' + r.status + '</td><td colspan="' + (2 + withinArms.length + (doInteraction ? 2 : 0)) + '" style="text-align:left;">Not analysed — see below</td></tr>';
       return '<tr><td style="text-align:left;">' + escapeXml(r.name) + '</td><td style="text-align:left;">' + r.status + '</td><td style="text-align:left;">' + escapeXml(r.cats) + '</td>' +
+        (doInteraction ? '<td class="key-col">' + (isFinite(r.holm) ? fmtP(r.holm) : "—") + '</td>' : "") +
         withinArms.map(function(a){ var t = r.within[a]; return '<td>' + (t && isFinite(t.p) ? fmtP(t.p) : "—") + '</td>'; }).join("") +
         (doInteraction ? '<td>' + (r.interaction && isFinite(r.interaction.chi2) ? fmtNum(r.interaction.chi2, 2) + " (" + r.interaction.df + ")" : "—") + '</td><td>' +
-          (r.interaction ? fmtP(r.interaction.p) : "—") + '</td><td>' + (isFinite(r.holm) ? fmtP(r.holm) : "—") + '</td>' : "") + '</tr>';
+          (r.interaction ? fmtP(r.interaction.p) : "—") + '</td>' : "") + '</tr>';
     }).join("");
     var exploratory = summary.filter(function(r){ return r.status !== "Pre-specified"; }).length;
     var warn = [];
