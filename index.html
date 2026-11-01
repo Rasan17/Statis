@@ -6717,12 +6717,12 @@
       var cuts = v.type === "continuous" ? '<input type="text" class="cell-input" data-sg="cuts" data-k="' + k + '" value="' + escapeXml(v.cuts) + '" placeholder="none" style="width:110px;" aria-label="Cut-offs for curves for ' + escapeXml(v.name) + '">' : '<span class="data-hint">—</span>';
       return '<tr><td style="text-align:center;"><input type="checkbox" data-sg="use" data-k="' + k + '"' + (v.use ? " checked" : "") + ' aria-label="Analyse ' + escapeXml(v.name) + '"></td>' +
         '<td style="text-align:left;">' + escapeXml(v.name) + (v.missing ? ' <span class="data-hint">(' + v.missing + ' missing)</span>' : "") + '</td>' +
+        '<td style="text-align:center;"><input type="checkbox" data-sg="prespec" data-k="' + k + '"' + (v.prespec ? " checked" : "") + ' aria-label="' + escapeXml(v.name) + ' is pre-specified"></td>' +
         '<td style="text-align:left;"><select data-sg="type" data-k="' + k + '" aria-label="Type of ' + escapeXml(v.name) + '"><option value="categorical"' + (v.type === "categorical" ? " selected" : "") + '>Categorical</option>' +
           (v.numeric ? '<option value="continuous"' + (v.type === "continuous" ? " selected" : "") + '>Continuous</option>' : "") + '</select></td>' +
-        '<td style="text-align:left;">' + ref + '</td><td style="text-align:left;">' + cuts + '</td>' +
-        '<td style="text-align:center;"><input type="checkbox" data-sg="prespec" data-k="' + k + '"' + (v.prespec ? " checked" : "") + ' aria-label="' + escapeXml(v.name) + ' is pre-specified"></td></tr>';
+        '<td style="text-align:left;">' + ref + '</td><td style="text-align:left;">' + cuts + '</td></tr>';
     }).join("");
-    sgEls.variables.innerHTML = '<div class="table-wrap"><table class="life-table" style="min-width:640px;"><thead><tr><th style="text-align:center;">Analyse</th><th style="text-align:left;">Column</th><th style="text-align:left;">Type</th><th style="text-align:left;">Reference category</th><th style="text-align:left;">Cut-offs for curves</th><th style="text-align:center;">Pre-specified</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    sgEls.variables.innerHTML = '<div class="table-wrap"><table class="life-table" style="min-width:640px;"><thead><tr><th style="text-align:center;">Analyse</th><th style="text-align:left;">Column</th><th style="text-align:center;">Pre-specified</th><th style="text-align:left;">Type</th><th style="text-align:left;">Reference category</th><th style="text-align:left;">Cut-offs for curves</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
 
   function sgRenderChoices(){
